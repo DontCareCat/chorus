@@ -9,7 +9,7 @@ const num = (t) => Number(/(\d+)/.exec(t)[1]);
 
 async function newGame(page, level) {
   await page.goto(B); await page.waitForSelector(".song");
-  await page.click('.song >> nth=0 >> button:has-text("Play")');
+  await page.click('.song >> nth=0 >> .play-btn');
   await page.click(`.segmented button:has-text("${level}")`);
   await page.click('button:has-text("Start new game")');
   await page.waitForSelector(".prompt");
@@ -33,10 +33,10 @@ async function newGame(page, level) {
   const words = 65; // total words in the unique lines of the fixture lyrics (see tests/test_generator.py LINES for the same idea)
   ok(counts.Easy < counts.Medium && counts.Medium < counts.Hard && counts.Hard < counts.Expert, "each level asks more questions than the one before");
   ok(counts.Expert > counts.Easy * 4, `expert asks far more than easy (${counts.Expert} vs ${counts.Easy})`);
-  await page.goto(B); await page.click('.song >> nth=0 >> button:has-text("Play")');
-  ok((await page.textContent(".start-panel")).includes("30% of the words"), "the start panel states the share of the default level (medium)");
+  await page.goto(B); await page.click('.song >> nth=0 >> .play-btn');
+  ok((await page.textContent(".start-panel")).includes("30% of words"), "the start panel states the share of the default level (medium)");
   await page.click('.segmented button:has-text("Expert")');
-  ok((await page.textContent(".start-panel")).includes("80% of the words"), "and updates it when the level changes");
+  ok((await page.textContent(".start-panel")).includes("80% of words"), "and updates it when the level changes");
 
   console.log("[multi-blank prompt]");
   await newGame(page, "Expert");
@@ -56,8 +56,9 @@ async function newGame(page, level) {
   await page.waitForFunction(() => /blank 2 of/.test(document.querySelector(".prompt-count").textContent), null, { timeout: 4000 });
   const next = await page.$$eval(".prompt .blank", (els) => els.map((e) => ({ s: e.dataset.state, a: e.dataset.active, t: e.textContent.trim() })));
   ok(next[0].s === "filled" && next[0].t !== "" && next[1].a === "true", "the next question is blank 2; blank 1 is now shown filled in");
-  const sheetRow = await page.textContent(`.sheet-line[data-qid="${multi[1].id}"]`);
-  ok((sheetRow.match(/____/g) ?? []).length === multi.length - 1, `the sheet row shows the answered blank filled and the other ${multi.length - 1} still hidden`);
+  const hiddenBlanks = (await page.$$(`.lw-line[data-qid="${multi[1].id}"] .lw-blank`)).length;
+  const shownWords = (await page.$$(`.lw-line[data-qid="${multi[1].id}"] .lw-word`)).length;
+  ok(hiddenBlanks === multi.length - 1 && shownWords === 1, `the lyric window shows the answered blank filled and the other ${multi.length - 1} still hidden`);
 
   console.log("[seeking in the game]");
   await newGame(page, "Easy");
@@ -103,6 +104,7 @@ async function newGame(page, level) {
   console.log("[folder import with the recursive option]");
   await page.goto(B); await page.waitForSelector(".song");
   const before2 = (await page.$$(".song")).length;
+  await page.click('button:has-text("Add music")');
   await page.fill('input[placeholder*="Music"]', TREE);
   await page.uncheck("text=Include subfolders");
   await page.click('button:has-text("Import")');
@@ -126,6 +128,7 @@ async function newGame(page, level) {
 
   console.log("[a file that is not audio is rejected with a reason]");
   await page.goto(B); await page.waitForSelector(".song");
+  await page.click('button:has-text("Add music")');
   await page.setInputFiles('input[type="file"][accept*=".mp3"]', { name: "fake.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("this is not audio at all") });
   await page.waitForSelector(".notice.error", { timeout: 8000 });
   const upErr = await page.textContent(".notice.error");
@@ -150,8 +153,8 @@ async function newGame(page, level) {
   await page.waitForSelector(".notice.error", { timeout: 8000 });
   ok(/audio file could not be loaded/.test(await page.textContent(".notice.error")), "the game page says so: " + (await page.textContent(".notice.error")));
   await page.click('button[aria-label="Play"]');
-  await page.waitForFunction(() => window.__chorus && window.__chorus.controller.state.name === "ERROR", null, { timeout: 8000 });
-  ok(/cannot be played/.test(await page.textContent(".status")), "pressing play explains it (and does not blame the autoplay policy): " + (await page.textContent(".status")));
+  await page.waitForFunction(() => window.__chorus?.controller?.state.name === "ERROR", null, { timeout: 8000 });
+  ok(/cannot be played/.test(await page.textContent(".state-line")), "pressing play explains it (and does not blame the autoplay policy): " + (await page.textContent(".state-line")));
   ok(await page.isVisible(".prompt") && (await page.$$(".opt")).length === 4, "the questions are still usable");
   fs.rmSync(dir, { recursive: true, force: true });
 

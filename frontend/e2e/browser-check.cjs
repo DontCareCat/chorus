@@ -13,7 +13,7 @@ async function open(browser) {
   page.on("pageerror", (e) => console.log("  PAGEERROR", e.message));
   await page.goto(B);
   await page.waitForSelector(".song");
-  await page.click('.song >> nth=0 >> button:has-text("Play")');
+  await page.click('.song >> nth=0 >> .play-btn');
   await page.click('.segmented button:has-text("Easy")');
   await page.click('button:has-text("Start new game")');
   await page.waitForSelector(".prompt");
@@ -40,16 +40,16 @@ const mark = (page) => page.evaluate(() => window.__log.length);
 const slice = async (page, from) => (await log(page)).slice(from);
 const states = (l) => l.map((x) => x.state).filter((s, i, a) => i === 0 || s !== a[i - 1]);
 /** Answer a question by its id: focus it via the lyric sheet, then press key 1. */
-const answerQ = async (page, qid, key = "1") => { await page.click(`.sheet-line[data-qid="${qid}"]`); await page.keyboard.press(key); };
+const answerQ = async (page, qid, key = "1") => { await page.$eval(`.lw-line[data-qid="${qid}"]`, (e) => { e.focus(); e.click(); }); await page.keyboard.press(key); };
 /** The game as the API sees it (timings, answers) — the page's own URL carries the game id. */
 const gameDto = (page) => page.evaluate(() => fetch("/api/games/" + location.hash.split("/").pop()).then((r) => r.json()));
 /** Answer every open question (a line can have several: each click focuses the line's first open question). */
 async function answerAllOpen(page, limit = null) {
   let n = 0;
   for (;;) {
-    const open = await page.$$('.sheet-line[data-r="open"]');
+    const open = await page.$$('.lw-line[data-status="open"]');
     if (!open.length || (limit !== null && n >= limit)) return n;
-    await open[0].click();
+    await open[0].evaluate((e) => { e.focus(); e.click(); }); // lines far from the playhead are clipped by the sliding window
     await page.keyboard.press("1");
     n++;
     await page.waitForTimeout(60);
@@ -85,7 +85,7 @@ async function answerAllOpen(page, limit = null) {
   const paused = l.filter((x) => x.state === "PAUSED_FOR_QUESTION");
   assert(paused.every((x) => x.paused && x.gain === 0), "paused with gain 0 while waiting");
   assert(Math.max(...paused.map((x) => x.time)) - Math.min(...paused.map((x) => x.time)) < 0.05, "position does not move while waiting");
-  assert(/Waiting for you/.test(await page.textContent(".status")), "the status line says the audio is waiting for you");
+  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says the audio is waiting for you");
   const blockingId = paused[0].blocking;
   const m1 = await mark(page);
   await answerQ(page, blockingId);
@@ -127,8 +127,8 @@ async function answerAllOpen(page, limit = null) {
   const took = Date.now() - t0;
   assert(took < 200, `the next question is on screen ${took} ms after the answer`);
   assert(/Correct: |The word was |Answer recorded/.test(await page.textContent(".last-answer")), "the result of the answer is shown: " + (await page.textContent(".last-answer")));
-  const mark1 = await page.$eval('.sheet-line >> nth=0', (e) => e.querySelector(".mark").textContent);
-  assert(mark1 === "✓" || mark1 === "✗" || mark1 === "○", "the lyric sheet records it too (" + mark1 + ")");
+  const word1 = await page.$eval('.lw-word', (e) => e.dataset.state);
+  assert(["correct", "wrong", "pending"].includes(word1), "the lyric window records it too (" + word1 + ")");
   await page.close();
 
   console.log("\n[5] answering ahead: no interruption");
@@ -139,7 +139,7 @@ async function answerAllOpen(page, limit = null) {
   await page.waitForTimeout(14000);
   l = await slice(page, m4);
   assert(l.every((x) => x.state === "PLAYING" || x.state === "IDLE"), "stayed PLAYING for 14 s with everything answered");
-  assert(/answered|Enjoy/.test(await page.textContent(".status")), "status line: " + (await page.textContent(".status")));
+  assert(/answered|Enjoy/.test(await page.textContent(".state-line")), "status line: " + (await page.textContent(".state-line")));
   await page.close();
 
   console.log("\n[6] recovery position of a later question = start of the PREVIOUS lyric line");
@@ -290,13 +290,13 @@ async function answerAllOpen(page, limit = null) {
   for (const [label, vp] of [["desktop", { width: 1280, height: 860 }], ["phone", { width: 390, height: 844 }]]) {
     const p = await browser.newPage({ viewport: vp });
     await p.goto(B); await p.waitForSelector(".song");
-    await p.click('.song:has-text("Testlied") >> button:has-text("Play")');
+    await p.click('.song:has-text("Testlied") >> .play-btn');
     await p.click('.segmented button:has-text("Expert")'); await p.click('button:has-text("Start new game")'); await p.waitForSelector(".prompt");
     const tops = new Set();
     const heights = new Set();
-    const lines = await p.$$(".sheet-line");
+    const lines = await p.$$(".lw-line[data-qid]");
     for (let i = 0; i < Math.min(lines.length, 12); i++) {
-      await lines[i].click();
+      await lines[i].evaluate((e) => { e.focus(); e.click(); });
       await p.waitForTimeout(60);
       const m = await p.evaluate(() => ({ top: document.querySelector(".options").getBoundingClientRect().top + scrollY, h: document.querySelector(".prompt").getBoundingClientRect().height, fs: parseFloat(getComputedStyle(document.querySelector(".prompt")).fontSize), txt: document.querySelector(".prompt").textContent.length, fits: document.querySelector(".prompt").scrollHeight <= document.querySelector(".prompt").clientHeight + 1 }));
       tops.add(Math.round(m.top)); heights.add(Math.round(m.h));
@@ -331,7 +331,7 @@ async function answerAllOpen(page, limit = null) {
   assert(w14.state === "PAUSED_FOR_QUESTION" && w14.paused, "the audio ended with the question open: the game waits instead of just stopping");
   assert(Math.abs(w14.time - last14.recovery_start) < 0.2, `…at the previous line (${w14.time.toFixed(2)} s, expected ${last14.recovery_start} s)`);
   assert(!l.some((x) => x.state === "FADING_OUT"), "no fade-out: there was nothing playing to fade");
-  assert(/Waiting for you/.test(await page.textContent(".status")), "the status line says it is waiting");
+  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says it is waiting");
   await answerQ(page, last14.id);
   await page.waitForFunction(() => window.__chorus.controller.state.name === "IDLE", null, { timeout: 30000 });
   assert(true, "after the answer it plays on and ends cleanly (nothing left to answer)");
@@ -408,7 +408,7 @@ async function answerAllOpen(page, limit = null) {
   console.log("\n[13] no volume control on a phone-size screen");
   const ph = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await ph.goto(B); await ph.waitForSelector(".song");
-  await ph.click('.song:has-text("Testlied") >> button:has-text("Play")');
+  await ph.click('.song:has-text("Testlied") >> .play-btn');
   await ph.click('.segmented button:has-text("Easy")'); await ph.click('button:has-text("Start new game")'); await ph.waitForSelector(".prompt");
   assert(!(await ph.isVisible(".volume")), "hidden: phones have hardware volume keys");
   assert(await ph.isVisible('button[aria-label="Play"]'), "the rest of the transport is unchanged");
