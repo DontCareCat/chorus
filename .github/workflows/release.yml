@@ -162,5 +162,10 @@ jobs:
         run: |
           prerelease=""
           case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
-          gh release create "$GITHUB_REF_NAME" files/* --repo "$GITHUB_REPOSITORY" \
-            --title "Chorus ${GITHUB_REF_NAME#v}" --generate-notes $prerelease
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # a release made by hand on the web page for this tag: attach the files to it, keep its title and notes
+            gh release upload "$GITHUB_REF_NAME" files/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" files/* --repo "$GITHUB_REPOSITORY" \
+              --title "Chorus ${GITHUB_REF_NAME#v}" --generate-notes $prerelease
+          fi
