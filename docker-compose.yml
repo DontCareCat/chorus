@@ -1,0 +1,41 @@
+# Production-style stack: Chorus (backend + built frontend) with MySQL.
+#   docker compose up -d --build        then open http://localhost:8000
+#
+# Settings come from the environment or a `.env` file next to this one (see .env.example).
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: chorus
+      MYSQL_USER: chorus
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-chorus}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+    ports: ["127.0.0.1:3307:3306"]   # for development tools only; the app reaches it as mysql:3306
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uchorus", "-p${MYSQL_PASSWORD:-chorus}"]
+      interval: 3s
+      retries: 40
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://chorus:${MYSQL_PASSWORD:-chorus}@mysql:3306/chorus?charset=utf8mb4
+      LIBRARY_DIRS: /music
+    volumes:
+      - chorus-data:/data                      # uploaded/imported copies of songs
+      - ${MUSIC_DIR:-./music}:/music:ro        # your music, read-only: scanned in place, never modified
+    # 127.0.0.1 = this computer only. Chorus has no login: set CHORUS_BIND=0.0.0.0 only on a network you trust.
+    ports: ["${CHORUS_BIND:-127.0.0.1}:${CHORUS_PORT:-8000}:8000"]
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  chorus-data:

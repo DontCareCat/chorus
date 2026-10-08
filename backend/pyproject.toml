@@ -1,0 +1,27 @@
+[project]
+name = "chorus-backend"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.142.2",
+    "httpx>=0.28.1",
+    "mutagen>=1.48.1",
+    "pydantic-settings>=2.15.0",
+    "pymysql>=1.2.3",
+    "python-multipart>=0.0.32",
+    "sqlalchemy>=2",
+    "uvicorn[standard]>=0.54.0",
+    "wordfreq>=3.1.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.uv.workspace]
+members = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
