@@ -82,6 +82,17 @@ async function finishGame(req, difficulty, right) {
     const r = await pp.evaluate(() => ({ bottom: Math.round(document.querySelector(".transport").getBoundingClientRect().bottom), vh: innerHeight, shellH: Math.round(document.querySelector(".shell").getBoundingClientRect().height), minH: getComputedStyle(document.querySelector(".shell")).minHeight, scrolls: document.documentElement.scrollHeight > innerHeight || document.body.scrollHeight > innerHeight }));
     ok(r.bottom === r.vh && r.shellH === r.vh && r.minH === "0px" && !r.scrolls, `viewport ${h} px high: the game screen follows the visible height (${r.shellH} = ${r.vh}), the player sits on the bottom edge, no min-height, no page scroll`);
   }
+  // Android keeps "100%" (html/body) at the bars-showing height while 100dvh grows when the bars hide. Simulated by
+  // shrinking <html>: the player must still be drawn and tappable (a clipping body hid it).
+  const clip = await pp.evaluate(() => {
+    document.documentElement.style.height = `${innerHeight - 80}px`;
+    const bar = document.querySelector(".transport").getBoundingClientRect();
+    const play = document.querySelector('.transport button[aria-label="Play"]').getBoundingClientRect();
+    const hit = document.elementFromPoint(play.left + play.width / 2, play.top + play.height / 2);
+    document.documentElement.style.height = "";
+    return { barBottom: Math.round(bar.bottom), vh: innerHeight, hitsPlay: !!hit && !!hit.closest('button[aria-label="Play"]') };
+  });
+  ok(clip.barBottom === clip.vh && clip.hitsPlay, `when html/body are shorter than the screen (Android, bars hidden) the player is still on the bottom edge and tappable (${clip.barBottom} = ${clip.vh})`);
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL SCORE AND LAYOUT CHECKS PASSED");
 })();

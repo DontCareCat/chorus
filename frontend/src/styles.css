@@ -411,7 +411,9 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 /* The game screen is exactly as tall as what can be seen, following the browser's bars as they slide in and out:
    100dvh is the dynamic viewport. It must never get a min-height: other pages' 100vh is the height with the bars
    HIDDEN on phones and pushed the player off the screen. The page itself does not scroll here (.game-lock). */
-.game-lock, .game-lock body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+/* No fixed height on html/body: on Android "100%" stays at the bars-showing height and the body then CLIPPED the
+   player once the bars hid. body is as tall as the game screen; overflow only stops the page from scrolling. */
+.game-lock, .game-lock body { overflow: hidden; overscroll-behavior: none; }
 .shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
