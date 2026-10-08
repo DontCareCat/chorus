@@ -18,8 +18,8 @@ import { usePlaybackSync } from "../hooks/usePlaybackSync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api } from "../services/api";
-import type { PlaybackEngine } from "../services/audio/engine";
-import { WebAudioPlaybackEngine } from "../services/audio/web-audio-engine";
+import { createEngine, getEngineKind } from "../services/audio/create-engine";
+import type { GameEngine, PlaybackEngine } from "../services/audio/engine";
 import type { GameDto } from "../types/game";
 import type { QuizQuestion as QuizQuestionT } from "../types/question";
 
@@ -35,7 +35,7 @@ export function GamePage({ publicId }: { publicId: string }) {
 function GameScreen({ game }: { game: GameDto }) {
   const g = useGame(game);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [engine, setEngine] = useState<WebAudioPlaybackEngine | null>(null);
+  const [engine, setEngine] = useState<GameEngine | null>(null);
   const [wantPlay, setWantPlay] = useState(false);
   const [manualFocus, setManualFocus] = useState<number | null>(null);
   const [, setFrame] = useState(0);
@@ -179,7 +179,7 @@ function GameScreen({ game }: { game: GameDto }) {
 
   const start = () => {
     if (!audioRef.current || engine) return;
-    setEngine(new WebAudioPlaybackEngine(audioRef.current, new AudioContext()));
+    setEngine(createEngine(audioRef.current, getEngineKind(), game.sample_rate));
     setWantPlay(true);
   };
   const stop = () => playback.stop();
@@ -187,6 +187,13 @@ function GameScreen({ game }: { game: GameDto }) {
   useEffect(() => {
     if (engine) (window as unknown as { __chorus: unknown }).__chorus = { engine, controller: playback.controller };
   }, [engine, playback.controller]);
+
+  // the answer handler never changes identity, so the (memoised) question and lyric window are not redrawn ten times a second
+  const answerRef = useRef(answer);
+  answerRef.current = answer;
+  const focusedRef = useRef(focusedQ);
+  focusedRef.current = focusedQ;
+  const onAnswer = useCallback((optionId: number) => { if (focusedRef.current) answerRef.current(focusedRef.current, optionId); }, []);
 
   const layout = useLayout();
   const phone = layout === "phone";
@@ -211,7 +218,7 @@ function GameScreen({ game }: { game: GameDto }) {
       results={g.results}
       index={focusedIndex}
       total={g.total}
-      onAnswer={(oid) => answer(focusedQ, oid)}
+      onAnswer={onAnswer}
       answersOnly={phone}
     />
   ) : (

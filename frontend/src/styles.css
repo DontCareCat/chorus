@@ -163,8 +163,10 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .check > span { font-weight: 500; }
 .check strong { font-weight: 600; display: block; }
 .check input { appearance: none; flex: none; width: 20px; height: 20px; margin: 2px 0 0; border-radius: 6px; border: 1.5px solid var(--line-strong); background: var(--bg); display: grid; place-content: center; cursor: pointer; }
+.check input[type="radio"] { border-radius: 50%; }
 .check input:checked { background: var(--fill); border-color: var(--text); }
-.check input:checked::after { content: "✓"; color: var(--on-fill); font-size: 13px; font-weight: 800; line-height: 1; }
+.check input[type="radio"]:checked::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--on-fill); }
+.check input[type="checkbox"]:checked::after { content: "✓"; color: var(--on-fill); font-size: 13px; font-weight: 800; line-height: 1; }
 .inline { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .inline .field { flex: 1 1 14rem; margin-bottom: 0; }
 

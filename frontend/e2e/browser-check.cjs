@@ -5,11 +5,14 @@
 // It samples the REAL gain and AnalyserNode output level every 20 ms.
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:5173/";
+// ENGINE=direct runs everything on the "Direct audio" path (plain <audio>, stepped fades) instead of Web Audio
+const ENGINE = process.env.ENGINE === "direct" ? "direct" : "webaudio";
 const assert = (c, m) => { console.log((c ? "  PASS " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 
 /** Create a new game through the UI (Library → Play → difficulty → Start) and start the audio engine. */
 async function open(browser) {
   const page = await browser.newPage();
+  await page.addInitScript((k) => localStorage.setItem("chorus-audio-engine", k), ENGINE);
   page.on("pageerror", (e) => console.log("  PAGEERROR", e.message));
   await page.goto(B);
   await page.waitForSelector(".song");

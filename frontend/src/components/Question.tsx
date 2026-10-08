@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { buildPrompt } from "../game/prompt";
 import { useFitText } from "../hooks/useFitText";
 import { resultWord, rightWord } from "../game/results";
@@ -19,14 +20,14 @@ interface Props {
   answersOnly?: boolean;
 }
 
-export function Question({ question: q, siblings, results, index, total, onAnswer, answersOnly = false }: Props) {
+export const Question = memo(function Question({ question: q, siblings, results, index, total, onAnswer, answersOnly = false }: Props) {
   const result = results.get(q.id);
   const shown = resultWord(q, result);
   const state = shown ? (shown.ok === undefined ? "pending" : shown.ok ? "correct" : "wrong") : "open";
   const wrongWord = result && result.correct === false ? q.options.find((o) => o.id === result.selectedOptionId)?.text : undefined;
   const parts = buildPrompt(q, siblings, (s) => rightWord(s, results.get(s.id)));
   const blanksInLine = siblings.length;
-  const promptRef = useFitText<HTMLHeadingElement>();
+  const promptRef = useFitText<HTMLHeadingElement>(JSON.stringify([q.id, state, wrongWord, parts]));
 
   return (
     <section className="prompt-wrap" aria-labelledby={answersOnly ? undefined : "prompt"} aria-label={answersOnly ? "Answers" : undefined}>
@@ -82,4 +83,4 @@ export function Question({ question: q, siblings, results, index, total, onAnswe
       </ul>
     </section>
   );
-}
+});

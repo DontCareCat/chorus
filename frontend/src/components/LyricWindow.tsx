@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef, useState } from "react";
 import { centerOffset, clampShift, timecode } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
@@ -16,7 +16,7 @@ interface Props {
  * smaller and fainter the further they are. Answered blanks show the RIGHT word in the line itself, green if the
  * player had it, red if not.
  */
-export function LyricWindow({ lines, current, synced, onFocus }: Props) {
+export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus }: Props) {
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
   const [shift, setShift] = useState(0);
@@ -73,4 +73,4 @@ export function LyricWindow({ lines, current, synced, onFocus }: Props) {
       </div>
     </section>
   );
-}
+});

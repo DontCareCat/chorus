@@ -4,6 +4,8 @@ import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
+import { getEngineKind, setEngineKind } from "../services/audio/create-engine";
+import type { EngineKind } from "../services/audio/create-engine";
 import type { SettingsDto, UserDto } from "../services/api";
 
 type Notice = { kind: "ok" | "error"; text: string } | null;
@@ -130,6 +132,8 @@ export function SettingsPage() {
           </section>
         )}
 
+        <AudioPanel />
+
         <div className="page-actions">
           <button type="submit" className="btn large">{en.settings.save}</button>
         </div>
@@ -193,6 +197,27 @@ function UsersPanel({ me }: { me: UserDto }) {
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/** Which audio path the game uses on THIS device (kept in this browser, not on the server). */
+function AudioPanel() {
+  const [kind, setKind] = useState<EngineKind>(getEngineKind);
+  const choose = (k: EngineKind) => {
+    setEngineKind(k);
+    setKind(k);
+  };
+  return (
+    <section className="panel">
+      <h2>{en.settings.audioPanel}</h2>
+      <p className="muted" style={{ marginBottom: 14 }}>{en.settings.audioHelp}</p>
+      {(["webaudio", "direct"] as const).map((k) => (
+        <label className="check" key={k}>
+          <input type="radio" name="audio-engine" checked={kind === k} onChange={() => choose(k)} />
+          <span><strong>{en.settings.audio[k].name}</strong><small>{en.settings.audio[k].help}</small></span>
+        </label>
+      ))}
     </section>
   );
 }

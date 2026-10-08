@@ -31,6 +31,7 @@ export interface GameDto {
   song_title: string;
   song_artist: string;
   song_duration: number;
+  sample_rate: number | null; // of the audio file (Hz)
   language: string;
   difficulty: string;
   synced: boolean;

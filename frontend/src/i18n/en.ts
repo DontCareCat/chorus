@@ -159,6 +159,12 @@ export const en = {
     noFolders: "No folders yet.",
     clearConfirm: "Remove every cached lyrics lookup? Saved lyrics stay.",
     languages: "Language",
+    audioPanel: "Audio on this device",
+    audioHelp: "How the game plays the song here. Applies to the next game you start. Other devices keep their own choice.",
+    audio: {
+      webaudio: { name: "Smooth fades", help: "The audio fades out and in smoothly when the game waits for you. The default." },
+      direct: { name: "Direct audio", help: "Plays the song like the preview on a song page, with stepped fades. Choose this if the music sounds distorted or compressed during games on this device." },
+    },
     accountsPanel: "Accounts",
     allowGuest: "Let people use Chorus without signing in",
     allowGuestHelp: "Guests share one identity. Switch this off before opening Chorus to other devices if you want everybody to sign in.",

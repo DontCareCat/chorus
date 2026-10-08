@@ -59,12 +59,25 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("graph", () => {
-  it("routes the element through the fade gain, the master volume and the analyser to the destination", () => {
+  it("routes the element through the fade gain and the master volume straight to the destination", () => {
     const [source, fade, master, analyser] = ctx.nodes as FakeNode[];
     expect(source!.connected).toEqual([fade]);
     expect(fade!.connected).toEqual([master]);
-    expect(master!.connected).toEqual([analyser]);
-    expect(analyser!.connected).toEqual([ctx.destination]);
+    expect(master!.connected).toEqual([ctx.destination, analyser]); // the sound goes out directly...
+    expect(analyser!.connected).toEqual([]); // ...the analyser only listens on a side branch
+  });
+
+  it("closes a context it created when it is disposed, and leaves one it was handed alone", () => {
+    const closed = vi.fn(() => Promise.resolve());
+    const mine = new FakeCtx();
+    (mine as unknown as { close: () => Promise<void> }).close = closed;
+    new WebAudioPlaybackEngine(new FakeAudio() as unknown as HTMLAudioElement, mine as unknown as AudioContext, true).dispose();
+    expect(closed).toHaveBeenCalledTimes(1);
+    const handed = new FakeCtx();
+    const notClosed = vi.fn(() => Promise.resolve());
+    (handed as unknown as { close: () => Promise<void> }).close = notClosed;
+    new WebAudioPlaybackEngine(new FakeAudio() as unknown as HTMLAudioElement, handed as unknown as AudioContext).dispose();
+    expect(notClosed).not.toHaveBeenCalled();
   });
 });
 
