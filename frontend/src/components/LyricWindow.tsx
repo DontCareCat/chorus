@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { centerOffset, timecode } from "../game/lyric-window";
+import { centerOffset, clampShift, timecode } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
 
@@ -27,7 +27,7 @@ export function LyricWindow({ lines, current, synced, onFocus }: Props) {
     if (!vp || !tr) return;
     const place = () => {
       const el = tr.children[current] as HTMLElement | undefined;
-      if (el) setShift(centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight));
+      if (el) setShift(clampShift(centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight), vp.clientHeight, tr.offsetHeight));
     };
     place();
     const ro = new ResizeObserver(place);

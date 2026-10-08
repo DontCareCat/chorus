@@ -184,6 +184,8 @@ export const en = {
     volume: "Volume",
     mute: "Mute",
     unmute: "Unmute",
+    yourQuestion: (time: string) => `Your question · ${time}`,
+    backToAudio: "Back to the audio",
     points: "Points",
     multiplier: "Multiplier",
     countdownLabel: "Time until the multiplier drops",

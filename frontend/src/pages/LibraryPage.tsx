@@ -111,7 +111,7 @@ export function LibraryPage() {
           <div className="count">{en.library.count(all.length)}</div>
         </div>
         <div className="page-actions">
-          <button type="button" className="btn secondary" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
+          <button type="button" className="btn secondary scan-top" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
           <button type="button" className="btn" onClick={() => setAddOpen((v) => !v)} aria-expanded={addOpen}>
             <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{addOpen ? "×" : "+"}</span>
             {en.library.addMusic}
@@ -141,6 +141,7 @@ export function LibraryPage() {
                 {en.library.uploadFolder}
                 <input ref={folderRef} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
               </label>
+              <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
           <form onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
@@ -230,8 +231,8 @@ function SongRow({ song: s, open, games, onToggle, onRemove }: { song: SongDto; 
         <div className="song-actions">
           <button type="button" className="btn quiet danger small" onClick={onRemove} aria-label={`${en.library.remove} ${s.title}`}>{en.library.remove}</button>
           <a className="btn secondary small" href={paths.song(s.id)}>{s.lyrics_status === "found" ? en.library.lyrics : en.library.findLyrics}</a>
-          <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />
         </div>
+        <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />
       </div>
       {open && <StartPanel song={s} games={games} />}
     </li>

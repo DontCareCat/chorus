@@ -5,13 +5,14 @@ import { Question } from "../components/Question";
 import { Runway } from "../components/Runway";
 import { ScorePanel } from "../components/ScorePanel";
 import { Transport } from "../components/Transport";
-import { buildWindowLines, currentLineIndex } from "../game/lyric-window";
+import { buildWindowLines, currentLineIndex, timecode } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
 import { computeRunway } from "../game/runway";
 import { describeStatus } from "../game/status";
 import { useAsync } from "../hooks/useAsync";
 import { useGame } from "../hooks/useGame";
+import { useLayout } from "../hooks/useLayout";
 import { useVolume } from "../hooks/useVolume";
 import { usePlaybackSync } from "../hooks/usePlaybackSync";
 import { en } from "../i18n/en";
@@ -187,57 +188,99 @@ function GameScreen({ game }: { game: GameDto }) {
     if (engine) (window as unknown as { __chorus: unknown }).__chorus = { engine, controller: playback.controller };
   }, [engine, playback.controller]);
 
+  const layout = useLayout();
+  const phone = layout === "phone";
+  // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
+  // and, when tapped, holds the window on that line until the audio gets there or the question changes.
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => setPinned(false), [focusedQ?.id]);
+  useEffect(() => {
+    if (pinned && focusedLine >= 0 && currentLine >= focusedLine) setPinned(false);
+  }, [pinned, currentLine, focusedLine]);
+  const centerOn = phone && pinned && focusedLine >= 0 ? focusedLine : currentLine;
+  const farFromFocus = phone && focusedLine >= 0 && Math.abs(focusedLine - currentLine) > 3;
+  const chip = !phone ? null : pinned ? { text: en.game.backToAudio, dir: "" } : farFromFocus ? { text: en.game.yourQuestion(timecode(windowLines[focusedLine]?.startTime ?? null)), dir: focusedLine > currentLine ? "down" : "up" } : null;
+  const last = lastAnswerText(g.quiz, g.results, lastAnswered);
+  const stateText = phone ? (hint ?? last.text) || status.text : status.text;
+
+  const questionBlock = focusedQ ? (
+    <Question
+      key={focusedQ.id}
+      question={focusedQ}
+      siblings={siblings}
+      results={g.results}
+      index={focusedIndex}
+      total={g.total}
+      onAnswer={(oid) => answer(focusedQ, oid)}
+      answersOnly={phone}
+    />
+  ) : (
+    <p className="notice">{en.game.notFound}</p>
+  );
+  const finished = g.finished && (
+    <p className="notice ok finish">
+      {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
+    </p>
+  );
+  const lyricWindow = (
+    <div className="game-side">
+      <LyricWindow lines={windowLines} current={centerOn} synced={g.synced} onFocus={focusFromSheet} />
+      {chip && (
+        <button type="button" className="chip-float" data-dir={chip.dir} onClick={() => setPinned((v) => !v)}>
+          {chip.text}
+          {chip.dir && <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={chip.dir === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"} /></svg>}
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <>
-      <div className="game-head">
-        <Cover songId={game.song_id} title={game.song_title} hasCover={null} size="large" />
+    <div className="game" data-layout={layout}>
+      <div className="game-bar wrap">
+        <a className="back" href={paths.library()} aria-label={en.game.backToLibrary} title={en.game.backToLibrary}>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        </a>
+        {!phone && <Cover songId={game.song_id} title={game.song_title} hasCover={null} size="large" />}
         <div className="game-title">
-          <a className="crumb" href={paths.library()}>{en.game.backToLibrary}</a>
           <h1>{game.song_title}</h1>
-          <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(", ")}</p>
+          <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(" · ")}</p>
         </div>
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
 
       <audio ref={audioRef} src={api.audioUrl(game.song_id)} preload="auto" onError={() => setAudioFailed(true)} onLoadedData={() => setAudioFailed(false)} />
-      {audioFailed && <p className="notice error" role="alert">{en.audio.cannotLoad}</p>}
-      <Runway
-        runway={runway}
-        focusedId={focusedQ?.id ?? null}
-        onFocus={setManualFocus}
-        gated={g.synced}
-        onSeek={engine && duration > 0 ? (f) => void seekTo(f * duration) : undefined}
-      />
-      <p className="state-line" data-tone={status.tone} role="status">{status.text}</p>
-      <div className="game-body">
-        <div className="game-main">
-        <LastAnswer quiz={g.quiz} results={g.results} questionId={lastAnswered} hint={hint} />
-        {g.error && <p className="notice error">{g.error}</p>}
-
-        {focusedQ ? (
-          <Question
-            key={focusedQ.id}
-            question={focusedQ}
-            siblings={siblings}
-            results={g.results}
-            index={focusedIndex}
-            total={g.total}
-            onAnswer={(oid) => answer(focusedQ, oid)}
-          />
+      {audioFailed && <p className="notice error wrap" role="alert">{en.audio.cannotLoad}</p>}
+      <div className="game-timeline wrap">
+        <Runway
+          runway={runway}
+          focusedId={focusedQ?.id ?? null}
+          onFocus={setManualFocus}
+          gated={g.synced}
+          onSeek={engine && duration > 0 ? (f) => void seekTo(f * duration) : undefined}
+        />
+        <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>
+      </div>
+      <div className="game-body wrap">
+        {phone ? (
+          <>
+            {lyricWindow}
+            <div className="game-main">
+              {g.error && <p className="notice error">{g.error}</p>}
+              {finished}
+              {questionBlock}
+            </div>
+          </>
         ) : (
-          <p className="notice">{en.game.notFound}</p>
+          <>
+            <div className="game-main">
+              <LastAnswer text={hint ?? last.text} ok={hint ? false : last.ok} />
+              {g.error && <p className="notice error">{g.error}</p>}
+              {questionBlock}
+              {finished}
+            </div>
+            {lyricWindow}
+          </>
         )}
-
-        {g.finished && (
-          <p className="notice ok finish">
-            {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
-          </p>
-        )}
-
-        </div>
-        <div className="game-side">
-        <LyricWindow lines={windowLines} current={currentLine} synced={g.synced} onFocus={focusFromSheet} />
-        </div>
       </div>
 
       <Transport
@@ -253,18 +296,23 @@ function GameScreen({ game }: { game: GameDto }) {
         onSeek={seekTo}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
-    </>
+    </div>
   );
 }
 
-/** The result of the answer just given, shown beside the already-visible next question (never in its way). */
-function LastAnswer({ quiz, results, questionId, hint }: { quiz: readonly QuizQuestionT[]; results: ReadonlyMap<number, QuestionResult>; questionId: number | null; hint: string | null }) {
+/** What the last answer earned, as words ("Correct: Haus"), for the line under the timeline. */
+function lastAnswerText(quiz: readonly QuizQuestionT[], results: ReadonlyMap<number, QuestionResult>, questionId: number | null): { text: string; ok: boolean | undefined } {
   const q = questionId === null ? undefined : quiz.find((x) => x.id === questionId);
   const shown = q ? resultWord(q, results.get(q.id)) : null;
-  const text = !shown ? "" : shown.ok === undefined ? en.game.lastPending : shown.ok ? en.game.lastCorrect(shown.word) : en.game.lastWrong(shown.word);
+  if (!shown) return { text: "", ok: undefined };
+  return { text: shown.ok === undefined ? en.game.lastPending : shown.ok ? en.game.lastCorrect(shown.word) : en.game.lastWrong(shown.word), ok: shown.ok };
+}
+
+/** The result of the answer just given, shown beside the already-visible next question (never in its way). */
+function LastAnswer({ text, ok }: { text: string; ok: boolean | undefined }) {
   return (
-    <p className="last-answer" data-ok={hint ? "false" : shown?.ok} role="status" aria-live="polite">
-      {hint ?? text}
+    <p className="last-answer" data-ok={ok} role="status" aria-live="polite">
+      {text}
     </p>
   );
 }

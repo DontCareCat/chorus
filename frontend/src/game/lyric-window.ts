@@ -84,6 +84,13 @@ export function currentLineIndex(lines: readonly WindowLine[], time: number, syn
 export const centerOffset = (viewportHeight: number, lineTop: number, lineHeight: number): number =>
   Math.round(viewportHeight / 2 - (lineTop + lineHeight / 2));
 
+/**
+ * Keep the lyrics from scrolling past their own ends: near the start the first line sits at the top (not in the
+ * middle of an empty window), near the end the last line sits at the bottom. A short song just stays at the top.
+ */
+export const clampShift = (shift: number, viewportHeight: number, trackHeight: number): number =>
+  Math.max(Math.min(0, viewportHeight - trackHeight), Math.min(0, shift));
+
 export const timecode = (seconds: number | null): string => {
   if (seconds === null) return "";
   const t = Math.max(0, Math.floor(seconds));

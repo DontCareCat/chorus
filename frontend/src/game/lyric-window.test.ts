@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, currentLineIndex, timecode } from "./lyric-window";
+import { buildWindowLines, centerOffset, clampShift, currentLineIndex, timecode } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
 
@@ -79,6 +79,12 @@ describe("helpers", () => {
   it("centers a line in the viewport", () => {
     expect(centerOffset(300, 0, 40)).toBe(130);
     expect(centerOffset(300, 400, 40)).toBe(-270);
+  });
+  it("does not scroll past the ends of the lyrics", () => {
+    expect(clampShift(130, 300, 1000)).toBe(0); // near the start: first line at the top
+    expect(clampShift(-270, 300, 1000)).toBe(-270);
+    expect(clampShift(-900, 300, 1000)).toBe(-700); // near the end: last line at the bottom
+    expect(clampShift(50, 300, 200)).toBe(0); // shorter than the window: stays at the top
   });
   it("formats timecodes", () => {
     expect([null, 0, 59.9, 61, 3599].map(timecode)).toEqual(["", "0:00", "0:59", "1:01", "59:59"]);
