@@ -54,7 +54,7 @@ jobs:
         run: |
           v=$(python -c "import re;print(re.search(r'__version__ = \"([^\"]+)\"', open('backend/app/__init__.py').read()).group(1))")
           echo "value=$v" >> "$GITHUB_OUTPUT"
-          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$v" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "$(echo "${GITHUB_REF_NAME#v}" | sed 's/-.*//')" != "$v" ]; then
             echo "Tag ${GITHUB_REF_NAME} does not match version $v in backend/app/__init__.py" >&2; exit 1
           fi
       - name: Tests and dependencies
