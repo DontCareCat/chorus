@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
-import { useLayout } from "./hooks/useLayout";
+import { useAppHeight, useLayout } from "./hooks/useLayout";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -25,6 +25,7 @@ export function App() {
   const layout = useLayout();
   const phone = layout === "phone";
   const isGame = route.name === "game";
+  useAppHeight(isGame);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => setMenuOpen(false), [route.name]);
 

@@ -412,7 +412,8 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
    answers and the player stay inside what can be seen. When the bars slide away a strip of plain background shows
    below the player, which is the price of never losing the controls. (Fixed positioning and visualViewport were tried:
    mobile browsers disagree about which edge they pin to.) */
-.shell[data-route="game"] { height: 100vh; height: 100svh; display: flex; flex-direction: column; overflow: hidden; }
+.game-lock, .game-lock body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+.shell[data-route="game"] { height: 100vh; height: 100svh; height: var(--app-h, 100svh); display: flex; flex-direction: column; overflow: hidden; }
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
 main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding: 0; display: flex; flex-direction: column; }

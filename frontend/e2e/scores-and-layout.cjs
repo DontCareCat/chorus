@@ -79,8 +79,8 @@ async function finishGame(req, difficulty, right) {
   await pp.goto(B + "#/games/" + g.public_id); await pp.waitForSelector(".opt");
   for (const h of [740, 844, 690]) {
     await pp.setViewportSize({ width: 390, height: h }); await pp.waitForTimeout(250);
-    const r = await pp.evaluate(() => ({ bottom: Math.round(document.querySelector(".transport").getBoundingClientRect().bottom), vh: innerHeight }));
-    ok(r.bottom === r.vh, `viewport ${h} px high: the player stays on the visible bottom edge (${r.bottom} = ${r.vh})`);
+    const r = await pp.evaluate(() => ({ bottom: Math.round(document.querySelector(".transport").getBoundingClientRect().bottom), vh: innerHeight, appH: getComputedStyle(document.documentElement).getPropertyValue("--app-h"), scrolls: document.documentElement.scrollHeight > innerHeight || document.body.scrollHeight > innerHeight }));
+    ok(r.bottom === r.vh && r.appH === `${r.vh}px` && !r.scrolls, `viewport ${h} px high: the player stays on the visible bottom edge and the page does not scroll (${r.bottom} = ${r.vh}, --app-h ${r.appH})`);
   }
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL SCORE AND LAYOUT CHECKS PASSED");
