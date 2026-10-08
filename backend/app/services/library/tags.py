@@ -15,6 +15,7 @@ class Tags:
     artist: str
     album: str | None
     duration: float
+    sample_rate: int | None = None
 
 
 def _first(tags, key: str) -> str | None:
@@ -43,7 +44,8 @@ def read_tags(path: Path) -> Tags:
         if m:
             artist = artist or m.group(1)
             title = title or m.group(2)
-    return Tags(title=title or path.stem, artist=artist or "", album=album, duration=float(f.info.length))
+    return Tags(title=title or path.stem, artist=artist or "", album=album, duration=float(f.info.length),
+                sample_rate=int(getattr(f.info, "sample_rate", 0) or 0) or None)
 
 
 # ---------- embedded cover art ----------
@@ -101,3 +103,12 @@ def extract_cover(path: Path) -> tuple[bytes, str] | None:
         return None
     mime = _sniff(data)
     return (data, mime) if mime else None
+
+
+def read_sample_rate(path: Path) -> int | None:
+    """The file's sample rate (Hz), or None when it cannot be read."""
+    try:
+        f = mutagen.File(path)
+        return int(getattr(f.info, "sample_rate", 0) or 0) or None if f is not None else None
+    except Exception:
+        return None

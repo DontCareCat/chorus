@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.db.models import (
+    User,
     Game, GameAnswer, LyricLine, Lyrics, LyricsSource, Question, QuestionOption, Song, SongSource,
 )
 
@@ -52,7 +53,10 @@ def test_duplicate_line_sequence_rejected(session):
 
 def test_one_answer_per_question_per_game(session):
     song, lyrics, _, q = make_graph(session)
-    game = Game(song_id=song.id, lyrics_id=lyrics.id, language="de", difficulty="medium")
+    user = User(username="guest", display_name="Guest", is_guest=True)
+    session.add(user)
+    session.flush()
+    game = Game(user_id=user.id, song_id=song.id, lyrics_id=lyrics.id, language="de", difficulty="medium")
     session.add(game)
     session.flush()
     assert len(game.public_id) == 36

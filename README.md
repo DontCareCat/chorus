@@ -4,14 +4,20 @@ Learn a language by filling in the missing words of the songs you listen to.
 
 Add songs from your own music folders. Chorus finds synchronized lyrics for them, turns the lyrics into fill-the-blank questions, and plays the song while you answer. You can answer **ahead of the music**; if the audio gets more than three seconds past the first question you have not answered, it fades out, rewinds to the previous line and waits for you.
 
-> **Private-use software.** Chorus has no login. Run it on your own computer, or on a network you trust. See [Legal notes](#legal-notes).
+> **Private-use software.** Run Chorus on your own computer, or on a network you trust. Without an account everybody is the shared *Guest*; accounts keep games and scores apart (see [Accounts and scores](#accounts-and-scores)). See [Legal notes](#legal-notes).
 
 ## What it does
 
 - **Library**: scan folders (files are used where they are, never modified), import a file or a whole folder (optionally with subfolders), or upload files. Embedded cover art is shown.
-- **Lyrics**: found automatically (a `.lrc` file next to the song, then [LRCLIB](https://lrclib.net)); if there is no confident match you can search by hand or upload a `.lrc` / text file. Lyrics are cached. You can nudge the timing and preview it against the audio.
+- **Lyrics**: found automatically (a `.lrc` file next to the song, then [LRCLIB](https://lrclib.net)); if there is no confident match you can search by hand or upload a `.lrc` / text file. Saved lyrics can be replaced at any time: *Search again* lists the candidates (the ones in use are marked) and never swaps anything by itself; games already started keep their lyrics. Lyrics are cached. You can nudge the timing and preview it against the audio.
 - **Game**: choose how much of the song is asked: easy 10%, medium 30%, hard 60%, expert 80% of the words. A line can have several blanks; the sentence hides all of them so one answer never reveals another.
-- **Playback**: play / pause / stop, back 5 seconds, a seekable timeline, volume (desktop). The *runway* at the top shows your questions, the audio, and where the audio will stop and wait for you.
+- **Playback**: play / pause / stop, back 5 seconds, a seekable timeline, volume (desktop). The *timeline* at the top shows your questions, the audio, and where the audio will stop and wait for you. The lyrics scroll past as a *window*: the line being sung is a little larger and brighter, the others fade with distance, timecodes sit quietly on the left, and answered words show the right word in green (you had it) or red (you did not), right inside the line.
+- **Score**: every right answer earns 10 points, +15 if you answered *ahead* of the music (before its line starts), all multiplied by a streak multiplier: every 4 right answers in a row add a level, x2 up to x8. A wrong answer resets it. While the audio waits for you, a countdown eats one level every 5 seconds.
+- **Scoreboards**: a global board (each account's best finished game per song, added up) and one per song, on the *Scores* page; the start panel shows your rank.
+- **Even questions**: questions are spread evenly over the whole song, repeated chorus lines included (a repeat asks new words).
+- **Accounts**: sign in with a name and password, or just play as the shared *Guest*. Each account has its own games and scores; the library is shared.
+- **Look**: light and dark themes (switch in the header), one monospaced typeface. Phones get a layout of their own: the lyrics and a 2x2 block of answers, with the controls within thumb reach; tablets and laptops get a compact two-column game screen. The game screen always fits the screen.
+- **Audio**: *Settings > Audio on this device* offers *Direct audio* (the plain player, stepped fades) for devices where the smooth-fade path sounds distorted.
 - Works with **SQLite** (default) or **MySQL**, chosen by one setting.
 
 ## Run it
@@ -52,7 +58,7 @@ allow_remote = false   # true = other devices on your network can connect (http:
 # host = "192.168.1.20"   # or listen on one specific address (wins over allow_remote)
 ```
 
-Environment variables (`CHORUS_PORT`, `CHORUS_HOST`, `CHORUS_ALLOW_REMOTE`, `CHORUS_DATA_DIR`) and command-line options (`--port`, `--allow-remote`, `--data-dir`) override the file. **With remote access on, anyone on that network can use Chorus, scan your folders and play your files: there is no login.**
+Environment variables (`CHORUS_PORT`, `CHORUS_HOST`, `CHORUS_ALLOW_REMOTE`, `CHORUS_DATA_DIR`) and command-line options (`--port`, `--allow-remote`, `--data-dir`) override the file. **With remote access on, anyone on that network can use Chorus as Guest, scan your folders and play your files, until you create an account and switch guest access off in Settings** (see [Accounts and scores](#accounts-and-scores)).
 
 ### Linux server without Docker
 
@@ -106,6 +112,14 @@ npm run dev                   # http://localhost:5173
 ```
 
 To open the dev server to your network: `npm run dev -- --host 0.0.0.0` (only the frontend is exposed; it forwards `/api` to the backend on localhost). Point it at another backend with `CHORUS_API=http://host:port`.
+
+## Accounts and scores
+
+- **Guest** is the default: nobody has to sign in. Guests share one identity (and one set of games).
+- **Create an account** from *Sign in*. The **first account administers the server**: it can switch *guest access* and *new accounts* off in Settings and delete accounts. Passwords are stored as salted scrypt hashes, session cookies as digests, and repeated wrong passwords are slowed down.
+- **Privacy**: games, answers and scores belong to their account (somebody else's game link says the game does not exist). Songs, lyrics, library folders and settings are shared by everyone on the server.
+- **Remote access**: with *guest access* off, everybody has to sign in first. Chorus does not encrypt traffic; use only trusted networks or an HTTPS reverse proxy.
+- **Scoring rules** (the server decides, the page only shows them): 10 points per right answer, +15 when answered ahead of the playhead, x(multiplier). Multiplier = 1 + one level per 4 right answers in a row, up to x8. Wrong answer: 0 points, back to x1. Every 5 s the audio spent waiting for an answer costs one level (progress to the next level is cleared). Old games keep their results (each right answer counted 10 points).
 
 ## Settings
 
@@ -165,4 +179,4 @@ The *Release* workflow tests, builds the Windows installer and zip, the two macO
 - Music and lyrics are **copyrighted** by their owners. Chorus is for your own library and your own study. The lyrics it downloads are stored in your database and cache; **do not redistribute** them, the database, or the stored audio.
 - Lyrics come from the community service **LRCLIB**. Chorus identifies itself in its requests, caches what it fetches and never bulk-downloads. Be a good citizen of that service.
 - Audio is played only from files you provide; nothing is downloaded from streaming sites.
-- There is **no authentication**. Do not expose Chorus to the internet.
+- Accounts separate people's games and scores, but the library, lyrics and audio are shared, and Chorus has no encryption of its own. Do not expose it to the internet; behind a reverse proxy, use HTTPS.

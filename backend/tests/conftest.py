@@ -107,3 +107,12 @@ def api(session, lrclib, tmp_path, monkeypatch) -> Iterator[TestClient]:
         yield c
     app.dependency_overrides.clear()
 
+
+
+@pytest.fixture(autouse=True)
+def _fresh_login_throttle():
+    from app.services.accounts import auth
+
+    auth.throttle.reset()
+    yield
+    auth.throttle.reset()

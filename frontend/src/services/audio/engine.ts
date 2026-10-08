@@ -30,3 +30,10 @@ export interface PlaybackEngine {
   onStateChange(cb: (state: EngineState) => void): Unsubscribe;
   onError(cb: (message: string) => void): Unsubscribe;
 }
+
+/** What the game page holds on to: the playback interface plus clean-up and a level reading for diagnostics. */
+export interface GameEngine extends PlaybackEngine {
+  /** RMS of what is leaving the volume stages, 0..1 (an estimate for the direct engine). */
+  getOutputLevel(): number;
+  dispose(): void;
+}

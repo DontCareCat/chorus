@@ -75,8 +75,9 @@ describe("end of audio", () => {
 
 describe("offset", () => {
   const dto = (offset: number, qs: Partial<QuestionDto>[]): GameDto => ({
-    public_id: "x", song_id: 1, song_title: "t", song_artist: "a", song_duration: 100, language: "de", difficulty: "easy", synced: true, lyrics_offset: offset,
-    started_at: "", finished_at: null, progress: { answered: 0, total: qs.length, score: 0 },
+    public_id: "x", song_id: 1, song_title: "t", song_artist: "a", song_duration: 100, sample_rate: 44100, language: "de", difficulty: "easy", synced: true, lyrics_offset: offset,
+    started_at: "", finished_at: null, progress: { answered: 0, total: qs.length, score: 0, correct: 0, streak: 0, multiplier: 1, best_multiplier: 1 },
+    lines: [],
     questions: qs.map((p, i) => ({
       id: i + 1, line_id: i + 1, blank_index: 0, sequence: i, audio_start: 10, audio_end: 12, recovery_start: 5,
       question_text: "a ____", text: null, options: [], answer: null, ...p,

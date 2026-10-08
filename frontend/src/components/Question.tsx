@@ -1,24 +1,12 @@
+import { memo } from "react";
 import { buildPrompt } from "../game/prompt";
 import { useFitText } from "../hooks/useFitText";
-import type { QuestionResult } from "../hooks/useGame";
+import { resultWord, rightWord } from "../game/results";
+import type { QuestionResult } from "../game/results";
 import { en } from "../i18n/en";
 import type { QuizQuestion } from "../types/question";
 
 const KEYS = ["1", "2", "3", "4"];
-
-/** The word a question stands for once answered: its right answer. */
-export function rightWord(q: QuizQuestion, r: QuestionResult | undefined): string | undefined {
-  if (!r || r.correctOptionId === undefined) return undefined;
-  return q.options.find((o) => o.id === r.correctOptionId)?.text;
-}
-
-export function resultWord(q: QuizQuestion, r: QuestionResult | undefined): { word: string; ok: boolean | undefined } | null {
-  if (!r) return null;
-  const chosen = q.options.find((o) => o.id === r.selectedOptionId)?.text;
-  const right = rightWord(q, r);
-  if (r.correct === undefined) return chosen ? { word: chosen, ok: undefined } : null;
-  return { word: (r.correct ? chosen : right) ?? chosen ?? "", ok: r.correct };
-}
 
 interface Props {
   question: QuizQuestion;
@@ -28,46 +16,52 @@ interface Props {
   index: number;
   total: number;
   onAnswer: (optionId: number) => void;
+  /** Phone layout: no big sentence (the lyric window carries the line); only the answers. */
+  answersOnly?: boolean;
 }
 
-export function Question({ question: q, siblings, results, index, total, onAnswer }: Props) {
+export const Question = memo(function Question({ question: q, siblings, results, index, total, onAnswer, answersOnly = false }: Props) {
   const result = results.get(q.id);
   const shown = resultWord(q, result);
   const state = shown ? (shown.ok === undefined ? "pending" : shown.ok ? "correct" : "wrong") : "open";
   const wrongWord = result && result.correct === false ? q.options.find((o) => o.id === result.selectedOptionId)?.text : undefined;
   const parts = buildPrompt(q, siblings, (s) => rightWord(s, results.get(s.id)));
   const blanksInLine = siblings.length;
-  const promptRef = useFitText<HTMLHeadingElement>();
+  const promptRef = useFitText<HTMLHeadingElement>(JSON.stringify([q.id, state, wrongWord, parts]));
 
   return (
-    <section className="prompt-wrap" aria-labelledby="prompt">
-      <div className="prompt-bar">
-        <p className="prompt-count">
-          {en.game.question(index + 1, total)}
-          {blanksInLine > 1 && ` · ${en.game.blankOf(q.blankIndex + 1, blanksInLine)}`}
-        </p>
-      </div>
-      <h2 className="prompt" id="prompt" ref={promptRef}>
-        {parts.map((p, i) => {
-          if (p.kind === "text") return <span key={i}>{p.text}</span>;
-          if (p.state === "active") {
-            return (
-              <span key={i} className="blank" data-state={state} data-active="true">
-                {state === "wrong" ? wrongWord : (shown?.word ?? " ")}
-              </span>
-            );
-          }
-          return (
-            <span key={i} className="blank" data-state={p.state === "filled" ? "filled" : "sibling"}>
-              {p.state === "filled" ? p.word : " "}
-            </span>
-          );
-        })}
-      </h2>
-      <p className="reveal" data-ok={shown?.ok} aria-live="polite">
-        {shown?.ok === true && en.game.correct}
-        {shown?.ok === false && en.game.wrong(shown.word)}
-      </p>
+    <section className="prompt-wrap" aria-labelledby={answersOnly ? undefined : "prompt"} aria-label={answersOnly ? "Answers" : undefined}>
+      {!answersOnly && (
+        <>
+          <div className="prompt-bar">
+            <p className="prompt-count">
+              {en.game.question(index + 1, total)}
+              {blanksInLine > 1 && ` · ${en.game.blankOf(q.blankIndex + 1, blanksInLine)}`}
+            </p>
+          </div>
+          <h2 className="prompt" id="prompt" ref={promptRef}>
+            {parts.map((p, i) => {
+              if (p.kind === "text") return <span key={i}>{p.text}</span>;
+              if (p.state === "active") {
+                return (
+                  <span key={i} className="blank" data-state={state} data-active="true">
+                    {state === "wrong" ? wrongWord : (shown?.word ?? " ")}
+                  </span>
+                );
+              }
+              return (
+                <span key={i} className="blank" data-state={p.state === "filled" ? "filled" : "sibling"}>
+                  {p.state === "filled" ? p.word : " "}
+                </span>
+              );
+            })}
+          </h2>
+          <p className="reveal" data-ok={shown?.ok} aria-live="polite">
+            {shown?.ok === true && en.game.correct}
+            {shown?.ok === false && en.game.wrong(shown.word)}
+          </p>
+        </>
+      )}
       <ul className="options" aria-label="Answers">
         {q.options.map((o, i) => {
           let s: string | undefined;
@@ -89,4 +83,4 @@ export function Question({ question: q, siblings, results, index, total, onAnswe
       </ul>
     </section>
   );
-}
+});

@@ -4,7 +4,7 @@ import pytest
 
 from app.core.errors import AppError
 from app.services.game.generator import (
-    BLANK, DIFFICULTIES, DIFFICULTY_PERCENT, build_drafts, question_target, select_lines,
+    BLANK, DIFFICULTIES, DIFFICULTY_PERCENT, build_drafts, question_target, select_lines, unique_word_count,
 )
 from app.services.game.nlp import tokenize
 
@@ -28,7 +28,7 @@ def lyr(lines=LINES, id=1):
 
 
 def total_words(lyrics):
-    return sum(len(tokenize(l.text)) for l in select_lines(lyrics.lines))
+    return unique_word_count(select_lines(lyrics.lines))
 
 
 def test_tokenize_handles_umlauts_and_apostrophes():
@@ -135,9 +135,10 @@ def test_function_words_are_the_fallback_when_a_song_has_no_content_words():
     assert drafts and all(len(d.options) == 4 for d in drafts)
 
 
-def test_repeated_and_short_lines_dropped():
+def test_short_lines_are_dropped_but_repeated_lines_are_kept():
     lines = lyr(["Du hast mich gefragt", "du hast  mich GEFRAGT", "ja ja"]).lines
-    assert len(select_lines(lines)) == 1
+    assert [l.id for l in select_lines(lines)] == [1, 2]
+    assert unique_word_count(select_lines(lines)) == 4  # the percentages are based on each distinct line once
 
 
 def test_word_repeated_in_line_is_never_blanked():
@@ -149,3 +150,76 @@ def test_unsupported_language_rejected():
     with pytest.raises(AppError) as e:
         build_drafts(lyr(), "ja", "easy")
     assert e.value.code == "language_not_supported"
+
+
+# ---------- even spread over the song ----------
+CHORUS = ["Wir tanzen durch die ganze Nacht", "Der Regen fällt auf unser Dach", "Ein neuer Tag beginnt ganz leise"]
+VERSES = [f"Strophe {n} erzählt vom Sommer am Fluss mit Freunden" for n in "abcdefghij"]
+
+
+def song_with_choruses():
+    """Verse, chorus, verse, chorus, ... : the second half of the song is mostly repeats, like the real songs that clustered."""
+    lines = []
+    for i in range(6):
+        lines += [f"{w} im Garten und am Fluss {i}" for w in ("Kinder spielen", "Vögel singen", "Blumen blühen")][:2]
+        lines += CHORUS
+    return lyr(lines)
+
+
+def times(drafts):
+    return sorted({d.line.start_time for d in drafts})
+
+
+@pytest.mark.parametrize("difficulty", ["easy", "medium"])
+def test_questions_cover_the_whole_song_even_with_repeated_choruses(difficulty):
+    lyrics = song_with_choruses()
+    drafts = build_drafts(lyrics, "de", difficulty)
+    span = lyrics.lines[-1].start_time
+    thirds = [sum(1 for d in drafts if lo <= d.line.start_time / span < hi) for lo, hi in ((0, 1 / 3), (1 / 3, 2 / 3), (2 / 3, 1.01))]
+    assert all(t >= 0.2 * len(drafts) for t in thirds), (difficulty, thirds)
+
+
+def test_no_large_gaps_between_questions():
+    lyrics = song_with_choruses()
+    drafts = build_drafts(lyrics, "de", "easy")
+    ts = times(drafts)
+    span = lyrics.lines[-1].start_time - lyrics.lines[0].start_time
+    ideal = span / max(1, len(ts) - 1)
+    assert max(b - a for a, b in zip(ts, ts[1:])) <= 2.5 * ideal, (ts, ideal)
+
+
+def test_a_repeated_line_never_blanks_a_word_its_earlier_occurrence_blanked():
+    from app.services.game.nlp import normalize_line
+
+    seen: dict[str, set[str]] = {}
+    for d in build_drafts(song_with_choruses(), "de", "hard"):
+        key = normalize_line(d.line.text)
+        assert d.word.lower() not in seen.setdefault(key, set()) or d.line.start_time == min(
+            x.line.start_time for x in build_drafts(song_with_choruses(), "de", "hard") if normalize_line(x.line.text) == key and x.word == d.word
+        )
+        seen[key].add(d.word.lower())
+
+
+def test_a_chorus_asks_new_words_each_time_it_comes_round():
+    drafts = build_drafts(song_with_choruses(), "de", "hard")
+    by_line: dict[str, list[tuple[float, str]]] = {}
+    for d in drafts:
+        if d.line.text in CHORUS:
+            by_line.setdefault(d.line.text, []).append((d.line.start_time, d.word.lower()))
+    for words in by_line.values():
+        asked = [w for _, w in sorted(words)]
+        assert len(asked) == len(set(asked)), asked  # the same word is never asked twice for the same line
+
+
+def test_few_questions_land_on_different_lines():
+    lyrics = song_with_choruses()
+    drafts = build_drafts(lyrics, "de", "easy")
+    assert len({d.line.id for d in drafts}) == len(drafts)  # at most one blank per line while there are lines to spare
+
+
+def test_the_even_spread_is_still_deterministic_and_content_first():
+    from app.services.game.nlp import zipf
+
+    a = [(d.line.id, d.word) for d in build_drafts(song_with_choruses(), "de", "easy")]
+    assert a == [(d.line.id, d.word) for d in build_drafts(song_with_choruses(), "de", "easy")]
+    assert all(zipf(w, "de") < 6.0 for _, w in a)

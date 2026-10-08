@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, Enum, Float, String
+from sqlalchemy import Integer, Boolean, Enum, Float, String
 from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,7 @@ class Song(Base):
     artist: Mapped[str] = mapped_column(String(300), default="")
     album: Mapped[str | None] = mapped_column(String(300), default=None)
     duration: Mapped[float] = mapped_column(Float)
+    sample_rate: Mapped[int | None] = mapped_column(Integer, default=None)  # Hz; the player matches its audio context to it
     language: Mapped[str] = mapped_column(String(16))  # language of the lyrics = language being learned
     lyrics_offset: Mapped[float] = mapped_column(Float, default=0.0)  # user timing correction, seconds
     source: Mapped[SongSource] = mapped_column(Enum(SongSource, native_enum=False, length=16))

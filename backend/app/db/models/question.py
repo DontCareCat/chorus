@@ -9,13 +9,14 @@ from app.db.models.types import UTCDateTime, utcnow
 
 class Question(Base):
     __tablename__ = "questions"
-    __table_args__ = (UniqueConstraint("lyrics_id", "difficulty", "lyric_line_id", "blank_index", name="uq_question_blank"),)
+    __table_args__ = (UniqueConstraint("lyrics_id", "difficulty", "version", "lyric_line_id", "blank_index", name="uq_question_blank"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     song_id: Mapped[int] = mapped_column(ForeignKey("songs.id"), index=True)
     lyrics_id: Mapped[int] = mapped_column(ForeignKey("lyrics.id"), index=True)
     lyric_line_id: Mapped[int] = mapped_column(ForeignKey("lyric_lines.id"), index=True)
     difficulty: Mapped[str] = mapped_column(String(16))
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # generator version (old games keep theirs)
     blank_index: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # which blank of the line
     missing_word: Mapped[str] = mapped_column(String(100))
     sentence: Mapped[str] = mapped_column(Text)

@@ -49,6 +49,10 @@ def attach_lyrics(
         )
     for old in session.query(Lyrics).filter_by(song_id=song.id, is_active=True):
         old.is_active = False
+        if song.lyrics_offset and (old.source, old.external_id) != (source, external_id):
+            # the offset was tuned against the previous lyrics; different lyrics have their own timing
+            norm.warnings.append(f"The timing adjustment ({song.lyrics_offset:+.1f} s) was reset because these are different lyrics.")
+            song.lyrics_offset = 0.0
     lyrics = Lyrics(song=song, source=source, external_id=external_id, is_synced=norm.is_synced, is_active=True)
     lyrics.lines = [
         LyricLine(sequence=i, start_time=l.start, end_time=l.end, text=l.text) for i, l in enumerate(norm.lines)
@@ -130,3 +134,25 @@ def discover_lyrics(
         song.lyrics_status = status
         session.commit()
     return DiscoveryResult(status, candidates=usable[:20], unsynced_hidden=hidden)
+
+
+def replacement_candidates(session: Session, song: Song, lrclib: CachedLrclib, cfg: RuntimeSettings) -> DiscoveryResult:
+    """Candidates for a song that already has lyrics. Nothing is attached: the user decides.
+
+    The sidecar file and the confident exact match are exactly what `discover_lyrics` would pick again, so here
+    they are only offered like any other candidate (the one in use is flagged by the caller).
+    """
+    found: dict[int, LyricsCandidate] = {}
+    hidden = 0
+    try:
+        if song.artist:
+            exact = lrclib.get(song.artist, song.title, song.album, song.duration)
+            if exact is not None:
+                found[exact.id] = exact
+        for c in lrclib.search(f"{song.artist} {song.title}".strip()):
+            found.setdefault(c.id, c)
+    except LrclibUnavailable as e:
+        return DiscoveryResult(LyricsStatus.found, error=str(e))
+    usable = rank(song, [c for c in found.values() if is_usable(c, cfg)])
+    hidden = sum(1 for c in found.values() if not c.instrumental and not c.is_synced and c.plain_lyrics and not is_usable(c, cfg))
+    return DiscoveryResult(LyricsStatus.found, candidates=usable[:20], unsynced_hidden=hidden)

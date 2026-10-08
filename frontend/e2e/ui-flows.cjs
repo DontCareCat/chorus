@@ -14,17 +14,18 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.waitForSelector("text=Save settings");
   await page.check("text=Allow unsynchronized lyrics");
   await page.check("text=Keep forever");
-  await page.fill('input[type="text"] >> nth=0', "fr");
-  await page.fill("textarea", "/tmp/music-a\n/tmp/music-b");
+  await page.selectOption("select", "fr");
+  for (const dir of ["/tmp/music-a", "/tmp/music-b"]) { await page.fill('input[aria-label="Add folder"]', dir); await page.click('button:has-text("Add folder")'); }
   await page.click('button:has-text("Save settings")');
   await page.waitForSelector("text=Saved");
   await page.reload(); await page.waitForSelector("text=Save settings");
   ok(await page.isChecked("text=Allow unsynchronized lyrics"), "unsynchronized toggle persisted");
   ok(await page.isChecked("text=Keep forever"), "cache TTL 'keep forever' persisted (0)");
-  ok((await page.inputValue("textarea")).split("\n").length === 2, "library folders persisted");
+  ok((await page.$$(".folder-list li")).length === 2 && (await page.inputValue("select")) === "fr", "library folders and language persisted");
   // restore defaults
   await page.uncheck("text=Allow unsynchronized lyrics"); await page.uncheck("text=Keep forever");
-  await page.fill('input[type="text"] >> nth=0', "de"); await page.fill("textarea", "");
+  await page.selectOption("select", "de");
+  for (const b of await page.$$('.folder-list button')) await b.click();
   await page.click('button:has-text("Save settings")'); await page.waitForSelector("text=Saved");
 
   console.log("[song page: upload lyrics, timing]");
@@ -44,7 +45,7 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   ok((await page.textContent(".song:has-text(\"Anderes Lied\")")).includes("Lyrics ready"), "library now shows 'Lyrics ready' for the second song");
 
   console.log("[game: resume after reload, finish]");
-  await page.click('.song >> nth=0 >> button:has-text("Play")');
+  await page.click('.song >> nth=0 >> .play-btn');
   await page.click('.segmented button:has-text("Easy")');
   await page.click('button:has-text("Start new game")');
   await page.waitForSelector(".prompt");
@@ -53,21 +54,21 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.keyboard.press("2"); await page.waitForTimeout(1400);
   await page.reload(); await page.waitForSelector(".prompt");
   ok(/Question 3 of/.test(await page.textContent(".prompt-count")), "after a reload the game resumes at the first open question: " + (await page.textContent(".prompt-count")));
-  const marks = await page.$$eval(".sheet-line .mark", (e) => e.map((x) => x.textContent));
-  ok(marks.filter((m) => m !== "○").length >= 1 && marks.includes("○"), "answered lines keep their results: " + marks.slice(0, 4).join(" "));
+  const words = await page.$$eval(".lw-word", (e) => e.map((x) => x.dataset.state));
+  ok(words.length >= 2 && words.every((w) => w === "correct" || w === "wrong"), "answered words keep their results after a reload: " + words.join(" "));
   const total = (await page.evaluate(() => fetch("/api/games/" + location.hash.split("/").pop()).then((r) => r.json()))).questions.length;
   for (let i = 2; i < total; i++) { await page.keyboard.press("3"); await page.waitForTimeout(1250); }
   await page.waitForSelector(".notice.ok");
-  ok(/Finished: \d+ of \d+ correct/.test(await page.textContent(".notice.ok")), await page.textContent(".notice.ok"));
+  ok(/Finished: \d+ points, \d+ of \d+ right/.test(await page.textContent(".notice.ok")), await page.textContent(".notice.ok"));
   await page.screenshot({ path: "shots/13-finished.png" });
   await page.goto(B); await page.waitForSelector(".song");
-  await page.click('.song >> nth=0 >> button:has-text("Play")');
-  await page.waitForSelector(".past-games li");
-  ok((await page.textContent(".past-games")).includes("finished"), "past games list shows the finished game");
+  await page.click('.song >> nth=0 >> .play-btn');
+  await page.waitForSelector(".history");
+  ok(/Last game: .*points/.test(await page.textContent(".history")) && (await page.textContent(".history")).includes("Best score"), "the start panel shows the last and the best game");
   await page.screenshot({ path: "shots/14-library-past-games.png" });
 
   const m = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-  await m.goto(url); await m.waitForSelector(".prompt");
+  await m.goto(url); await m.waitForSelector(".opt");
   await m.screenshot({ path: "shots/15-mobile-game.png" });
   await m.goto(B + "#/songs/1"); await m.waitForSelector(".lyric-line");
   await m.screenshot({ path: "shots/16-mobile-song.png" });

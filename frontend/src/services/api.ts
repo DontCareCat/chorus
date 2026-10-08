@@ -1,5 +1,8 @@
 import type { GameDto } from "../types/game";
 
+/** Fired when the server says nobody may use it without signing in (guests switched off). */
+export const AUTH_REQUIRED = "chorus:auth-required";
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -20,6 +23,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const e = (body as { error?: { code: string; message: string } } | null)?.error;
+    if (res.status === 401 && e?.code === "auth_required") window.dispatchEvent(new Event(AUTH_REQUIRED));
     // A server crash or a proxy error may not carry our structured body: still say something a person can act on.
     const fallback = res.status >= 500 ? `The server had a problem (HTTP ${res.status}). Check the server log and try again.` : res.statusText || "Request failed";
     throw new ApiError(e?.code ?? "http_error", e?.message ?? fallback, res.status);
@@ -88,6 +92,7 @@ export interface CandidateDto {
   has_plain: boolean;
   instrumental: boolean;
   usable: boolean;
+  in_use: boolean;
 }
 
 export interface DiscoveryDto {
@@ -105,6 +110,8 @@ export interface SettingsDto {
   auto_fetch_lyrics: boolean;
   default_language: string;
   library_dirs: string[];
+  allow_guest: boolean;
+  allow_registration: boolean;
 }
 
 export interface ScanDto {
@@ -120,16 +127,60 @@ export interface GameSummaryDto {
   difficulty: string;
   started_at: string;
   finished_at: string | null;
-  score: number;
+  score: number; // points
+  correct_count: number;
+  best_multiplier: number;
+  answered: number;
+  total: number;
 }
 
 export interface AnswerResultDto {
   correct: boolean;
   correct_option_id: number;
   text: string;
-  score: number;
+  score: number; // the game's points so far
+  points: number; // points this answer earned
+  ahead: boolean;
+  multiplier: number; // the multiplier this answer was scored with
+  streak: number;
+  next_multiplier: number;
   already_answered: boolean;
   finished: boolean;
+}
+
+export interface SongScoreDto {
+  rank: number;
+  display_name: string;
+  points: number;
+  correct: number;
+  total: number;
+  best_multiplier: number;
+  difficulty: string;
+  finished_at: string;
+  me: boolean;
+}
+
+export interface GlobalScoreDto {
+  rank: number;
+  display_name: string;
+  points: number;
+  songs: number;
+  me: boolean;
+}
+
+export interface UserDto {
+  id: number;
+  username: string;
+  display_name: string;
+  is_guest: boolean;
+  is_admin: boolean;
+}
+
+export interface AuthStateDto {
+  user: UserDto | null;
+  allow_registration: boolean;
+  allow_guest: boolean;
+  first_account: boolean;
 }
 
 export const api = {
@@ -145,7 +196,9 @@ export const api = {
   patchSong: (id: number, patch: SongPatch) => request<SongDto>(`/api/songs/${id}`, json("PATCH", patch)),
 
   lyrics: (songId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`),
-  discover: (songId: number) => request<DiscoveryDto>(`/api/songs/${songId}/lyrics/discover`, { method: "POST" }),
+  /** `replace` (the song already has lyrics): only list candidates, never attach one by itself. */
+  discover: (songId: number, mode: "auto" | "replace" = "auto") =>
+    request<DiscoveryDto>(`/api/songs/${songId}/lyrics/discover?mode=${mode}`, { method: "POST" }),
   searchLyrics: (songId: number, q: string) => request<CandidateDto[]>(`/api/songs/${songId}/lyrics/search?q=${encodeURIComponent(q)}`),
   attachLyrics: (songId: number, lrclibId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`, json("POST", { lrclib_id: lrclibId })),
   uploadLyrics: (songId: number, file: File) => request<LyricsDto>(`/api/songs/${songId}/lyrics/upload`, form(file)),
@@ -157,6 +210,19 @@ export const api = {
   songGames: (songId: number) => request<GameSummaryDto[]>(`/api/songs/${songId}/games`),
   createGame: (songId: number, difficulty: string) => request<GameDto>("/api/games", json("POST", { song_id: songId, difficulty })),
   getGame: (publicId: string) => request<GameDto>(`/api/games/${publicId}`),
-  answer: (publicId: string, questionId: number, optionId: number) =>
-    request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, option_id: optionId })),
+  scores: () => request<GlobalScoreDto[]>("/api/scores"),
+  songScores: (songId: number) => request<SongScoreDto[]>(`/api/songs/${songId}/scores`),
+  myGames: () => request<GameSummaryDto[]>("/api/games"),
+  answer: (publicId: string, questionId: number, optionId: number, position: number | null, waited: number) =>
+    request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, option_id: optionId, position, waited })),
+
+  me: () => request<AuthStateDto>("/api/auth/me"),
+  register: (username: string, password: string, displayName: string) =>
+    request<AuthStateDto>("/api/auth/register", json("POST", { username, password, display_name: displayName || null })),
+  login: (username: string, password: string) => request<AuthStateDto>("/api/auth/login", json("POST", { username, password })),
+  logout: () => request<AuthStateDto>("/api/auth/logout", { method: "POST" }),
+  changePassword: (current: string, next: string) =>
+    request<{ ok: boolean }>("/api/auth/password", json("POST", { current_password: current, new_password: next })),
+  users: () => request<UserDto[]>("/api/users"),
+  deleteUser: (id: number) => request<{ deleted: number }>(`/api/users/${id}`, { method: "DELETE" }),
 };

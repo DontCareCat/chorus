@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
+import { Icon } from "../components/Icon";
+import { LanguageSelect } from "../components/LanguageSelect";
+import { timecode } from "../game/lyric-window";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
@@ -19,8 +22,18 @@ export function SongPage({ songId }: { songId: number }) {
 
   return (
     <>
-      <a className="crumb" href={paths.library()}>{en.song.back}</a>
-      <div className="page-head with-cover"><Cover songId={s.id} hasCover={s.has_cover} size="large" /><h1>{s.title}</h1></div>
+      <a className="crumb" href={paths.library()}>← {en.song.back}</a>
+      <div className="page-head with-cover">
+        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="xl" />
+        <div>
+          <h1>{s.title}</h1>
+          <div className="song-meta">
+            <span>{s.artist}</span>
+            {s.album && <span>{s.album}</span>}
+            <span className="lang">{s.language}</span>
+          </div>
+        </div>
+      </div>
       <div className="two-col">
         <Timing song={s} lyrics={lyrics.data} onSaved={song.reload} />
         <div>
@@ -45,7 +58,7 @@ function Details({ song, onSaved }: { song: SongDto; onSaved: () => void }) {
     }
   };
   return (
-    <section className="section">
+    <section className="panel">
       <h2>{en.song.details}</h2>
       <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
         {(["title", "artist", "album"] as const).map((k) => (
@@ -56,10 +69,10 @@ function Details({ song, onSaved }: { song: SongDto; onSaved: () => void }) {
         ))}
         <label className="field">
           <span>{en.song.language}</span>
-          <input type="text" value={f.language} maxLength={16} onChange={(e) => setF({ ...f, language: e.target.value })} />
+          <LanguageSelect value={f.language} onChange={(language) => setF({ ...f, language })} />
         </label>
         <button type="submit" className="btn">{en.song.save}</button>
-        {notice && <p className={`notice ${notice.kind}`} role="status" style={{ marginTop: "1rem" }}>{notice.text}</p>}
+        {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
       </form>
     </section>
   );
@@ -70,6 +83,7 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
   const audio = useRef<HTMLAudioElement>(null);
   const [offset, setOffset] = useState(song.lyrics_offset);
   const [now, setNow] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   useEffect(() => setOffset(song.lyrics_offset), [song.lyrics_offset]);
   useEffect(() => {
@@ -90,6 +104,12 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
       setNotice({ kind: "error", text: msg(e) });
     }
   };
+  const toggle = () => {
+    const a = audio.current;
+    if (!a) return;
+    if (a.paused) void a.play();
+    else a.pause();
+  };
 
   return (
     <section className="section">
@@ -97,14 +117,20 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
       {!lyrics && <p className="muted">{en.song.noLyrics}</p>}
       {lyrics && (
         <>
-          <audio ref={audio} className="audio" src={api.audioUrl(song.id)} controls preload="metadata" />
+          <audio ref={audio} src={api.audioUrl(song.id)} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
+          <div className="controls" style={{ gap: 12 }}>
+            <button type="button" className="icon-btn big" onClick={toggle} aria-label={playing ? en.game.pause : en.game.play} title={playing ? en.game.pause : en.game.play}>
+              <Icon name={playing ? "pause" : "play"} />
+            </button>
+            <span className="transport-time" style={{ textAlign: "left" }}>{timecode(now)} / {timecode(song.duration)}</span>
+          </div>
           {lyrics.is_synced ? (
             <>
-              <p className="muted">{en.song.offsetHelp}</p>
+              <p className="muted" style={{ marginTop: 14 }}>{en.song.offsetHelp}</p>
               <div className="offset-row">
-                <button type="button" className="btn quiet small" onClick={() => nudge(-0.1)}>{en.song.earlier}</button>
+                <button type="button" className="btn secondary small" onClick={() => nudge(-0.1)}>{en.song.earlier}</button>
                 <span className="offset-value" aria-live="polite">{offset > 0 ? "+" : ""}{offset.toFixed(1)} s</span>
-                <button type="button" className="btn quiet small" onClick={() => nudge(0.1)}>{en.song.later}</button>
+                <button type="button" className="btn secondary small" onClick={() => nudge(0.1)}>{en.song.later}</button>
                 <button type="button" className="btn small" onClick={() => void save()} disabled={offset === song.lyrics_offset}>{en.song.saveOffset}</button>
               </div>
               {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
@@ -121,7 +147,7 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
                 aria-current={i === active}
                 onClick={() => { if (audio.current && l.start_time !== null) { audio.current.currentTime = Math.max(0, l.start_time + offset); void audio.current.play(); } }}
               >
-                <time>{l.start_time === null ? "" : `${Math.floor(l.start_time / 60)}:${String(Math.floor(l.start_time % 60)).padStart(2, "0")}`}</time>
+                <time>{timecode(l.start_time)}</time>
                 <span>{l.text}</span>
               </li>
             ))}
@@ -137,6 +163,7 @@ function Finder({ song, hasLyrics, onAttached }: { song: SongDto; hasLyrics: boo
   const [candidates, setCandidates] = useState<CandidateDto[] | null>(null);
   const [hidden, setHidden] = useState(0);
   const [notice, setNotice] = useState<Notice>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
@@ -151,64 +178,62 @@ function Finder({ song, hasLyrics, onAttached }: { song: SongDto; hasLyrics: boo
       setBusy(false);
     }
   };
+  const attached = (l: LyricsDto) => {
+    setCandidates(null);
+    setWarnings(l.warnings);
+    setNotice({ kind: "ok", text: hasLyrics ? `${en.song.attached}. ${en.song.switchedNote}` : en.song.attached });
+    onAttached();
+  };
   const auto = () =>
     guard(async () => {
-      const d = await api.discover(song.id);
+      // With lyrics already saved, automatic search only lists candidates: the old behaviour (re-attach the same
+      // match) made it impossible to change them.
+      const d = await api.discover(song.id, hasLyrics ? "replace" : "auto");
       if (d.error) throw new ApiError("lrclib_unavailable", en.song.unavailable, 502);
       setHidden(d.unsynced_hidden);
-      if (d.status === "found") {
-        setCandidates(null);
-        setNotice({ kind: "ok", text: en.song.attached });
-        onAttached();
-      } else {
-        setCandidates(d.candidates);
-      }
+      if (d.status === "found" && d.lyrics) attached(d.lyrics);
+      else setCandidates(d.candidates);
     });
   const search = () =>
     guard(async () => {
       setHidden(0);
       setCandidates(await api.searchLyrics(song.id, q));
     });
-  const use = (c: CandidateDto) =>
-    guard(async () => {
-      await api.attachLyrics(song.id, c.id);
-      setCandidates(null);
-      setNotice({ kind: "ok", text: en.song.attached });
-      onAttached();
-    });
+  const use = (c: CandidateDto) => guard(async () => attached(await api.attachLyrics(song.id, c.id)));
   const upload = (f: File | undefined) =>
     f &&
     guard(async () => {
-      await api.uploadLyrics(song.id, f);
+      const l = await api.uploadLyrics(song.id, f);
       if (file.current) file.current.value = "";
-      setNotice({ kind: "ok", text: en.song.attached });
-      onAttached();
+      attached(l);
     });
 
   return (
-    <section className="section">
+    <section className="panel">
       <h2>{hasLyrics ? en.song.replace : en.song.find}</h2>
-      <p><button type="button" className="btn" onClick={() => void auto()} disabled={busy}>{en.song.findAuto}</button></p>
+      {hasLyrics && <p className="muted" style={{ marginBottom: 14 }}>{en.song.chooseHelp}</p>}
+      <p style={{ marginBottom: 14 }}><button type="button" className="btn" onClick={() => void auto()} disabled={busy}>{hasLyrics ? en.song.findAgain : en.song.findAuto}</button></p>
       <form className="inline" onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <label className="field">
           <span>{en.song.search}</span>
           <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={en.song.searchPlaceholder} />
         </label>
-        <button type="submit" className="btn quiet" disabled={busy || !q.trim()}>{en.song.search}</button>
+        <button type="submit" className="btn secondary" disabled={busy || !q.trim()}>{en.song.search}</button>
       </form>
-      <p style={{ marginTop: "1rem" }}>
-        <label className="btn quiet small" style={{ cursor: "pointer" }}>
+      <p style={{ marginTop: 14 }}>
+        <label className="btn quiet bordered small">
           {en.song.uploadLyrics}
           <input ref={file} type="file" accept=".lrc,.txt,text/plain" hidden onChange={(e) => void upload(e.target.files?.[0])} />
         </label>
       </p>
       {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
+      {warnings.map((w) => <p className="notice" key={w}>{w}</p>)}
       {hidden > 0 && <p className="notice">{en.song.hiddenUnsynced(hidden)} <a href={paths.settings()}>{en.nav.settings}</a></p>}
       {candidates && candidates.length === 0 && <p className="muted">{en.song.nothingFound}</p>}
       {candidates && candidates.length > 0 && (
         <ul className="candidates">
           {candidates.map((c) => (
-            <li className="candidate" key={c.id} data-usable={c.usable}>
+            <li key={c.id} data-usable={c.usable} data-in-use={c.in_use}>
               <div>
                 <strong>{c.artist}: {c.title}</strong>
                 <div className="muted">
@@ -217,7 +242,7 @@ function Finder({ song, hasLyrics, onAttached }: { song: SongDto; hasLyrics: boo
                   {c.instrumental && " · instrumental"}
                 </div>
               </div>
-              <button type="button" className="btn small" disabled={!c.usable || busy} onClick={() => void use(c)}>{en.song.useThese}</button>
+              {c.in_use ? <span className="tag">{en.song.inUse}</span> : <button type="button" className="btn small" disabled={!c.usable || busy} onClick={() => void use(c)}>{en.song.useThese}</button>}
             </li>
           ))}
         </ul>

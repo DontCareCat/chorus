@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import get_cfg, get_lrclib_client, get_session_factory, get_song
+from app.api.deps import current_user, get_cfg, get_lrclib_client, get_session_factory, get_song
 from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.database import get_session
@@ -20,7 +20,7 @@ from app.services.lyrics.background import discover_for_songs
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.settings import RuntimeSettings
 
-router = APIRouter(prefix="/api", tags=["songs"])
+router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_user)])
 
 
 @router.get("/songs", response_model=list[SongOut])

@@ -1,14 +1,17 @@
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import Game, GameAnswer, LyricLine, Lyrics, Question, Song
+from app.db.models import Game, GameAnswer, LyricLine, Lyrics, Question, Song, User
 from app.db.models.types import utcnow
 from app.schemas.game import (
-    AnswerOut, AnswerResult, GameOut, GameSummary, OptionOut, ProgressOut, QuestionOut,
+    AnswerOut, AnswerResult, GameOut, GameSummary, LineOut, OptionOut, ProgressOut, QuestionOut,
 )
-from app.services.game.generator import ensure_questions
+from app.services.game import scoring
+from app.services.game.generator import GENERATOR_VERSION, ensure_questions
+from app.services.library.tags import read_sample_rate
 
 
 def active_lyrics(session: Session, song: Song) -> Lyrics:
@@ -18,17 +21,19 @@ def active_lyrics(session: Session, song: Song) -> Lyrics:
     return lyrics
 
 
-def create_game(session: Session, song: Song, difficulty: str) -> Game:
+def create_game(session: Session, song: Song, difficulty: str, user: User) -> Game:
     lyrics = active_lyrics(session, song)
     ensure_questions(session, song, lyrics, difficulty)
-    game = Game(song_id=song.id, lyrics_id=lyrics.id, language=song.language, difficulty=difficulty)
+    game = Game(user_id=user.id, song_id=song.id, lyrics_id=lyrics.id, language=song.language, difficulty=difficulty,
+                question_version=GENERATOR_VERSION)
     session.add(game)
     session.commit()
     return game
 
 
-def get_game(session: Session, public_id: str) -> Game:
-    game = session.query(Game).filter_by(public_id=public_id).one_or_none()
+def get_game(session: Session, public_id: str, user: User) -> Game:
+    """A user only ever sees their own games; anybody else's id is simply 'not found'."""
+    game = session.query(Game).filter_by(public_id=public_id, user_id=user.id).one_or_none()
     if game is None:
         raise AppError("game_not_found", "Game not found", 404)
     return game
@@ -36,7 +41,7 @@ def get_game(session: Session, public_id: str) -> Game:
 
 def _questions(session: Session, game: Game) -> list[Question]:
     return (
-        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty)
+        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version)
         .order_by(Question.lyric_line_id, Question.blank_index).all()
     )
 
@@ -44,6 +49,9 @@ def _questions(session: Session, game: Game) -> list[Question]:
 def game_out(session: Session, game: Game) -> GameOut:
     song = session.get(Song, game.song_id)
     lyrics = session.get(Lyrics, game.lyrics_id)
+    if song.sample_rate is None and song.available:  # songs added before the rate was stored: look it up once
+        song.sample_rate = read_sample_rate(Path(song.file_path))
+        session.commit()
     ordered = session.query(LyricLine).filter_by(lyrics_id=game.lyrics_id).order_by(LyricLine.sequence).all()
     lines = {l.id: l for l in ordered}
     # recovery position = start of the previous lyric line (not necessarily a question line)
@@ -61,24 +69,36 @@ def game_out(session: Session, game: Game) -> GameOut:
             answer=AnswerOut(selected_option_id=a.selected_option_id, correct=a.is_correct,
                              correct_option_id=correct, answered_at=a.answered_at) if a else None,
         ))
+    question_lines = {q.line_id for q in questions}
+    line_out = [
+        LineOut(line_id=l.id, sequence=l.sequence, audio_start=l.start_time, audio_end=l.end_time,
+                text=None if l.id in question_lines else l.text)
+        for l in ordered
+    ]
     return GameOut(
-        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration,
+        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate,
         language=game.language, difficulty=game.difficulty,
         synced=lyrics.is_synced, lyrics_offset=song.lyrics_offset, started_at=game.started_at,
         finished_at=game.finished_at,
-        progress=ProgressOut(answered=len(answers), total=len(questions), score=game.score),
-        questions=questions,
+        progress=ProgressOut(answered=len(answers), total=len(questions), score=game.score, correct=game.correct_count,
+                             streak=game.streak, multiplier=game.multiplier, best_multiplier=game.best_multiplier),
+        questions=questions, lines=line_out,
     )
 
 
-def summary(game: Game) -> GameSummary:
+def summary(session: Session, game: Game) -> GameSummary:
+    total = session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version).count()
     return GameSummary(public_id=game.public_id, song_id=game.song_id, difficulty=game.difficulty,
-                       started_at=game.started_at, finished_at=game.finished_at, score=game.score)
+                       started_at=game.started_at, finished_at=game.finished_at, score=game.score,
+                       correct_count=game.correct_count, best_multiplier=game.best_multiplier,
+                       answered=len(game.answers), total=total)
 
 
-def submit_answer(session: Session, game: Game, question_id: int, option_id: int) -> AnswerResult:
+def submit_answer(
+    session: Session, game: Game, question_id: int, option_id: int, position: float | None = None, waited: float = 0.0,
+) -> AnswerResult:
     q = session.get(Question, question_id)
-    if q is None or q.lyrics_id != game.lyrics_id or q.difficulty != game.difficulty:
+    if q is None or q.lyrics_id != game.lyrics_id or q.difficulty != game.difficulty or q.version != game.question_version:
         raise AppError("question_not_in_game", "This question does not belong to the game", 404)
     option = next((o for o in q.options if o.id == option_id), None)
     if option is None:
@@ -86,18 +106,35 @@ def submit_answer(session: Session, game: Game, question_id: int, option_id: int
     correct_id = next(o.id for o in q.options if o.is_correct)
     text = session.get(LyricLine, q.lyric_line_id).text
 
+    # Answers of one game are applied one at a time, in arrival order: the streak depends on that order.
+    session.query(Game).filter_by(id=game.id).with_for_update().one()
+    session.refresh(game)
+
     existing = next((a for a in game.answers if a.question_id == q.id), None)
     if existing is not None:  # idempotent: the first answer stands
-        return AnswerResult(correct=existing.is_correct, correct_option_id=correct_id, text=text,
-                            score=game.score, already_answered=True, finished=game.finished_at is not None)
-    session.add(GameAnswer(game_id=game.id, question_id=q.id, selected_option_id=option.id, is_correct=option.is_correct))
+        return AnswerResult(
+            correct=existing.is_correct, correct_option_id=correct_id, text=text, score=game.score, points=existing.points,
+            ahead=existing.ahead, multiplier=existing.multiplier, streak=game.streak, next_multiplier=game.multiplier,
+            already_answered=True, finished=game.finished_at is not None)
+    song = session.get(Song, game.song_id)
+    start = q.audio_start
+    ahead = bool(option.is_correct and position is not None and start is not None and position < start + song.lyrics_offset)
+    outcome = scoring.score_answer(game.streak, option.is_correct, ahead, waited)
+    session.add(GameAnswer(game_id=game.id, question_id=q.id, selected_option_id=option.id, is_correct=option.is_correct,
+                           points=outcome.points, ahead=ahead, multiplier=outcome.multiplier))
+    game.score += outcome.points
+    game.streak = outcome.streak
+    game.multiplier = outcome.next_multiplier
+    game.best_multiplier = max(game.best_multiplier, outcome.next_multiplier)
     if option.is_correct:
-        game.score += 1
+        game.correct_count += 1
     session.flush()
     total = len(_questions(session, game))
     answered = session.query(GameAnswer).filter_by(game_id=game.id).count()
     if answered >= total and game.finished_at is None:
         game.finished_at = utcnow()
     session.commit()
-    return AnswerResult(correct=option.is_correct, correct_option_id=correct_id, text=text, score=game.score,
-                        finished=game.finished_at is not None)
+    return AnswerResult(
+        correct=option.is_correct, correct_option_id=correct_id, text=text, score=game.score, points=outcome.points,
+        ahead=ahead, multiplier=outcome.multiplier, streak=outcome.streak, next_multiplier=outcome.next_multiplier,
+        finished=game.finished_at is not None)

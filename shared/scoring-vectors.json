@@ -1,0 +1,999 @@
+{
+ "comment": "steps: correct, ahead, waited(s). expect: [points, multiplier applied, streak after, multiplier for the next answer]. Shared by backend and frontend tests.",
+ "cases": [
+  {
+   "name": "four plain answers earn 10 each, the fifth is x2",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "ahead bonus is multiplied",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": true,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": true,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     25,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     50,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "the multiplier stops at x8",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ],
+    [
+     20,
+     2,
+     6,
+     2
+    ],
+    [
+     20,
+     2,
+     7,
+     2
+    ],
+    [
+     20,
+     2,
+     8,
+     3
+    ],
+    [
+     30,
+     3,
+     9,
+     3
+    ],
+    [
+     30,
+     3,
+     10,
+     3
+    ],
+    [
+     30,
+     3,
+     11,
+     3
+    ],
+    [
+     30,
+     3,
+     12,
+     4
+    ],
+    [
+     40,
+     4,
+     13,
+     4
+    ],
+    [
+     40,
+     4,
+     14,
+     4
+    ],
+    [
+     40,
+     4,
+     15,
+     4
+    ],
+    [
+     40,
+     4,
+     16,
+     5
+    ],
+    [
+     50,
+     5,
+     17,
+     5
+    ],
+    [
+     50,
+     5,
+     18,
+     5
+    ],
+    [
+     50,
+     5,
+     19,
+     5
+    ],
+    [
+     50,
+     5,
+     20,
+     6
+    ],
+    [
+     60,
+     6,
+     21,
+     6
+    ],
+    [
+     60,
+     6,
+     22,
+     6
+    ],
+    [
+     60,
+     6,
+     23,
+     6
+    ],
+    [
+     60,
+     6,
+     24,
+     7
+    ],
+    [
+     70,
+     7,
+     25,
+     7
+    ],
+    [
+     70,
+     7,
+     26,
+     7
+    ],
+    [
+     70,
+     7,
+     27,
+     7
+    ],
+    [
+     70,
+     7,
+     28,
+     8
+    ],
+    [
+     80,
+     8,
+     29,
+     8
+    ],
+    [
+     80,
+     8,
+     30,
+     8
+    ]
+   ]
+  },
+  {
+   "name": "a wrong answer scores nothing and resets",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": false,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     0,
+     2,
+     0,
+     1
+    ],
+    [
+     10,
+     1,
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "a wrong answer is not rescued by the ahead flag",
+   "steps": [
+    {
+     "correct": false,
+     "ahead": true,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     0,
+     1,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "waiting under 5 s costs nothing",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 4.9
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "5 s of waiting drops one level and clears progress",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 5
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ],
+    [
+     20,
+     2,
+     6,
+     2
+    ],
+    [
+     20,
+     2,
+     7,
+     2
+    ],
+    [
+     20,
+     2,
+     8,
+     3
+    ],
+    [
+     30,
+     3,
+     9,
+     3
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "12 s of waiting drops two levels",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 12
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ],
+    [
+     20,
+     2,
+     6,
+     2
+    ],
+    [
+     20,
+     2,
+     7,
+     2
+    ],
+    [
+     20,
+     2,
+     8,
+     3
+    ],
+    [
+     10,
+     1,
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "waiting at x1 only clears progress toward x2",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 5
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "a wrong answer after waiting still resets",
+   "steps": [
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": true,
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "correct": false,
+     "ahead": false,
+     "waited": 5
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ],
+    [
+     20,
+     2,
+     6,
+     2
+    ],
+    [
+     20,
+     2,
+     7,
+     2
+    ],
+    [
+     20,
+     2,
+     8,
+     3
+    ],
+    [
+     0,
+     2,
+     0,
+     1
+    ]
+   ]
+  }
+ ]
+}

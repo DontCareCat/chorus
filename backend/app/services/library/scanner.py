@@ -40,7 +40,7 @@ def register_song(
         assert media_dir is not None
         final = store_in_media(path, digest, media_dir)
     song = Song(
-        title=tags.title, artist=tags.artist, album=tags.album, duration=tags.duration, language=language,
+        title=tags.title, artist=tags.artist, album=tags.album, duration=tags.duration, sample_rate=tags.sample_rate, language=language,
         source=source, file_path=str(final.resolve()), file_name=path.name, content_hash=digest,
         available=True, lyrics_status=LyricsStatus.pending, has_cover=extract_cover(path) is not None,
     )

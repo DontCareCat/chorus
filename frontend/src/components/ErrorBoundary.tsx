@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     const { error } = this.state;
     if (!error) return this.props.children;
     return (
-      <div className="shell" role="alert">
+      <div className="error-box" role="alert">
         <h1>{en.errors.crashTitle}</h1>
         <p>{en.errors.crashHelp}</p>
         <p>

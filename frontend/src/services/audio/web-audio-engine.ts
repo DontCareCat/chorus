@@ -1,4 +1,4 @@
-import type { EngineState, PlaybackEngine, Unsubscribe } from "./engine";
+import type { EngineState, GameEngine, Unsubscribe } from "./engine";
 
 const SEEK_TIMEOUT_MS = 8000;
 
@@ -14,7 +14,8 @@ interface Fade {
 /**
  * Production engine: a local <audio> element routed through Web Audio
  *
- *   <audio> → MediaElementAudioSourceNode → fade GainNode → master GainNode → AnalyserNode → destination
+ *   <audio> → MediaElementAudioSourceNode → fade GainNode → master GainNode → destination
+ *                                                                         ↘ AnalyserNode (a side branch: only reads)
  *
  * The fade gain is owned by the game (smooth ramps at the 3-second rule); the master gain is the player's volume
  * setting. Two stages, so neither can override the other.
@@ -22,7 +23,7 @@ interface Fade {
  * Fades use AudioParam automation on the audio clock (linearRampToValueAtTime), always anchored at the current
  * gain so an interrupted fade never jumps. The audio must be same-origin (served by our backend).
  */
-export class WebAudioPlaybackEngine implements PlaybackEngine {
+export class WebAudioPlaybackEngine implements GameEngine {
   private readonly gain: GainNode;
   private readonly master: GainNode;
   private masterValue = 1;
@@ -38,6 +39,8 @@ export class WebAudioPlaybackEngine implements PlaybackEngine {
   constructor(
     private readonly audio: HTMLAudioElement,
     private readonly ctx: AudioContext,
+    /** The engine made the context (and so closes it on dispose); leaving contexts open piles them up in the browser. */
+    private readonly ownsContext = false,
   ) {
     this.source = ctx.createMediaElementSource(audio);
     this.gain = ctx.createGain();
@@ -47,8 +50,8 @@ export class WebAudioPlaybackEngine implements PlaybackEngine {
     this.samples = new Float32Array(this.analyser.fftSize);
     this.source.connect(this.gain);
     this.gain.connect(this.master);
+    this.master.connect(ctx.destination); // the sound goes straight out: the analyser only listens on the side
     this.master.connect(this.analyser);
-    this.analyser.connect(ctx.destination);
     this.gain.gain.setValueAtTime(1, ctx.currentTime);
     this.master.gain.setValueAtTime(1, ctx.currentTime);
 
@@ -198,5 +201,6 @@ export class WebAudioPlaybackEngine implements PlaybackEngine {
     this.gain.disconnect();
     this.master.disconnect();
     this.analyser.disconnect();
+    if (this.ownsContext) void this.ctx.close().catch(() => undefined);
   }
 }

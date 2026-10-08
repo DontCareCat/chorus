@@ -5,15 +5,18 @@
 // It samples the REAL gain and AnalyserNode output level every 20 ms.
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:5173/";
+// ENGINE=direct runs everything on the "Direct audio" path (plain <audio>, stepped fades) instead of Web Audio
+const ENGINE = process.env.ENGINE === "direct" ? "direct" : "webaudio";
 const assert = (c, m) => { console.log((c ? "  PASS " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 
 /** Create a new game through the UI (Library → Play → difficulty → Start) and start the audio engine. */
 async function open(browser) {
   const page = await browser.newPage();
+  await page.addInitScript((k) => localStorage.setItem("chorus-audio-engine", k), ENGINE);
   page.on("pageerror", (e) => console.log("  PAGEERROR", e.message));
   await page.goto(B);
   await page.waitForSelector(".song");
-  await page.click('.song >> nth=0 >> button:has-text("Play")');
+  await page.click('.song >> nth=0 >> .play-btn');
   await page.click('.segmented button:has-text("Easy")');
   await page.click('button:has-text("Start new game")');
   await page.waitForSelector(".prompt");
@@ -40,16 +43,16 @@ const mark = (page) => page.evaluate(() => window.__log.length);
 const slice = async (page, from) => (await log(page)).slice(from);
 const states = (l) => l.map((x) => x.state).filter((s, i, a) => i === 0 || s !== a[i - 1]);
 /** Answer a question by its id: focus it via the lyric sheet, then press key 1. */
-const answerQ = async (page, qid, key = "1") => { await page.click(`.sheet-line[data-qid="${qid}"]`); await page.keyboard.press(key); };
+const answerQ = async (page, qid, key = "1") => { await page.$eval(`.lw-line[data-qid="${qid}"]`, (e) => { e.focus(); e.click(); }); await page.keyboard.press(key); };
 /** The game as the API sees it (timings, answers) — the page's own URL carries the game id. */
 const gameDto = (page) => page.evaluate(() => fetch("/api/games/" + location.hash.split("/").pop()).then((r) => r.json()));
 /** Answer every open question (a line can have several: each click focuses the line's first open question). */
 async function answerAllOpen(page, limit = null) {
   let n = 0;
   for (;;) {
-    const open = await page.$$('.sheet-line[data-r="open"]');
+    const open = await page.$$('.lw-line[data-status="open"]');
     if (!open.length || (limit !== null && n >= limit)) return n;
-    await open[0].click();
+    await open[0].evaluate((e) => { e.focus(); e.click(); }); // lines far from the playhead are clipped by the sliding window
     await page.keyboard.press("1");
     n++;
     await page.waitForTimeout(60);
@@ -85,7 +88,7 @@ async function answerAllOpen(page, limit = null) {
   const paused = l.filter((x) => x.state === "PAUSED_FOR_QUESTION");
   assert(paused.every((x) => x.paused && x.gain === 0), "paused with gain 0 while waiting");
   assert(Math.max(...paused.map((x) => x.time)) - Math.min(...paused.map((x) => x.time)) < 0.05, "position does not move while waiting");
-  assert(/Waiting for you/.test(await page.textContent(".status")), "the status line says the audio is waiting for you");
+  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says the audio is waiting for you");
   const blockingId = paused[0].blocking;
   const m1 = await mark(page);
   await answerQ(page, blockingId);
@@ -127,8 +130,8 @@ async function answerAllOpen(page, limit = null) {
   const took = Date.now() - t0;
   assert(took < 200, `the next question is on screen ${took} ms after the answer`);
   assert(/Correct: |The word was |Answer recorded/.test(await page.textContent(".last-answer")), "the result of the answer is shown: " + (await page.textContent(".last-answer")));
-  const mark1 = await page.$eval('.sheet-line >> nth=0', (e) => e.querySelector(".mark").textContent);
-  assert(mark1 === "✓" || mark1 === "✗" || mark1 === "○", "the lyric sheet records it too (" + mark1 + ")");
+  const word1 = await page.$eval('.lw-word', (e) => e.dataset.state);
+  assert(["correct", "wrong", "pending"].includes(word1), "the lyric window records it too (" + word1 + ")");
   await page.close();
 
   console.log("\n[5] answering ahead: no interruption");
@@ -139,7 +142,7 @@ async function answerAllOpen(page, limit = null) {
   await page.waitForTimeout(14000);
   l = await slice(page, m4);
   assert(l.every((x) => x.state === "PLAYING" || x.state === "IDLE"), "stayed PLAYING for 14 s with everything answered");
-  assert(/answered|Enjoy/.test(await page.textContent(".status")), "status line: " + (await page.textContent(".status")));
+  assert(/answered|Enjoy/.test(await page.textContent(".state-line")), "status line: " + (await page.textContent(".state-line")));
   await page.close();
 
   console.log("\n[6] recovery position of a later question = start of the PREVIOUS lyric line");
@@ -290,28 +293,35 @@ async function answerAllOpen(page, limit = null) {
   for (const [label, vp] of [["desktop", { width: 1280, height: 860 }], ["phone", { width: 390, height: 844 }]]) {
     const p = await browser.newPage({ viewport: vp });
     await p.goto(B); await p.waitForSelector(".song");
-    await p.click('.song:has-text("Testlied") >> button:has-text("Play")');
-    await p.click('.segmented button:has-text("Expert")'); await p.click('button:has-text("Start new game")'); await p.waitForSelector(".prompt");
+    await p.click('.song:has-text("Testlied") >> .play-btn');
+    await p.click('.segmented button:has-text("Expert")'); await p.click('button:has-text("Start new game")'); await p.waitForSelector(".opt");
+    const phone = label === "phone"; // the phone layout has no big sentence: lyrics and answers only
     const tops = new Set();
     const heights = new Set();
-    const lines = await p.$$(".sheet-line");
+    const lines = await p.$$(".lw-line[data-qid]");
     for (let i = 0; i < Math.min(lines.length, 12); i++) {
-      await lines[i].click();
+      await lines[i].evaluate((e) => { e.focus(); e.click(); });
       await p.waitForTimeout(60);
-      const m = await p.evaluate(() => ({ top: document.querySelector(".options").getBoundingClientRect().top + scrollY, h: document.querySelector(".prompt").getBoundingClientRect().height, fs: parseFloat(getComputedStyle(document.querySelector(".prompt")).fontSize), txt: document.querySelector(".prompt").textContent.length, fits: document.querySelector(".prompt").scrollHeight <= document.querySelector(".prompt").clientHeight + 1 }));
-      tops.add(Math.round(m.top)); heights.add(Math.round(m.h));
+      const m = await p.evaluate(() => { const pr = document.querySelector(".prompt"); return { top: document.querySelector(".options").getBoundingClientRect().top + scrollY, h: pr ? pr.getBoundingClientRect().height : 0, fs: pr ? parseFloat(getComputedStyle(pr).fontSize) : 0, txt: pr ? pr.textContent.length : 0, fits: pr ? pr.scrollHeight <= pr.clientHeight + 1 : true }; });
+      tops.add(Math.round(m.top / 3)); heights.add(Math.round(m.h)); // 3 px buckets: sub-pixel rounding is not movement
       if (!m.fits) assert(false, `${label}: the sentence fits its box (${m.txt} chars at ${m.fs}px)`);
     }
-    // answering (result line, filled blank) must not move it either
-    // choosing a line far down the sheet brings its question into view
-    await lines[lines.length - 1].click(); await p.waitForTimeout(900);
-    const vis = await p.evaluate(() => { const r = document.querySelector(".prompt-wrap").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
-    assert(vis, `${label}: clicking a line at the bottom of the sheet scrolls its question into view`);
+    // choosing a line far down the lyrics: the question comes into view (a page that scrolls), or the phone says where it is
+    await lines[lines.length - 1].evaluate((e) => { e.focus(); e.click(); }); await p.waitForTimeout(900);
+    if (phone) {
+      assert(await p.isVisible(".chip-float"), `${label}: a question far from the audio is announced with a "Your question" chip: ` + (await p.textContent(".chip-float").catch(() => "")));
+      assert(!(await p.$(".prompt")), `${label}: no big sentence on the phone`);
+    } else {
+      const vis = await p.evaluate(() => { const r = document.querySelector(".prompt-wrap").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+      assert(vis, `${label}: the question stays in view when a line far down the lyrics is chosen`);
+    }
     await p.keyboard.press("1"); await p.waitForTimeout(150);
-    tops.add(Math.round(await p.evaluate(() => document.querySelector(".options").getBoundingClientRect().top + scrollY)));
-    console.log(`  ${label}: option block top positions seen: ${[...tops].join(", ")} px; question box heights: ${[...heights].join(", ")} px`);
+    tops.add(Math.round((await p.evaluate(() => document.querySelector(".options").getBoundingClientRect().top + scrollY)) / 3));
+    console.log(`  ${label}: option block top positions seen (3 px buckets): ${[...tops].join(", ")}; question box heights: ${[...heights].join(", ")} px`);
     assert(tops.size === 1, `${label}: the answer block never moves across 12 different questions and after answering`);
     assert(heights.size === 1, `${label}: the question box keeps one height`);
+    const fitsScreen = await p.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.querySelector(".transport").getBoundingClientRect().bottom <= innerHeight + 1 && document.querySelector(".options").getBoundingClientRect().bottom <= document.querySelector(".transport").getBoundingClientRect().top + 1);
+    assert(fitsScreen, `${label}: the game fits the screen: no scrolling, answers and player bar fully visible`);
     await p.close();
   }
 
@@ -331,7 +341,7 @@ async function answerAllOpen(page, limit = null) {
   assert(w14.state === "PAUSED_FOR_QUESTION" && w14.paused, "the audio ended with the question open: the game waits instead of just stopping");
   assert(Math.abs(w14.time - last14.recovery_start) < 0.2, `…at the previous line (${w14.time.toFixed(2)} s, expected ${last14.recovery_start} s)`);
   assert(!l.some((x) => x.state === "FADING_OUT"), "no fade-out: there was nothing playing to fade");
-  assert(/Waiting for you/.test(await page.textContent(".status")), "the status line says it is waiting");
+  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says it is waiting");
   await answerQ(page, last14.id);
   await page.waitForFunction(() => window.__chorus.controller.state.name === "IDLE", null, { timeout: 30000 });
   assert(true, "after the answer it plays on and ends cleanly (nothing left to answer)");
@@ -408,8 +418,8 @@ async function answerAllOpen(page, limit = null) {
   console.log("\n[13] no volume control on a phone-size screen");
   const ph = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await ph.goto(B); await ph.waitForSelector(".song");
-  await ph.click('.song:has-text("Testlied") >> button:has-text("Play")');
-  await ph.click('.segmented button:has-text("Easy")'); await ph.click('button:has-text("Start new game")'); await ph.waitForSelector(".prompt");
+  await ph.click('.song:has-text("Testlied") >> .play-btn');
+  await ph.click('.segmented button:has-text("Easy")'); await ph.click('button:has-text("Start new game")'); await ph.waitForSelector(".opt");
   assert(!(await ph.isVisible(".volume")), "hidden: phones have hardware volume keys");
   assert(await ph.isVisible('button[aria-label="Play"]'), "the rest of the transport is unchanged");
   await ph.close();

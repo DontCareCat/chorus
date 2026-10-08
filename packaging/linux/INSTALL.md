@@ -12,7 +12,7 @@ sudo systemctl enable --now chorus
 ```
 
 - It listens on `127.0.0.1:8000` until you change `CHORUS_HOST` in `/etc/chorus/chorus.env`.
-  **There is no login.** Only open it to a network you trust, or put a reverse proxy with authentication in front.
+  Anyone who can reach the port can use Chorus as **Guest** until you switch guest access off in Settings (the first account you create administers the server). Chorus has no encryption of its own: only open it to a network you trust, or put a reverse proxy with HTTPS in front.
 - The database and uploaded songs are in `/var/lib/chorus` (not in `/opt/chorus`, so updating the program never touches your data).
 - Logs: `journalctl -u chorus -f`. Update: stop the service, replace the contents of `/opt/chorus`, start it again; the database is migrated automatically.
 - Without systemd: `CHORUS_DATA_DIR=$HOME/.chorus ./chorus serve --port 8000`.
