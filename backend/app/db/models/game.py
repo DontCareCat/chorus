@@ -18,6 +18,7 @@ class Game(Base):
     lyrics_id: Mapped[int] = mapped_column(ForeignKey("lyrics.id"), index=True)
     language: Mapped[str] = mapped_column(String(16))
     difficulty: Mapped[str] = mapped_column(String(16))
+    question_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # which generated question set this game uses
     started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
     score: Mapped[int] = mapped_column(Integer, default=0)  # points (see services/game/scoring.py)

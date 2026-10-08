@@ -9,7 +9,7 @@ from app.schemas.game import (
     AnswerOut, AnswerResult, GameOut, GameSummary, LineOut, OptionOut, ProgressOut, QuestionOut,
 )
 from app.services.game import scoring
-from app.services.game.generator import ensure_questions
+from app.services.game.generator import GENERATOR_VERSION, ensure_questions
 
 
 def active_lyrics(session: Session, song: Song) -> Lyrics:
@@ -22,7 +22,8 @@ def active_lyrics(session: Session, song: Song) -> Lyrics:
 def create_game(session: Session, song: Song, difficulty: str, user: User) -> Game:
     lyrics = active_lyrics(session, song)
     ensure_questions(session, song, lyrics, difficulty)
-    game = Game(user_id=user.id, song_id=song.id, lyrics_id=lyrics.id, language=song.language, difficulty=difficulty)
+    game = Game(user_id=user.id, song_id=song.id, lyrics_id=lyrics.id, language=song.language, difficulty=difficulty,
+                question_version=GENERATOR_VERSION)
     session.add(game)
     session.commit()
     return game
@@ -38,7 +39,7 @@ def get_game(session: Session, public_id: str, user: User) -> Game:
 
 def _questions(session: Session, game: Game) -> list[Question]:
     return (
-        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty)
+        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version)
         .order_by(Question.lyric_line_id, Question.blank_index).all()
     )
 
@@ -81,7 +82,7 @@ def game_out(session: Session, game: Game) -> GameOut:
 
 
 def summary(session: Session, game: Game) -> GameSummary:
-    total = session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty).count()
+    total = session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version).count()
     return GameSummary(public_id=game.public_id, song_id=game.song_id, difficulty=game.difficulty,
                        started_at=game.started_at, finished_at=game.finished_at, score=game.score,
                        correct_count=game.correct_count, best_multiplier=game.best_multiplier,
@@ -92,7 +93,7 @@ def submit_answer(
     session: Session, game: Game, question_id: int, option_id: int, position: float | None = None, waited: float = 0.0,
 ) -> AnswerResult:
     q = session.get(Question, question_id)
-    if q is None or q.lyrics_id != game.lyrics_id or q.difficulty != game.difficulty:
+    if q is None or q.lyrics_id != game.lyrics_id or q.difficulty != game.difficulty or q.version != game.question_version:
         raise AppError("question_not_in_game", "This question does not belong to the game", 404)
     option = next((o for o in q.options if o.id == option_id), None)
     if option is None:

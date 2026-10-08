@@ -101,3 +101,31 @@ def test_summary_carries_progress(api, song):
     answer(api, g, g["questions"][0])
     summary = api.get(f"/api/songs/{song['id']}/games").json()[0]
     assert (summary["score"], summary["correct_count"], summary["answered"], summary["total"]) == (10, 1, 1, len(g["questions"]))
+
+
+def test_games_keep_the_question_set_they_began_with(api, song, session):
+    """A game made before the even-spread generator keeps its (version 1) questions; new games use the current set."""
+    from app.db.models import Game, Question
+
+    g = new_game(api, song, "easy")
+    pid = g["public_id"]
+    session.commit()
+    game = session.query(Game).filter_by(public_id=pid).one()
+    assert game.question_version == 2
+    # turn the stored set and the game into a "version 1" game, then ask for a new game
+    session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty="easy").update({"version": 1})
+    game.question_version = 1
+    session.commit()
+    old = api.get(f"/api/games/{pid}").json()
+    assert [q["id"] for q in old["questions"]] == [q["id"] for q in g["questions"]]
+    fresh = new_game(api, song, "easy")
+    assert {q["id"] for q in fresh["questions"]}.isdisjoint({q["id"] for q in old["questions"]})
+    session.commit()
+    assert session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty="easy", version=1).count() == len(old["questions"])
+    # answering still works for the old game
+    q = old["questions"][0]
+    r = api.post(f"/api/games/{pid}/answers", json={"question_id": q["id"], "option_id": q["options"][0]["id"]})
+    assert r.status_code == 200
+    # ... and a question of the other set is not part of it
+    other = fresh["questions"][0]
+    assert api.post(f"/api/games/{pid}/answers", json={"question_id": other["id"], "option_id": other["options"][0]["id"]}).status_code == 404
