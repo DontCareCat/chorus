@@ -8,6 +8,8 @@ interface Auth {
   user: UserDto | null;
   state: AuthStateDto | null;
   loading: boolean;
+  /** The server could not tell who is asking (it is down, or older than this page): not the same as 'signed out'. */
+  unreachable: string | null;
   signIn: (username: string, password: string) => Promise<void>;
   signUp: (username: string, password: string, displayName: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,12 +21,15 @@ const Ctx = createContext<Auth | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthStateDto | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unreachable, setUnreachable] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setState(await api.me());
-    } catch {
+      setUnreachable(null);
+    } catch (e) {
       setState(null);
+      setUnreachable(e instanceof Error ? e.message : "unknown");
     } finally {
       setLoading(false);
     }
@@ -43,12 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: state?.user ?? null,
       state,
       loading,
+      unreachable,
       signIn: async (u, p) => setState(await api.login(u, p)),
       signUp: async (u, p, d) => setState(await api.register(u, p, d)),
       signOut: async () => setState(await api.logout()),
       refresh,
     }),
-    [state, loading, refresh],
+    [state, loading, unreachable, refresh],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

@@ -13,7 +13,7 @@ export function App() {
   const route = useRoute();
   const auth = useAuth();
   const { theme, setTheme } = useTheme();
-  const needsSignIn = !auth.loading && auth.user === null;
+  const needsSignIn = !auth.loading && auth.user === null && auth.unreachable === null;
 
   // Nobody may use the server without an account (guests are off): everything leads to the sign-in page.
   useEffect(() => {
@@ -37,13 +37,16 @@ export function App() {
               <>
                 <strong>{auth.user.display_name}</strong>
                 {auth.user.is_guest ? (
-                  <a href={paths.login()}>{en.account.signIn}</a>
+                  <>
+                    <a href={paths.login()}>{en.account.signIn}</a>
+                    {auth.state?.allow_registration && <a href={paths.register()}>{en.account.createLink}</a>}
+                  </>
                 ) : (
                   <button type="button" className="btn quiet small" onClick={() => void auth.signOut().then(() => { location.hash = paths.library(); })}>{en.account.signOut}</button>
                 )}
               </>
             ) : (
-              !auth.loading && <a href={paths.login()}>{en.account.signIn}</a>
+              !auth.loading && auth.unreachable === null && <a href={paths.login()}>{en.account.signIn}</a>
             )}
           </div>
           <div className="theme-switch" role="group" aria-label={en.theme.label}>
@@ -55,11 +58,16 @@ export function App() {
       </header>
       <main>
         {auth.loading && <p className="muted">…</p>}
-        {!auth.loading && route.name === "login" && <LoginPage />}
-        {!auth.loading && !needsSignIn && route.name === "library" && <LibraryPage />}
-        {!auth.loading && !needsSignIn && route.name === "song" && <SongPage songId={route.songId} key={route.songId} />}
-        {!auth.loading && !needsSignIn && route.name === "game" && <GamePage publicId={route.publicId} key={route.publicId} />}
-        {!auth.loading && !needsSignIn && route.name === "settings" && <SettingsPage />}
+        {!auth.loading && auth.unreachable !== null && (
+          <p className="notice error" role="alert">
+            {en.account.unreachable} <button type="button" className="btn secondary small" onClick={() => void auth.refresh()}>{en.account.retry}</button>
+          </p>
+        )}
+        {!auth.loading && auth.unreachable === null && route.name === "login" && <LoginPage signUp={route.name === "login" && route.signUp} key={route.name === "login" && route.signUp ? "up" : "in"} />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "library" && <LibraryPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "song" && <SongPage songId={route.songId} key={route.songId} />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "game" && <GamePage publicId={route.publicId} key={route.publicId} />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "settings" && <SettingsPage />}
         {!auth.loading && route.name === "notfound" && <p className="empty">Page not found. <a href={paths.library()}>{en.nav.library}</a></p>}
       </main>
     </div>

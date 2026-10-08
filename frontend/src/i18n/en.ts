@@ -17,10 +17,13 @@ export const en = {
     password: "Password",
     passwordHelp: "At least 8 characters.",
     create: "Create account",
+    createLink: "Create account",
     haveAccount: "Already have an account?",
     noAccount: "No account yet?",
     continueAsGuest: "Continue as guest",
     guest: "Guest",
+    unreachable: "The server did not answer the sign-in check. It may be stopped, or older than this page: restart the backend (python -m app.launcher serve updates the database by itself; with plain uvicorn run alembic upgrade head first).",
+    retry: "Try again",
   },
   library: {
     title: "Library",

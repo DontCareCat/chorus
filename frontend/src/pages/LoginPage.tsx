@@ -4,11 +4,11 @@ import { en } from "../i18n/en";
 import { paths } from "../router";
 import { ApiError } from "../services/api";
 
-export function LoginPage() {
+export function LoginPage({ signUp = false }: { signUp?: boolean }) {
   const auth = useAuth();
   const first = auth.state?.first_account ?? false;
   const canRegister = first || (auth.state?.allow_registration ?? false);
-  const [mode, setMode] = useState<"in" | "up">(first ? "up" : "in");
+  const [mode, setMode] = useState<"in" | "up">(first || signUp ? "up" : "in");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
