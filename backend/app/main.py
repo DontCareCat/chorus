@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import __version__
-from app.api.routes import auth, games, lyrics, settings, songs
+from app.api.routes import auth, games, lyrics, scores, settings, songs
 from app.core.config import settings as env
 from app.core.errors import (
     AppError, app_error_handler, http_error_handler, unhandled_error_handler, validation_error_handler,
@@ -33,6 +33,7 @@ def create_app(frontend_dist: str = "") -> FastAPI:
     app.include_router(songs.router)
     app.include_router(lyrics.router)
     app.include_router(games.router)
+    app.include_router(scores.router)
     app.include_router(settings.router)
 
     @app.get("/api/health")
