@@ -13,6 +13,8 @@ class RuntimeSettings(BaseModel):
     auto_fetch_lyrics: bool = True
     default_language: str = Field("de", min_length=2, max_length=16)
     library_dirs: list[str] = Field(default_factory=list)
+    allow_guest: bool = True  # administrator only: may people use Chorus without signing in
+    allow_registration: bool = True  # administrator only: may new accounts be created
 
 
 def _defaults() -> RuntimeSettings:

@@ -35,7 +35,8 @@ def test_create_game_payload_hides_answers(api, song):
     assert g["synced"] is True and g["language"] == "de" and g["lyrics_offset"] == 0
     assert (g["song_title"], g["song_artist"]) == ("Lied", "Band")
     assert g["song_duration"] == pytest.approx(40, abs=0.1)
-    assert g["progress"] == {"answered": 0, "total": len(g["questions"]), "score": 0}
+    assert g["progress"] == {"answered": 0, "total": len(g["questions"]), "score": 0, "correct": 0, "streak": 0,
+                             "multiplier": 1, "best_multiplier": 1}
     q = g["questions"][0]
     assert q["text"] is None and q["answer"] is None
     assert len(q["options"]) == 4 and all(set(o) == {"id", "text"} for o in q["options"])
@@ -67,10 +68,10 @@ def test_answer_flow_score_reveal_and_finish(api, song):
     q0 = g["questions"][0]
     right = find_correct(api, g, q0)
     r = api.post(f"/api/games/{pid}/answers", json={"question_id": q0["id"], "option_id": right}).json()
-    assert r["correct"] and r["score"] == 1 and r["correct_option_id"] == right and "____" not in r["text"]
+    assert r["correct"] and r["score"] == 10 and r["points"] == 10 and r["correct_option_id"] == right and "____" not in r["text"]
     wrong = next(o["id"] for o in g["questions"][1]["options"] if o["id"] != find_correct(api, g, g["questions"][1]))
     r = api.post(f"/api/games/{pid}/answers", json={"question_id": g["questions"][1]["id"], "option_id": wrong}).json()
-    assert not r["correct"] and r["score"] == 1
+    assert not r["correct"] and r["score"] == 10 and r["points"] == 0
     cur = api.get(f"/api/games/{pid}").json()  # persisted state survives a reload
     assert cur["progress"]["answered"] == 2 and cur["questions"][0]["text"] and cur["questions"][0]["answer"]["correct"]
     assert cur["questions"][2]["answer"] is None and cur["finished_at"] is None

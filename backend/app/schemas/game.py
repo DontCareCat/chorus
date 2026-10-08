@@ -32,7 +32,20 @@ class QuestionOut(BaseModel):
 class ProgressOut(BaseModel):
     answered: int
     total: int
-    score: int
+    score: int  # points
+    correct: int
+    streak: int
+    multiplier: int
+    best_multiplier: int
+
+
+class LineOut(BaseModel):
+    """Every lyric line of the game. Lines that carry a question have no text: it would give the answer away."""
+    line_id: int
+    sequence: int
+    audio_start: float | None
+    audio_end: float | None
+    text: str | None
 
 
 class GameOut(BaseModel):
@@ -49,6 +62,7 @@ class GameOut(BaseModel):
     finished_at: datetime | None
     progress: ProgressOut
     questions: list[QuestionOut]
+    lines: list[LineOut]
 
 
 class GameSummary(BaseModel):
@@ -57,7 +71,11 @@ class GameSummary(BaseModel):
     difficulty: str
     started_at: datetime
     finished_at: datetime | None
-    score: int
+    score: int  # points
+    correct_count: int
+    best_multiplier: int
+    answered: int
+    total: int
 
 
 class GameCreate(BaseModel):
@@ -68,12 +86,19 @@ class GameCreate(BaseModel):
 class AnswerIn(BaseModel):
     question_id: int
     option_id: int
+    position: float | None = Field(None, ge=0, le=100_000)  # audio time (s) when the player answered; None = unknown
+    waited: float = Field(0, ge=0, le=100_000)  # seconds the game spent waiting for this answer (multiplier decay)
 
 
 class AnswerResult(BaseModel):
     correct: bool
     correct_option_id: int
     text: str  # the full line, now revealed
-    score: int
+    score: int  # the game's points so far
+    points: int  # points this answer earned
+    ahead: bool
+    multiplier: int  # the multiplier this answer was scored with
+    streak: int
+    next_multiplier: int
     already_answered: bool = False
     finished: bool = False

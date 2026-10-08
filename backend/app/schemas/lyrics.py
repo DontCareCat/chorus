@@ -13,6 +13,7 @@ class CandidateOut(BaseModel):
     has_plain: bool
     instrumental: bool
     usable: bool  # false → plain-only while unsynchronized lyrics are not allowed, or instrumental
+    in_use: bool = False  # these are the lyrics the song has right now
 
 
 class LineOut(BaseModel):
