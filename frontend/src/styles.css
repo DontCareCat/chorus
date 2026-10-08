@@ -408,12 +408,11 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .menu-panel .account { flex-wrap: wrap; }
 .scan-in { display: none; }
 
-/* The game screen is sized to the SMALL viewport (the one with the browser's bars showing): whatever the bars do, the
-   answers and the player stay inside what can be seen. When the bars slide away a strip of plain background shows
-   below the player, which is the price of never losing the controls. (Fixed positioning and visualViewport were tried:
-   mobile browsers disagree about which edge they pin to.) */
+/* The game screen is exactly as tall as what can be seen, following the browser's bars as they slide in and out:
+   100dvh is the dynamic viewport. It must never get a min-height: other pages' 100vh is the height with the bars
+   HIDDEN on phones and pushed the player off the screen. The page itself does not scroll here (.game-lock). */
 .game-lock, .game-lock body { height: 100%; overflow: hidden; overscroll-behavior: none; }
-.shell[data-route="game"] { min-height: 0; /* the 100vh minimum of other pages is the height with the browser bars HIDDEN on phones: it pushed the player off the screen */ height: 100vh; height: 100svh; height: var(--app-h, 100svh); display: flex; flex-direction: column; overflow: hidden; }
+.shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
 main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding: 0; display: flex; flex-direction: column; }
