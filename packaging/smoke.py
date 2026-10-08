@@ -82,6 +82,10 @@ def main(executable: str) -> int:
             assert health["app"] == "chorus", health
             assert b'<div id="root">' in get(base + "/"), "frontend not bundled"
             assert "default_language" in json.loads(get(base + "/api/settings")), "migrations/settings failed"
+            me = json.loads(get(base + "/api/auth/me"))
+            assert me["user"]["is_guest"] and me["allow_guest"], "guest access is not the default"
+            signed = post(base + "/api/auth/register", json_body={"username": "smoke", "password": "smoke test pass"})
+            assert signed["user"]["is_admin"], "creating an account failed (password hashing unavailable in this build?)"
             wav = Path(data) / "Band - Lied.wav"
             make_wav(wav)
             song = post(base + "/api/songs", files=[("Band - Lied.wav", wav.read_bytes())])

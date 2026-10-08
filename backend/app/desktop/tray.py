@@ -139,7 +139,7 @@ def run(net: userconfig.Network, data_dir: Path, resolve: Callable[[], userconfi
             icon.stop()
             return
         if state["net"].remote:
-            notify("Other devices on your network can now use Chorus. There is no login: use only trusted networks.")
+            notify("Other devices on your network can now reach Chorus and use it as Guest. Create an account and switch guest access off in Settings to require sign-in.")
         icon.update_menu()
 
     def toggle_autostart(_icon, _item) -> None:

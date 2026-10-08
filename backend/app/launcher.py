@@ -128,7 +128,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
     if not frontend:
         log.warning("No built frontend found: serving the API only (build it with `npm run build` in frontend/).")
     if net.remote:
-        log.warning("Listening on %s: anyone who can reach this port can use Chorus (there is no login).", net.host)
+        log.warning("Listening on %s: anyone who can reach this port can use Chorus as Guest unless guest access is switched off in Settings.", net.host)
     import uvicorn
 
     from app.main import app

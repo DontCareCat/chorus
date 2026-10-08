@@ -90,6 +90,7 @@ def test_login_logout_and_session_storage(api, session):
     assert row.token_hash != token and len(row.token_hash) == 64  # only a digest is stored
     api.post("/api/auth/logout")
     assert api.get("/api/auth/me").json()["user"]["is_guest"]
+    session.commit()  # end the test session's snapshot (MySQL repeatable read) to see what the API committed
     assert session.query(UserSession).count() == 0
     bad = api.post("/api/auth/login", json={"username": "anna", "password": "nope nope"})
     assert bad.status_code == 401 and bad.json()["error"]["code"] == "invalid_credentials"
@@ -114,6 +115,7 @@ def test_expired_session_is_ignored_and_removed(api, session):
     row.expires_at = utcnow() - timedelta(seconds=1)
     session.commit()
     assert api.get("/api/auth/me").json()["user"]["is_guest"]
+    session.commit()
     assert session.query(UserSession).count() == 0
 
 
@@ -164,6 +166,7 @@ def test_only_the_administrator_manages_users_and_access(api, session):
     bob_id = users[1]["id"]
     assert api.delete(f"/api/users/{users[0]['id']}").status_code == 409  # not yourself
     assert api.delete(f"/api/users/{bob_id}").status_code == 200
+    session.commit()
     assert session.query(User).filter_by(username="bob").count() == 0
     assert bob.get("/api/auth/me").json()["user"]["is_guest"]  # their session went with them
 
