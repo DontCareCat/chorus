@@ -38,9 +38,24 @@ Pick one. All of them are the same app and the same database format.
 
 Download from the [Releases](../../releases) page: `Chorus-Setup-x.y.z.exe` (or the portable `.zip`) for Windows, `Chorus-x.y.z-macos-arm64.dmg` / `-macos-x64.dmg` for macOS. Start it and a Chorus icon appears in the system tray (menu bar on macOS) and your browser opens the app. Closing the browser tab does not stop Chorus; use the tray menu to quit.
 
-The apps are **not code-signed**, so the first start shows a warning:
-- macOS: drag Chorus to Applications, then right-click it and choose **Open** once (or run `xattr -dr com.apple.quarantine /Applications/Chorus.app`).
-- Windows: SmartScreen says "unknown publisher": **More info**, then **Run anyway**.
+The apps are **not code-signed**, so the first start shows a warning from the operating system. It appears once per downloaded file.
+
+#### macOS
+
+Pick the disk image for your Mac: `-macos-arm64.dmg` for Apple silicon (M1 and later), `-macos-x64.dmg` for Intel.
+
+1. Open the `.dmg` and drag **Chorus** into **Applications**.
+2. Start Chorus. macOS says it cannot verify the app. Allow it in one of these ways:
+   - **macOS 15 (Sequoia) and later:** dismiss the warning, open **System Settings → Privacy & Security**, scroll to *Security*, press **Open Anyway** next to "Chorus was blocked", and confirm with your password or Touch ID.
+   - **macOS 14 and earlier:** right-click (or Control-click) Chorus in Applications, choose **Open**, then **Open** again in the dialog.
+   - **Any version, from the Terminal:** `xattr -dr com.apple.quarantine /Applications/Chorus.app` removes the "downloaded from the internet" flag; then start the app normally.
+3. A Chorus icon appears in the menu bar and your browser opens http://localhost:8765. There is no Dock icon: use the menu-bar icon to open Chorus again, change settings or quit.
+
+The first start can take a few seconds. If the page does not open, click the menu-bar icon and choose **Open Chorus**; the log is `~/Library/Application Support/Chorus/chorus.log`.
+
+#### Windows
+
+SmartScreen says "unknown publisher": **More info**, then **Run anyway**.
 
 **Your data is never inside the app.** The library, lyrics cache, uploads and settings live in your user folder, so you can copy, share or delete the app without taking your music library along:
 
