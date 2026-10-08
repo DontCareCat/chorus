@@ -291,27 +291,34 @@ async function answerAllOpen(page, limit = null) {
     const p = await browser.newPage({ viewport: vp });
     await p.goto(B); await p.waitForSelector(".song");
     await p.click('.song:has-text("Testlied") >> .play-btn');
-    await p.click('.segmented button:has-text("Expert")'); await p.click('button:has-text("Start new game")'); await p.waitForSelector(".prompt");
+    await p.click('.segmented button:has-text("Expert")'); await p.click('button:has-text("Start new game")'); await p.waitForSelector(".opt");
+    const phone = label === "phone"; // the phone layout has no big sentence: lyrics and answers only
     const tops = new Set();
     const heights = new Set();
     const lines = await p.$$(".lw-line[data-qid]");
     for (let i = 0; i < Math.min(lines.length, 12); i++) {
       await lines[i].evaluate((e) => { e.focus(); e.click(); });
       await p.waitForTimeout(60);
-      const m = await p.evaluate(() => ({ top: document.querySelector(".options").getBoundingClientRect().top + scrollY, h: document.querySelector(".prompt").getBoundingClientRect().height, fs: parseFloat(getComputedStyle(document.querySelector(".prompt")).fontSize), txt: document.querySelector(".prompt").textContent.length, fits: document.querySelector(".prompt").scrollHeight <= document.querySelector(".prompt").clientHeight + 1 }));
-      tops.add(Math.round(m.top)); heights.add(Math.round(m.h));
+      const m = await p.evaluate(() => { const pr = document.querySelector(".prompt"); return { top: document.querySelector(".options").getBoundingClientRect().top + scrollY, h: pr ? pr.getBoundingClientRect().height : 0, fs: pr ? parseFloat(getComputedStyle(pr).fontSize) : 0, txt: pr ? pr.textContent.length : 0, fits: pr ? pr.scrollHeight <= pr.clientHeight + 1 : true }; });
+      tops.add(Math.round(m.top / 3)); heights.add(Math.round(m.h)); // 3 px buckets: sub-pixel rounding is not movement
       if (!m.fits) assert(false, `${label}: the sentence fits its box (${m.txt} chars at ${m.fs}px)`);
     }
-    // answering (result line, filled blank) must not move it either
-    // choosing a line far down the sheet brings its question into view
-    await lines[lines.length - 1].click(); await p.waitForTimeout(900);
-    const vis = await p.evaluate(() => { const r = document.querySelector(".prompt-wrap").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
-    assert(vis, `${label}: clicking a line at the bottom of the sheet scrolls its question into view`);
+    // choosing a line far down the lyrics: the question comes into view (a page that scrolls), or the phone says where it is
+    await lines[lines.length - 1].evaluate((e) => { e.focus(); e.click(); }); await p.waitForTimeout(900);
+    if (phone) {
+      assert(await p.isVisible(".chip-float"), `${label}: a question far from the audio is announced with a "Your question" chip: ` + (await p.textContent(".chip-float").catch(() => "")));
+      assert(!(await p.$(".prompt")), `${label}: no big sentence on the phone`);
+    } else {
+      const vis = await p.evaluate(() => { const r = document.querySelector(".prompt-wrap").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; });
+      assert(vis, `${label}: the question stays in view when a line far down the lyrics is chosen`);
+    }
     await p.keyboard.press("1"); await p.waitForTimeout(150);
-    tops.add(Math.round(await p.evaluate(() => document.querySelector(".options").getBoundingClientRect().top + scrollY)));
-    console.log(`  ${label}: option block top positions seen: ${[...tops].join(", ")} px; question box heights: ${[...heights].join(", ")} px`);
+    tops.add(Math.round((await p.evaluate(() => document.querySelector(".options").getBoundingClientRect().top + scrollY)) / 3));
+    console.log(`  ${label}: option block top positions seen (3 px buckets): ${[...tops].join(", ")}; question box heights: ${[...heights].join(", ")} px`);
     assert(tops.size === 1, `${label}: the answer block never moves across 12 different questions and after answering`);
     assert(heights.size === 1, `${label}: the question box keeps one height`);
+    const fitsScreen = await p.evaluate(() => document.documentElement.scrollHeight <= innerHeight + 1 && document.querySelector(".transport").getBoundingClientRect().bottom <= innerHeight + 1 && document.querySelector(".options").getBoundingClientRect().bottom <= document.querySelector(".transport").getBoundingClientRect().top + 1);
+    assert(fitsScreen, `${label}: the game fits the screen: no scrolling, answers and player bar fully visible`);
     await p.close();
   }
 
@@ -409,7 +416,7 @@ async function answerAllOpen(page, limit = null) {
   const ph = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await ph.goto(B); await ph.waitForSelector(".song");
   await ph.click('.song:has-text("Testlied") >> .play-btn');
-  await ph.click('.segmented button:has-text("Easy")'); await ph.click('button:has-text("Start new game")'); await ph.waitForSelector(".prompt");
+  await ph.click('.segmented button:has-text("Easy")'); await ph.click('button:has-text("Start new game")'); await ph.waitForSelector(".opt");
   assert(!(await ph.isVisible(".volume")), "hidden: phones have hardware volume keys");
   assert(await ph.isVisible('button[aria-label="Play"]'), "the rest of the transport is unchanged");
   await ph.close();

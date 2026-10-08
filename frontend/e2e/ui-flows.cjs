@@ -68,7 +68,7 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.screenshot({ path: "shots/14-library-past-games.png" });
 
   const m = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
-  await m.goto(url); await m.waitForSelector(".prompt");
+  await m.goto(url); await m.waitForSelector(".opt");
   await m.screenshot({ path: "shots/15-mobile-game.png" });
   await m.goto(B + "#/songs/1"); await m.waitForSelector(".lyric-line");
   await m.screenshot({ path: "shots/16-mobile-song.png" });

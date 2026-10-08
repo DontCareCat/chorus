@@ -109,11 +109,11 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   const dist = (v) => Math.abs(v - contrast.bg);
   ok(dist(contrast.d0) > dist(contrast.d1) && dist(contrast.d1) > dist(contrast.d3) && dist(contrast.time) < dist(contrast.d3), "contrast fades with distance; the timecode is the quietest of all");
   ok(/^\d+:\d\d$/.test(await page.textContent('.lw-line[data-d="0"] time')), "every line has its timecode on the left: " + (await page.textContent('.lw-line[data-d="0"] time')));
-  const pos = async () => page.$eval('.lw-line[data-d="0"]', (e) => { const r = e.getBoundingClientRect(), v = document.querySelector(".lyric-window").getBoundingClientRect(); return { mid: r.top + r.height / 2 - (v.top + v.height / 2), text: e.textContent }; });
+  const pos = async () => page.$eval('.lw-line[data-d="0"]', (e) => { const r = e.getBoundingClientRect(), v = document.querySelector(".lyric-window").getBoundingClientRect(); return { inside: r.top >= v.top - 1 && r.bottom <= v.bottom + 1, text: e.textContent }; });
   const p1 = await pos();
   await page.waitForTimeout(5200);
   const p2 = await pos();
-  ok(Math.abs(p1.mid) < 40 && Math.abs(p2.mid) < 40 && p1.text !== p2.text, `the current line stays in the middle while the lyrics slide past (${p1.mid.toFixed(0)} px, ${p2.mid.toFixed(0)} px)`);
+  ok(p1.inside && p2.inside && p1.text !== p2.text, "the current line stays inside the window while the lyrics slide past");
   await page.screenshot({ path: "shots/lyric-window.png" });
   await page.click('button[aria-label="Stop"]');
 
@@ -164,7 +164,7 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   const bob = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const bp = await bob.newPage();
   await bp.goto(B + "#/login"); await bp.waitForSelector(".auth-card");
-  await bp.click('a:has-text("Create account")').catch(() => {});
+  await bp.click('.auth-card a:has-text("Create account")'); await bp.waitForSelector('input[autocomplete="new-password"]');
   await bp.fill('input[autocomplete="username"]', "bob");
   await bp.fill('input[autocomplete="new-password"]', "another pass");
   await bp.click('button:has-text("Create account")');

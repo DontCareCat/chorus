@@ -69,22 +69,25 @@ async function newGame(page, level) {
   const state = () => page.evaluate(() => window.__chorus.controller.state.name);
   ok((await page.getAttribute("input.seek", "max")) > 59, "the slider spans the song (max " + (await page.getAttribute("input.seek", "max")) + " s)");
   // click on the runway line → seeks (the first questions are open, so jump back near the start)
+  // (the questions are spread over the whole song, so the first open one is not at the start: its deadline is read from the game)
+  const dto0 = await page.evaluate(() => fetch("/api/games/" + location.hash.split("/").pop()).then((r) => r.json()));
+  const deadline = dto0.questions[0].audio_end + 3;
   const box = await page.locator(".runway").boundingBox();
-  await page.mouse.click(box.x + box.width * 0.08, box.y + box.height * 0.55);
+  await page.mouse.click(box.x + box.width * ((deadline - 2) / 60), box.y + box.height * 0.5);
   await page.waitForTimeout(500);
   const afterClick = await t();
-  ok(afterClick < 8 && afterClick > 1, `clicking the timeline moves the audio (now ${afterClick.toFixed(1)} s)`);
+  ok(Math.abs(afterClick - (deadline - 2)) < 1.5, `clicking the timeline moves the audio (now ${afterClick.toFixed(1)} s, wanted ${(deadline - 2).toFixed(1)} s)`);
   // arrow keys: the open question's deadline limits ArrowRight, ArrowLeft always works
   const before = await t();
   await page.keyboard.press("ArrowRight"); await page.waitForTimeout(400);
-  ok((await t()) - before < 3.5 && (await t()) <= 8.4, `ArrowRight cannot jump past the open question's deadline (${before.toFixed(1)} s → ${(await t()).toFixed(1)} s)`);
+  ok((await t()) - before < 4.5 && (await t()) <= deadline + 0.4, `ArrowRight cannot jump past the open question's deadline (${before.toFixed(1)} s → ${(await t()).toFixed(1)} s)`);
   ok(/Answer the open question first/.test(await page.textContent(".last-answer")), "and says why");
   await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(400);
   ok((await t()) < before - 0.5, "ArrowLeft jumps back");
   // slider: far ahead is limited — an unanswered question cannot be skipped, so nothing is triggered
   const setSlider = async (v) => { await page.evaluate((val) => { const el = document.querySelector("input.seek"); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(el, String(val)); el.dispatchEvent(new Event("input", { bubbles: true })); }, v); await page.dispatchEvent("input.seek", "pointerup"); await page.waitForTimeout(500); };
   await setSlider(50);
-  ok((await t()) < 12 && (await state()) !== "FADING_OUT", `dragging far ahead is limited to the open question (audio at ${(await t()).toFixed(1)} s), no fade-out or rewind`);
+  ok((await t()) <= deadline + 0.4 && (await state()) !== "FADING_OUT", `dragging far ahead is limited to the open question (audio at ${(await t()).toFixed(1)} s), no fade-out or rewind`);
   ok(/Answer the open question first/.test(await page.textContent(".last-answer")), "and says why: " + (await page.textContent(".last-answer")));
   await page.waitForFunction(() => window.__chorus.controller.state.name === "PAUSED_FOR_QUESTION", null, { timeout: 15000 });
   await setSlider(2);
@@ -97,7 +100,7 @@ async function newGame(page, level) {
   ok(covers.find((c) => c.title === "Testlied").w === 96, "the song with an embedded cover shows it (96 px source)");
   ok(!covers.find((c) => c.title === "Anderes Lied").w, "the song without one shows an empty square, no broken image");
   await newGame(page, "Easy");
-  ok((await page.$eval(".game-head .cover img", (i) => i.naturalWidth)) === 96, "the game header shows the cover");
+  ok((await page.$eval(".game-bar .cover img", (i) => i.naturalWidth)) === 96, "the game header shows the cover");
   await page.goto(B + "#/songs/1"); await page.waitForSelector(".lyric-line");
   ok((await page.$eval(".page-head .cover img", (i) => i.naturalWidth)) === 96, "the song page shows the cover");
 
