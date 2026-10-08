@@ -34,6 +34,7 @@ export function GamePage({ publicId }: { publicId: string }) {
 
 function GameScreen({ game }: { game: GameDto }) {
   const g = useGame(game);
+  const layout = useLayout();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [engine, setEngine] = useState<GameEngine | null>(null);
   const [wantPlay, setWantPlay] = useState(false);
@@ -121,7 +122,7 @@ function GameScreen({ game }: { game: GameDto }) {
   );
   const focusedLine = focusedQ ? windowLines.findIndex((l) => l.lineId === focusedQ.lineId) : -1;
   const currentLine = currentLineIndex(windowLines, time, g.synced, focusedLine);
-  const status = describeStatus({ state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
+  const status = describeStatus({ short: layout === "phone", state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
 
   /** Choosing a line from the lyric sheet (far below the question) also brings its question into view. */
   const focusFromSheet = useCallback((id: number) => {
@@ -195,7 +196,6 @@ function GameScreen({ game }: { game: GameDto }) {
   focusedRef.current = focusedQ;
   const onAnswer = useCallback((optionId: number) => { if (focusedRef.current) answerRef.current(focusedRef.current, optionId); }, []);
 
-  const layout = useLayout();
   const phone = layout === "phone";
   // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
   // and, when tapped, holds the window on that line until the audio gets there or the question changes.

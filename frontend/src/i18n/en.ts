@@ -224,6 +224,7 @@ export const en = {
     closing: (s: number) => `The audio waits for you in ${s} s.`,
     pausing: "Pausing for your answer…",
     rewinding: "Going back to the previous line…",
+    waitingShort: "Waiting for you · answer to continue",
     waiting: "Waiting for you. Answer to continue, or press play to hear the line again.",
     resuming: "Resuming…",
     paused: "Paused.",

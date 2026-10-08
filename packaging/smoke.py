@@ -90,6 +90,7 @@ def main(executable: str) -> int:
             make_wav(wav)
             song = post(base + "/api/songs", files=[("Band - Lied.wav", wav.read_bytes())])
             post(f"{base}/api/songs/{song['id']}/lyrics/upload", files=[("l.lrc", LRC.encode())])
+            assert json.loads(get(base + "/api/scores")) == [], "scoreboard endpoint failed"
             game = post(base + "/api/games", json_body={"song_id": song["id"], "difficulty": "medium"})
             assert game["questions"], "no questions generated (wordfreq data missing from the package?)"
             assert (Path(data) / "app.db").is_file(), "database not created in the data dir"

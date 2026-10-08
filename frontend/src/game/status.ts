@@ -15,8 +15,10 @@ export function describeStatus(input: {
   error: string | null;
   runway: Runway | null; // null in free play
   freePlay: boolean;
+  /** A narrow screen: one short line instead of a sentence. */
+  short?: boolean;
 }): StatusLine {
-  const { state, error, runway, freePlay } = input;
+  const { state, error, runway, freePlay, short } = input;
   const s = en.status;
   switch (state) {
     case "IDLE":
@@ -28,7 +30,7 @@ export function describeStatus(input: {
     case "SEEKING":
       return { text: s.rewinding, tone: "wait" };
     case "PAUSED_FOR_QUESTION":
-      return { text: s.waiting, tone: "wait" };
+      return { text: short ? s.waitingShort : s.waiting, tone: "wait" };
     case "FADING_IN":
       return { text: s.resuming, tone: "calm" };
     case "ERROR":
