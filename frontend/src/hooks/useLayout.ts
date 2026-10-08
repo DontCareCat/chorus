@@ -27,30 +27,3 @@ export function useLayout(): Layout {
   return layout;
 }
 
-/**
- * Mobile browsers show and hide their address and navigation bars while the page is open. `100vh` and fixed
- * positioning follow the LARGE viewport, so the bottom of the game screen (the player) ended up under the browser's
- * own bar. The visual viewport is what the person actually sees: its size is published as CSS variables that the
- * game screen uses, and it follows every change (bars sliding in or out, rotation, the on-screen keyboard).
- */
-export function applyViewport(vv: { height: number; offsetTop: number }, root: HTMLElement): void {
-  root.style.setProperty("--app-h", `${Math.round(vv.height)}px`);
-  root.style.setProperty("--app-top", `${Math.round(vv.offsetTop)}px`);
-}
-
-export function useVisualViewport(): void {
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return; // the CSS falls back to 100dvh
-    const update = () => applyViewport(vv, document.documentElement);
-    update();
-    vv.addEventListener("resize", update);
-    vv.addEventListener("scroll", update);
-    window.addEventListener("orientationchange", update);
-    return () => {
-      vv.removeEventListener("resize", update);
-      vv.removeEventListener("scroll", update);
-      window.removeEventListener("orientationchange", update);
-    };
-  }, []);
-}
