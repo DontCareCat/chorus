@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app import __version__
 from app.api.routes import games, lyrics, settings, songs
 from app.core.config import settings as env
 from app.core.errors import (
@@ -35,7 +36,7 @@ def create_app(frontend_dist: str = "") -> FastAPI:
 
     @app.get("/api/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        return {"status": "ok", "app": "chorus", "version": __version__}
 
     mount_frontend(app, frontend_dist)
     return app

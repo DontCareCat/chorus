@@ -1,0 +1,19 @@
+# Chorus as a systemd service. See INSTALL.md.
+[Unit]
+Description=Chorus (learn a language through songs)
+After=network.target
+
+[Service]
+ExecStart=/opt/chorus/chorus serve
+EnvironmentFile=-/etc/chorus/chorus.env
+Environment=CHORUS_DATA_DIR=/var/lib/chorus
+DynamicUser=yes
+StateDirectory=chorus
+Restart=on-failure
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

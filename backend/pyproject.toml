@@ -19,6 +19,15 @@ dependencies = [
 dev = [
     "pytest>=9.1.1",
 ]
+# Desktop app (tray icon). Not needed on a server or in the Docker image.
+desktop = [
+    "pillow>=11",
+    "pystray>=0.19.5",
+]
+# Building the packaged apps (packaging/chorus.spec).
+build = [
+    "pyinstaller>=6.11",
+]
 
 [tool.uv.workspace]
 members = []

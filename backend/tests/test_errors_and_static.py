@@ -62,7 +62,7 @@ def test_frontend_is_served_when_a_build_exists_and_the_api_still_wins(tmp_path)
     c = TestClient(create_app(str(tmp_path)))
     assert "<title>Chorus</title>" in c.get("/").text
     assert c.get("/assets/app.js").text == "console.log(1)"
-    assert c.get("/api/health").json() == {"status": "ok"}  # not shadowed by the static mount
+    assert c.get("/api/health").json()["status"] == "ok"  # not shadowed by the static mount
     assert err(c.get("/api/nope"))["code"] == "http_404"
     assert c.get("/missing.png").status_code == 404
 

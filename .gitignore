@@ -17,3 +17,5 @@ media/
 *.db-shm
 .vscode/
 .idea/
+build/
+packaging/assets/
