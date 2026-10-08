@@ -1,3 +1,6 @@
+<img width="1138" height="548" alt="image" src="https://github.com/user-attachments/assets/2991932f-b5ba-47a5-b1bb-d0df99e96e76" />
+
+
 # Chorus
 
 Learn a language by filling in the missing words of the songs you listen to.
