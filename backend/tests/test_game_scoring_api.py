@@ -129,3 +129,15 @@ def test_games_keep_the_question_set_they_began_with(api, song, session):
     # ... and a question of the other set is not part of it
     other = fresh["questions"][0]
     assert api.post(f"/api/games/{pid}/answers", json={"question_id": other["id"], "option_id": other["options"][0]["id"]}).status_code == 404
+
+
+def test_the_games_audio_sample_rate_comes_from_the_file(api, song, session):
+    from app.db.models import Song
+
+    assert new_game(api, song)["sample_rate"] == 8000  # the test wav's rate
+    session.commit()
+    row = session.get(Song, song["id"])
+    assert row.sample_rate == 8000
+    row.sample_rate = None  # a song added before the rate was stored: looked up when a game opens it
+    session.commit()
+    assert api.get(f"/api/games/{new_game(api, song)['public_id']}").json()["sample_rate"] == 8000

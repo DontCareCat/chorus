@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from app.schemas.game import (
 )
 from app.services.game import scoring
 from app.services.game.generator import GENERATOR_VERSION, ensure_questions
+from app.services.library.tags import read_sample_rate
 
 
 def active_lyrics(session: Session, song: Song) -> Lyrics:
@@ -47,6 +49,9 @@ def _questions(session: Session, game: Game) -> list[Question]:
 def game_out(session: Session, game: Game) -> GameOut:
     song = session.get(Song, game.song_id)
     lyrics = session.get(Lyrics, game.lyrics_id)
+    if song.sample_rate is None and song.available:  # songs added before the rate was stored: look it up once
+        song.sample_rate = read_sample_rate(Path(song.file_path))
+        session.commit()
     ordered = session.query(LyricLine).filter_by(lyrics_id=game.lyrics_id).order_by(LyricLine.sequence).all()
     lines = {l.id: l for l in ordered}
     # recovery position = start of the previous lyric line (not necessarily a question line)
@@ -71,7 +76,7 @@ def game_out(session: Session, game: Game) -> GameOut:
         for l in ordered
     ]
     return GameOut(
-        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration,
+        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate,
         language=game.language, difficulty=game.difficulty,
         synced=lyrics.is_synced, lyrics_offset=song.lyrics_offset, started_at=game.started_at,
         finished_at=game.finished_at,

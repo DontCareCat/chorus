@@ -54,6 +54,7 @@ class GameOut(BaseModel):
     song_title: str
     song_artist: str
     song_duration: float
+    sample_rate: int | None  # of the audio file; lets the browser open its audio context at the same rate
     language: str
     difficulty: str
     synced: bool  # False → free-play mode, no playback gating
