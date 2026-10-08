@@ -408,7 +408,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .menu-panel .account { flex-wrap: wrap; }
 .scan-in { display: none; }
 
-.shell[data-route="game"] { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; }
+.shell[data-route="game"] { position: fixed; left: 0; right: 0; top: var(--app-top, 0px); height: var(--app-h, 100dvh); display: flex; flex-direction: column; overflow: hidden; }
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
 main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding: 0; display: flex; flex-direction: column; }

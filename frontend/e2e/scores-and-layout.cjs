@@ -73,6 +73,15 @@ async function finishGame(req, difficulty, right) {
     ok(m && m.layout === wanted && m.cols === 2 && m.prompt === (wanted !== "phone"), `${scheme} ${w}x${h}: ${wanted} layout, 2x2 answers, ${wanted === "phone" ? "no big sentence" : "sentence shown"}`);
     await ctx.close();
   }
+  console.log("[browser bars sliding in and out]");
+  const pc = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const pp = await pc.newPage();
+  await pp.goto(B + "#/games/" + g.public_id); await pp.waitForSelector(".opt");
+  for (const h of [740, 844, 690]) {
+    await pp.setViewportSize({ width: 390, height: h }); await pp.waitForTimeout(250);
+    const r = await pp.evaluate(() => ({ bottom: Math.round(document.querySelector(".transport").getBoundingClientRect().bottom), vh: innerHeight, appH: getComputedStyle(document.documentElement).getPropertyValue("--app-h") }));
+    ok(r.bottom === r.vh && r.appH === `${r.vh}px`, `viewport ${h} px high: the player stays on the visible bottom edge (${r.bottom} = ${r.vh}, --app-h ${r.appH})`);
+  }
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL SCORE AND LAYOUT CHECKS PASSED");
 })();

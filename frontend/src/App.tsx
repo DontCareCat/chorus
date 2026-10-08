@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
-import { useLayout } from "./hooks/useLayout";
+import { useLayout, useVisualViewport } from "./hooks/useLayout";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -23,6 +23,7 @@ export function App() {
   }, [needsSignIn, route.name]);
 
   const layout = useLayout();
+  useVisualViewport();
   const phone = layout === "phone";
   const isGame = route.name === "game";
   const [menuOpen, setMenuOpen] = useState(false);
