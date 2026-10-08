@@ -37,6 +37,26 @@ export interface GameDto {
   lyrics_offset: number;
   started_at: string;
   finished_at: string | null;
-  progress: { answered: number; total: number; score: number };
+  progress: Progress;
   questions: QuestionDto[];
+  lines: LineDto[];
+}
+
+export interface Progress {
+  answered: number;
+  total: number;
+  score: number; // points
+  correct: number;
+  streak: number;
+  multiplier: number;
+  best_multiplier: number;
+}
+
+/** Every lyric line of the song. Lines that carry a question have no text (it would give the answer away). */
+export interface LineDto {
+  line_id: number;
+  sequence: number;
+  audio_start: number | null;
+  audio_end: number | null;
+  text: string | null;
 }

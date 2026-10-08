@@ -1,24 +1,11 @@
 import { buildPrompt } from "../game/prompt";
 import { useFitText } from "../hooks/useFitText";
-import type { QuestionResult } from "../hooks/useGame";
+import { resultWord, rightWord } from "../game/results";
+import type { QuestionResult } from "../game/results";
 import { en } from "../i18n/en";
 import type { QuizQuestion } from "../types/question";
 
 const KEYS = ["1", "2", "3", "4"];
-
-/** The word a question stands for once answered: its right answer. */
-export function rightWord(q: QuizQuestion, r: QuestionResult | undefined): string | undefined {
-  if (!r || r.correctOptionId === undefined) return undefined;
-  return q.options.find((o) => o.id === r.correctOptionId)?.text;
-}
-
-export function resultWord(q: QuizQuestion, r: QuestionResult | undefined): { word: string; ok: boolean | undefined } | null {
-  if (!r) return null;
-  const chosen = q.options.find((o) => o.id === r.selectedOptionId)?.text;
-  const right = rightWord(q, r);
-  if (r.correct === undefined) return chosen ? { word: chosen, ok: undefined } : null;
-  return { word: (r.correct ? chosen : right) ?? chosen ?? "", ok: r.correct };
-}
 
 interface Props {
   question: QuizQuestion;

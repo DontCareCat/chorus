@@ -1,6 +1,6 @@
 // Material Symbols Outlined (weight 400, optical size 24), Apache-2.0, from the @material-symbols/svg-400 package.
-import pauseCircle from "@material-symbols/svg-400/outlined/pause_circle.svg?raw";
-import playCircle from "@material-symbols/svg-400/outlined/play_circle.svg?raw";
+import pauseCircle from "@material-symbols/svg-400/outlined/pause_circle-fill.svg?raw";
+import playCircle from "@material-symbols/svg-400/outlined/play_circle-fill.svg?raw";
 import replay5 from "@material-symbols/svg-400/outlined/replay_5.svg?raw";
 import stop from "@material-symbols/svg-400/outlined/stop.svg?raw";
 import volumeDown from "@material-symbols/svg-400/outlined/volume_down.svg?raw";

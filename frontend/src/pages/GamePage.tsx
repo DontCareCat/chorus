@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
-import { Question, resultWord } from "../components/Question";
+import { LyricWindow } from "../components/LyricWindow";
+import { Question } from "../components/Question";
 import { Runway } from "../components/Runway";
-import { Sheet } from "../components/Sheet";
+import { ScorePanel } from "../components/ScorePanel";
 import { Transport } from "../components/Transport";
+import { buildWindowLines, currentLineIndex } from "../game/lyric-window";
+import { resultWord } from "../game/results";
+import type { QuestionResult } from "../game/results";
 import { computeRunway } from "../game/runway";
 import { describeStatus } from "../game/status";
 import { useAsync } from "../hooks/useAsync";
@@ -15,7 +19,6 @@ import { paths } from "../router";
 import { api } from "../services/api";
 import type { PlaybackEngine } from "../services/audio/engine";
 import { WebAudioPlaybackEngine } from "../services/audio/web-audio-engine";
-import type { QuestionResult } from "../hooks/useGame";
 import type { GameDto } from "../types/game";
 import type { QuizQuestion as QuizQuestionT } from "../types/question";
 
@@ -36,10 +39,15 @@ function GameScreen({ game }: { game: GameDto }) {
   const [manualFocus, setManualFocus] = useState<number | null>(null);
   const [, setFrame] = useState(0);
   const [lastAnswered, setLastAnswered] = useState<number | null>(null);
+  // Seconds the game has waited for an answer since the last one (the multiplier loses a level per 5 s of it).
+  const waited = useRef(0);
+  const clock = useRef(performance.now());
   const lastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const vol = useVolume(engine as PlaybackEngine | null);
   const playback = usePlaybackSync({ engine: engine as PlaybackEngine | null, questions: g.syncQs, answered: g.answeredSet, gating: g.synced });
+  const stateName = useRef(playback.state.name);
+  stateName.current = playback.state.name;
 
   const [audioFailed, setAudioFailed] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -70,7 +78,12 @@ function GameScreen({ game }: { game: GameDto }) {
 
   // 10 Hz redraw for the runway / clock; positions are always read from the engine.
   useEffect(() => {
-    const t = setInterval(() => setFrame((n) => n + 1), 100);
+    const t = setInterval(() => {
+      const now = performance.now();
+      if (stateName.current === "PAUSED_FOR_QUESTION") waited.current += Math.min((now - clock.current) / 1000, 0.5);
+      clock.current = now;
+      setFrame((n) => n + 1);
+    }, 100);
     return () => clearInterval(t);
   }, []);
   useEffect(() => () => { clearTimeout(lastTimer.current); clearTimeout(hintTimer.current); }, []);
@@ -91,6 +104,12 @@ function GameScreen({ game }: { game: GameDto }) {
   const engineDuration = engine?.getDuration() ?? NaN;
   const duration = Number.isFinite(engineDuration) && engineDuration > 0 ? engineDuration : game.song_duration;
   const runway = computeRunway({ duration, currentTime: time, questions: g.syncQs, answered: g.answeredSet });
+  const windowLines = useMemo(
+    () => buildWindowLines(game.lines, g.quiz, g.results, game.lyrics_offset, focusedQ?.id ?? null),
+    [game.lines, game.lyrics_offset, g.quiz, g.results, focusedQ?.id],
+  );
+  const focusedLine = focusedQ ? windowLines.findIndex((l) => l.lineId === focusedQ.lineId) : -1;
+  const currentLine = currentLineIndex(windowLines, time, g.synced, focusedLine);
   const status = describeStatus({ state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
 
   /** Choosing a line from the lyric sheet (far below the question) also brings its question into view. */
@@ -106,7 +125,9 @@ function GameScreen({ game }: { game: GameDto }) {
 
   const answer = useCallback(
     (q: (typeof g.quiz)[number], optionId: number) => {
-      g.answer(q.id, optionId, () => playback.markAnswered(q.id));
+      // The server scores the answer: "ahead" from where the audio is, the multiplier from how long the game waited.
+      g.answer(q.id, optionId, { position: engine?.getCurrentTime() ?? 0, waited: waited.current }, () => playback.markAnswered(q.id));
+      waited.current = 0;
       // The next open question (after this one, else the first open one) appears at once; the result of this
       // answer shows in a line of its own and in the lyric sheet. With nothing left, this question stays up.
       const after = g.quiz.slice(g.quiz.indexOf(q) + 1).find((x) => !g.answeredSet.has(x.id) && x.id !== q.id);
@@ -116,7 +137,7 @@ function GameScreen({ game }: { game: GameDto }) {
       clearTimeout(lastTimer.current);
       lastTimer.current = setTimeout(() => setLastAnswered(null), LAST_ANSWER_MS);
     },
-    [g, playback],
+    [g, playback, engine],
   );
 
   // Keyboard: 1–4 pick an answer for the focused question.
@@ -159,13 +180,13 @@ function GameScreen({ game }: { game: GameDto }) {
   return (
     <>
       <div className="game-head">
-        <Cover songId={game.song_id} hasCover={null} size="large" />
+        <Cover songId={game.song_id} title={game.song_title} hasCover={null} size="large" />
         <div className="game-title">
           <a className="crumb" href={paths.library()}>{en.game.backToLibrary}</a>
           <h1>{game.song_title}</h1>
           <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(", ")}</p>
         </div>
-        <span className="score" aria-label="Score">{g.score} / {g.total}</span>
+        <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
 
       <audio ref={audioRef} src={api.audioUrl(game.song_id)} preload="auto" onError={() => setAudioFailed(true)} onLoadedData={() => setAudioFailed(false)} />
@@ -177,30 +198,37 @@ function GameScreen({ game }: { game: GameDto }) {
         gated={g.synced}
         onSeek={engine && duration > 0 ? (f) => void seekTo(f * duration) : undefined}
       />
-      <p className="status" data-tone={status.tone} role="status">{status.text}</p>
-      <LastAnswer quiz={g.quiz} results={g.results} questionId={lastAnswered} hint={hint} />
-      {g.error && <p className="notice error">{g.error}</p>}
+      <p className="state-line" data-tone={status.tone} role="status">{status.text}</p>
+      <div className="game-body">
+        <div className="game-main">
+        <LastAnswer quiz={g.quiz} results={g.results} questionId={lastAnswered} hint={hint} />
+        {g.error && <p className="notice error">{g.error}</p>}
 
-      {focusedQ ? (
-        <Question
-          key={focusedQ.id}
-          question={focusedQ}
-          siblings={siblings}
-          results={g.results}
-          index={focusedIndex}
-          total={g.total}
-          onAnswer={(oid) => answer(focusedQ, oid)}
-        />
-      ) : (
-        <p className="notice">{en.game.notFound}</p>
-      )}
+        {focusedQ ? (
+          <Question
+            key={focusedQ.id}
+            question={focusedQ}
+            siblings={siblings}
+            results={g.results}
+            index={focusedIndex}
+            total={g.total}
+            onAnswer={(oid) => answer(focusedQ, oid)}
+          />
+        ) : (
+          <p className="notice">{en.game.notFound}</p>
+        )}
 
-      {g.finished && (
-        <p className="notice ok finish">
-          {en.game.finished(g.score, g.total)} · <a href={paths.library()}>{en.game.backToLibrary}</a>
-        </p>
-      )}
-      <Sheet quiz={g.quiz} results={g.results} focusedId={focusedQ?.id ?? null} onFocus={focusFromSheet} />
+        {g.finished && (
+          <p className="notice ok finish">
+            {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)} · <a href={paths.library()}>{en.game.backToLibrary}</a>
+          </p>
+        )}
+
+        </div>
+        <div className="game-side">
+        <LyricWindow lines={windowLines} current={currentLine} synced={g.synced} onFocus={focusFromSheet} />
+        </div>
+      </div>
 
       <Transport
         engineReady={!!engine}
