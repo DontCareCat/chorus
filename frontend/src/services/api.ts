@@ -148,6 +148,26 @@ export interface AnswerResultDto {
   finished: boolean;
 }
 
+export interface SongScoreDto {
+  rank: number;
+  display_name: string;
+  points: number;
+  correct: number;
+  total: number;
+  best_multiplier: number;
+  difficulty: string;
+  finished_at: string;
+  me: boolean;
+}
+
+export interface GlobalScoreDto {
+  rank: number;
+  display_name: string;
+  points: number;
+  songs: number;
+  me: boolean;
+}
+
 export interface UserDto {
   id: number;
   username: string;
@@ -190,6 +210,8 @@ export const api = {
   songGames: (songId: number) => request<GameSummaryDto[]>(`/api/songs/${songId}/games`),
   createGame: (songId: number, difficulty: string) => request<GameDto>("/api/games", json("POST", { song_id: songId, difficulty })),
   getGame: (publicId: string) => request<GameDto>(`/api/games/${publicId}`),
+  scores: () => request<GlobalScoreDto[]>("/api/scores"),
+  songScores: (songId: number) => request<SongScoreDto[]>(`/api/songs/${songId}/scores`),
   myGames: () => request<GameSummaryDto[]>("/api/games"),
   answer: (publicId: string, questionId: number, optionId: number, position: number | null, waited: number) =>
     request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, option_id: optionId, position, waited })),

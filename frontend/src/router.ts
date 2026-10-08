@@ -5,6 +5,7 @@ export type Route =
   | { name: "song"; songId: number }
   | { name: "game"; publicId: string }
   | { name: "settings" }
+  | { name: "scores" }
   | { name: "login"; signUp: boolean }
   | { name: "notfound" };
 
@@ -12,6 +13,7 @@ export function parseRoute(hash: string): Route {
   const path = hash.replace(/^#/, "").replace(/\/+$/, "") || "/";
   if (path === "/") return { name: "library" };
   if (path === "/settings") return { name: "settings" };
+  if (path === "/scores") return { name: "scores" };
   if (path === "/login") return { name: "login", signUp: false };
   if (path === "/register") return { name: "login", signUp: true };
   const song = /^\/songs\/(\d+)$/.exec(path);
@@ -24,6 +26,7 @@ export function parseRoute(hash: string): Route {
 export const paths = {
   library: () => "#/",
   settings: () => "#/settings",
+  scores: () => "#/scores",
   login: () => "#/login",
   register: () => "#/register",
   song: (id: number) => `#/songs/${id}`,

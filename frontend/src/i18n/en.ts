@@ -1,7 +1,21 @@
 /** All user-facing strings live here (UI language: English by default). */
 export const en = {
   appName: "Chorus",
-  nav: { library: "Library", settings: "Settings" },
+  nav: { library: "Library", scores: "Scores", settings: "Settings", menu: "Menu" },
+  scores: {
+    title: "Scores",
+    help: "Each account counts with its best finished game per song.",
+    all: "All songs",
+    song: "This song",
+    chooseSong: "Song",
+    empty: "No finished games yet. Finish a game to appear here.",
+    you: "You",
+    songs: (n: number) => `${n} ${n === 1 ? "song" : "songs"}`,
+    detail: (diff: string, correct: number, total: number, mult: number) => `${diff} · ${correct} of ${total} · best x${mult}`,
+    rank: (rank: number, of: number) => `Rank ${rank} of ${of}`,
+    top: "Top scores",
+    yourRank: (rank: number) => `You are number ${rank} on this song.`,
+  },
   theme: { label: "Theme", light: "Light", dark: "Dark" },
   account: {
     signIn: "Sign in",

@@ -94,6 +94,16 @@ function GameScreen({ game }: { game: GameDto }) {
     [engine],
   );
 
+  // When the game is finished, say where it ranks on this song.
+  const [rank, setRank] = useState<number | null>(null);
+  useEffect(() => {
+    if (!g.finished) return;
+    const t = setTimeout(() => {
+      api.songScores(game.song_id).then((rows) => setRank(rows.find((r) => r.me)?.rank ?? null), () => undefined);
+    }, 400); // the server has the last answer by then
+    return () => clearTimeout(t);
+  }, [g.finished, game.song_id]);
+
   const firstOpen = useMemo(() => g.quiz.find((q) => !g.answeredSet.has(q.id)) ?? null, [g.quiz, g.answeredSet]);
   const focusedQ = g.quiz.find((q) => q.id === manualFocus) ?? firstOpen ?? g.quiz[g.quiz.length - 1] ?? null;
   const focusedIndex = focusedQ ? g.quiz.indexOf(focusedQ) : -1;
@@ -220,7 +230,7 @@ function GameScreen({ game }: { game: GameDto }) {
 
         {g.finished && (
           <p className="notice ok finish">
-            {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)} · <a href={paths.library()}>{en.game.backToLibrary}</a>
+            {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
           </p>
         )}
 

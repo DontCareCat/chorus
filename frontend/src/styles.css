@@ -380,3 +380,19 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- scoreboards ---------- */
+.tabs { max-width: 22rem; }
+.tabs button { flex: 1; min-width: 0; text-align: center; }
+.board li { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-top: 1px solid var(--line); border-radius: 12px; }
+.board li:last-child { border-bottom: 1px solid var(--line); border-radius: 12px; }
+.board li[data-me="true"] { background: var(--raised); }
+.board .rank { flex: none; width: 28px; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; color: var(--text-3); }
+.board li:first-child .rank { color: var(--text); }
+.board .who { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.board .who strong { font-weight: 700; font-size: 17px; letter-spacing: -0.02em; }
+.board .who small { flex-basis: 100%; font-size: 13px; color: var(--text-2); }
+.board .pts { font-weight: 800; font-size: 22px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.mini-board { margin-top: 8px; font-size: 14px; color: var(--text-2); }
+.mini-board li { display: flex; gap: 10px; }
+.mini-board li[data-me="true"] { color: var(--text); font-weight: 600; }

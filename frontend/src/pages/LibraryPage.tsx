@@ -4,7 +4,7 @@ import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
-import type { GameSummaryDto, SongDto } from "../services/api";
+import type { GameSummaryDto, SongDto, SongScoreDto } from "../services/api";
 
 const DIFFICULTIES = ["easy", "medium", "hard", "expert"] as const;
 const PERCENT: Record<string, number> = { easy: 10, medium: 30, hard: 60, expert: 80 };
@@ -242,6 +242,7 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
   const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("medium");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const board = useAsync(() => api.songScores(song.id), [song.id]);
 
   const start = async () => {
     setBusy(true);
@@ -270,15 +271,26 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
       </div>
       <button type="button" className="btn large" onClick={() => void start()} disabled={busy}>{en.library.startGame}</button>
       <div className="history">
-        <History games={games} />
+        <History games={games} board={board.data ?? []} />
         {error && <p className="notice error">{error}</p>}
       </div>
     </div>
   );
 }
 
-function History({ games }: { games: GameSummaryDto[] }) {
-  if (games.length === 0) return <>{en.library.history.none}</>;
+function History({ games, board }: { games: GameSummaryDto[]; board: SongScoreDto[] }) {
+  const mine = board.find((r) => r.me);
+  const top = (
+    <>
+      {mine && <div>{en.scores.rank(mine.rank, board.length)}</div>}
+      {board.length > 0 && (
+        <ol className="mini-board" aria-label={en.scores.top}>
+          {board.slice(0, 3).map((r) => <li key={r.rank} data-me={r.me}><span>{r.rank}.</span><span>{r.display_name}</span><span>{r.points}</span></li>)}
+        </ol>
+      )}
+    </>
+  );
+  if (games.length === 0) return <>{en.library.history.none}{top}</>;
   const diff = (g: GameSummaryDto) => en.library.difficulty[g.difficulty] ?? g.difficulty;
   const open = games.find((g) => !g.finished_at);
   const last = games.find((g) => g.finished_at);
@@ -288,6 +300,7 @@ function History({ games }: { games: GameSummaryDto[] }) {
       {open && <div><a href={paths.game(open.public_id)}>{en.library.history.inProgress(diff(open), open.answered, open.total)}</a></div>}
       {last && <div>{en.library.history.last(diff(last), last.score, last.correct_count, last.total)}</div>}
       <div>{en.library.history.best(best)}</div>
+      {top}
     </>
   );
 }
