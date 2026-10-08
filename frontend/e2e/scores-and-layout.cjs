@@ -82,6 +82,16 @@ async function finishGame(req, difficulty, right) {
     const r = await pp.evaluate(() => ({ bottom: Math.round(document.querySelector(".transport").getBoundingClientRect().bottom), vh: innerHeight, appH: getComputedStyle(document.documentElement).getPropertyValue("--app-h"), scrolls: document.documentElement.scrollHeight > innerHeight || document.body.scrollHeight > innerHeight }));
     ok(r.bottom === r.vh && r.appH === `${r.vh}px` && !r.scrolls, `viewport ${h} px high: the player stays on the visible bottom edge and the page does not scroll (${r.bottom} = ${r.vh}, --app-h ${r.appH})`);
   }
+  // A phone with its address bar showing: 100vh (bars hidden) is TALLER than what can be seen. Desktop browsers never
+  // show this, so it is simulated: the visible height is made 80 px smaller than 100vh.
+  const sim = await pp.evaluate(() => {
+    document.documentElement.style.setProperty("--app-h", `${innerHeight - 80}px`);
+    const shell = document.querySelector(".shell").getBoundingClientRect();
+    const bar = document.querySelector(".transport").getBoundingClientRect();
+    const opts = document.querySelector(".options").getBoundingClientRect();
+    return { visible: innerHeight - 80, shell: Math.round(shell.height), barBottom: Math.round(bar.bottom), optsBottom: Math.round(opts.bottom), barTop: Math.round(bar.top) };
+  });
+  ok(sim.shell === sim.visible && sim.barBottom <= sim.visible && sim.optsBottom <= sim.barTop, `when 100vh is taller than the visible screen the game still fits it: shell ${sim.shell} px, player bottom ${sim.barBottom} px, visible ${sim.visible} px`);
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL SCORE AND LAYOUT CHECKS PASSED");
 })();

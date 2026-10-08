@@ -43,7 +43,12 @@ export function useAppHeight(active: boolean): void {
       return;
     }
     root.classList.add("game-lock"); // the page itself never scrolls on the game screen: its parts fit
-    const update = () => root.style.setProperty("--app-h", `${window.innerHeight}px`);
+    // the smallest of the browser's answers: whichever one already leaves out the bars
+    const update = () => {
+      const vv = window.visualViewport;
+      const h = Math.min(window.innerHeight, vv ? vv.height : Infinity, root.clientHeight || Infinity);
+      root.style.setProperty("--app-h", `${Math.floor(h)}px`);
+    };
     update();
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
