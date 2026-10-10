@@ -363,7 +363,11 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .icon-btn:hover:not(:disabled) { background: var(--raised); }
 .icon-btn:disabled { color: var(--disabled-fg); }
 /* the filled play/pause circle glyph IS the yellow disc; its triangle / bars are cut out of it */
-.icon-btn.big { width: 48px; height: 48px; font-size: 48px; background: transparent; color: var(--fill); }
+/* The play/pause glyph's disc is 5/6 of its box: the button is exactly the disc (44 px) and the glyph overflows it,
+   so the focus ring is concentric with the yellow disc. */
+.icon-btn.big { width: 44px; height: 44px; font-size: 52.8px; overflow: visible; background: transparent; color: var(--fill); }
+.icon-btn.big { position: relative; }
+.icon-btn.big .icon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); } /* centres the overflowing glyph on the button */
 .icon-btn.big:hover:not(:disabled) { background: transparent; color: var(--fill-hover); }
 .icon-btn.big:disabled { background: transparent; color: var(--disabled-fg); }
 .seek { flex: 1 1 10rem; min-width: 6rem; accent-color: var(--accent); height: 1.5rem; cursor: pointer; }
@@ -538,7 +542,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .game .finish { margin: 0 0 8px; padding: 8px 12px; }
 [data-layout="phone"] .transport-inner { flex-wrap: nowrap; padding: 0 8px; gap: 4px; min-height: 60px; }
 [data-layout="phone"] .icon-btn { width: 44px; height: 44px; }
-[data-layout="phone"] .icon-btn.big { width: 48px; height: 48px; font-size: 48px; }
+[data-layout="phone"] .icon-btn.big { width: 48px; height: 48px; font-size: 57.6px; }
 [data-layout="phone"] .seek { flex: 1 1 3rem; min-width: 3rem; }
 [data-layout="phone"] .transport-time { min-width: 0; font-size: 13px; }
 

@@ -152,10 +152,15 @@ function GameScreen({ game }: { game: GameDto }) {
     [g, playback, engine],
   );
 
-  // Keyboard: 1–4 pick an answer for the focused question.
+  // Keyboard: 1–4 answer, Space plays/pauses, arrows seek, ↑/↓ volume, M mutes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || (e.target instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) return;
+      if (e.key === " ") {
+        e.preventDefault(); // no page scroll, and a focused button is not also "clicked" by the same key
+        if (!e.repeat) togglePlayRef.current();
+        return;
+      }
       if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && engine) {
         e.preventDefault();
         void seekTo(engine.getCurrentTime() + (e.key === "ArrowRight" ? 5 : -5));
@@ -182,6 +187,14 @@ function GameScreen({ game }: { game: GameDto }) {
     if (!audioRef.current || engine) return;
     setEngine(createEngine(audioRef.current, getEngineKind(), game.sample_rate));
     setWantPlay(true);
+  };
+  // Space: pause while the song runs (also during a fade), otherwise play; the first press starts the engine.
+  const togglePlayRef = useRef(() => {});
+  togglePlayRef.current = () => {
+    if (!engine) return start();
+    const n = playback.state.name;
+    if (n === "PLAYING" || n === "FADING_IN" || n === "FADING_OUT") playback.pause();
+    else if (n !== "SEEKING") playback.play();
   };
   const stop = () => playback.stop();
   const back5 = () => playback.rewind(5);
