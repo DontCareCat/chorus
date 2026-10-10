@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     max_upload_mb: int = 500
     frontend_dist: str = ""  # path of the built frontend (frontend/dist); empty = API only (development uses Vite)
     lrclib_base_url: str = "https://lrclib.net/api"
+    musicbrainz_base_url: str = "https://musicbrainz.org/ws/2"
+    coverart_base_url: str = "https://coverartarchive.org"
+    covers_dir: str = ""  # where covers found online are kept; empty = a "covers" folder next to MEDIA_DIR
 
 
 settings = Settings()

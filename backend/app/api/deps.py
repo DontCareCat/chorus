@@ -7,6 +7,7 @@ from app.core.errors import AppError
 from app.db.database import SessionLocal, get_session
 from app.db.models import Song, User
 from app.services.accounts import auth
+from app.services.library.covers import CoverClient
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.settings import RuntimeSettings, load_settings
@@ -19,6 +20,15 @@ def _client() -> LrclibClient:
 
 def get_lrclib_client() -> LrclibClient:  # overridden in tests
     return _client()
+
+
+@lru_cache
+def _cover_client() -> CoverClient:
+    return CoverClient()
+
+
+def get_cover_client() -> CoverClient:  # overridden in tests
+    return _cover_client()
 
 
 def get_session_factory() -> sessionmaker:  # overridden in tests (background tasks open their own session)

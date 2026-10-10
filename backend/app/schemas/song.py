@@ -17,6 +17,7 @@ class SongOut(BaseModel):
     file_name: str
     available: bool
     has_cover: bool | None  # None = not checked yet; the cover endpoint answers 404 if there is none
+    cover_source: str | None = None  # embedded | online | custom | choose (candidates to pick from) | none
     lyrics_status: LyricsStatus
 
 
