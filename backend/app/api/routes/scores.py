@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -11,10 +13,10 @@ router = APIRouter(prefix="/api", tags=["scores"], dependencies=[Depends(current
 
 
 @router.get("/scores", response_model=list[GlobalScoreRow])
-def global_board(session: Session = Depends(get_session), me: User = Depends(current_user)):
-    return scores.global_scores(session, me)
+def global_board(mode: Literal["choice", "typing"] = "choice", session: Session = Depends(get_session), me: User = Depends(current_user)):
+    return scores.global_scores(session, me, mode)
 
 
 @router.get("/songs/{song_id}/scores", response_model=list[SongScoreRow])
-def song_board(song: Song = Depends(get_song), session: Session = Depends(get_session), me: User = Depends(current_user)):
-    return scores.song_scores(session, song.id, me)
+def song_board(mode: Literal["choice", "typing"] = "choice", song: Song = Depends(get_song), session: Session = Depends(get_session), me: User = Depends(current_user)):
+    return scores.song_scores(session, song.id, me, mode)

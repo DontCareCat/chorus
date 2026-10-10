@@ -11,6 +11,7 @@ class SongScoreRow(BaseModel):
     total: int
     best_multiplier: int
     difficulty: str
+    mode: str = "choice"
     finished_at: datetime
     me: bool
 

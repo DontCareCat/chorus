@@ -30,6 +30,8 @@ class Song(Base):
     artist: Mapped[str] = mapped_column(String(300), default="")
     album: Mapped[str | None] = mapped_column(String(300), default=None)
     duration: Mapped[float] = mapped_column(Float)
+    cover_source: Mapped[str | None] = mapped_column(String(16), default=None)  # embedded | online | none; None = not looked at yet
+    cover_file: Mapped[str | None] = mapped_column(String(100), default=None)  # file name in the covers folder (online covers)
     sample_rate: Mapped[int | None] = mapped_column(Integer, default=None)  # Hz; the player matches its audio context to it
     language: Mapped[str] = mapped_column(String(16))  # language of the lyrics = language being learned
     lyrics_offset: Mapped[float] = mapped_column(Float, default=0.0)  # user timing correction, seconds

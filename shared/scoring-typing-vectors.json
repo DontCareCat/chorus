@@ -1,0 +1,439 @@
+{
+ "comment": "typing mode. steps: match (full|partial|none), ahead, waited (s). expect: [points, multiplier applied, streak after, multiplier for the next answer]. Shared by backend and frontend tests.",
+ "cases": [
+  {
+   "name": "full matches earn 10, the fifth after four is x2",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "ahead multiplies the answer by 1.5 (replacing the flat bonus)",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": true,
+     "waited": 0
+    },
+    {
+     "match": "partial",
+     "ahead": true,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": true,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     15,
+     1,
+     1,
+     1
+    ],
+    [
+     8,
+     1,
+     1,
+     1
+    ],
+    [
+     15,
+     1,
+     2,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "a partial match scores 5 and keeps the streak where it is",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "partial",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     5,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "a wrong answer scores nothing and resets",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "none",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     0,
+     2,
+     0,
+     1
+    ],
+    [
+     10,
+     1,
+     1,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "ahead never rescues a wrong answer",
+   "steps": [
+    {
+     "match": "none",
+     "ahead": true,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     0,
+     1,
+     0,
+     1
+    ]
+   ]
+  },
+  {
+   "name": "the streak multiplier applies to partial answers too (half points rounded up)",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "partial",
+     "ahead": true,
+     "waited": 0
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     15,
+     2,
+     4,
+     2
+    ]
+   ]
+  },
+  {
+   "name": "waiting for 5 s costs a level before a typed answer is scored",
+   "steps": [
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 0
+    },
+    {
+     "match": "full",
+     "ahead": false,
+     "waited": 5
+    }
+   ],
+   "expect": [
+    [
+     10,
+     1,
+     1,
+     1
+    ],
+    [
+     10,
+     1,
+     2,
+     1
+    ],
+    [
+     10,
+     1,
+     3,
+     1
+    ],
+    [
+     10,
+     1,
+     4,
+     2
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ],
+    [
+     20,
+     2,
+     6,
+     2
+    ],
+    [
+     20,
+     2,
+     7,
+     2
+    ],
+    [
+     20,
+     2,
+     8,
+     3
+    ],
+    [
+     20,
+     2,
+     5,
+     2
+    ]
+   ]
+  }
+ ]
+}

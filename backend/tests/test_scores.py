@@ -38,7 +38,7 @@ def test_a_finished_game_appears_once_with_its_details(api, song):
     row = rows[0]
     assert row["rank"] == 1 and row["display_name"] == "Guest" and row["me"] and row["difficulty"] == "easy"
     assert row["points"] > 0 and row["correct"] == row["total"] and set(row) == {
-        "rank", "display_name", "points", "correct", "total", "best_multiplier", "difficulty", "finished_at", "me"}
+        "rank", "display_name", "points", "correct", "total", "best_multiplier", "difficulty", "mode", "finished_at", "me"}
 
 
 def test_each_account_counts_once_per_song_with_its_best_game(api, song):

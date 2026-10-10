@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["games"], dependencies=[Depends(current_
 @router.post("/games", response_model=GameOut, status_code=201)
 def create_game(body: GameCreate, session: Session = Depends(get_session), user: User = Depends(current_user)):
     song = get_song(body.song_id, session)
-    return play.game_out(session, play.create_game(session, song, body.difficulty, user))
+    return play.game_out(session, play.create_game(session, song, body.difficulty, user, body.mode))
 
 
 @router.get("/games/{public_id}", response_model=GameOut)
@@ -24,7 +24,7 @@ def read_game(public_id: str, session: Session = Depends(get_session), user: Use
 @router.post("/games/{public_id}/answers", response_model=AnswerResult)
 def answer(public_id: str, body: AnswerIn, session: Session = Depends(get_session), user: User = Depends(current_user)):
     game = play.get_game(session, public_id, user)
-    return play.submit_answer(session, game, body.question_id, body.option_id, body.position, body.waited)
+    return play.submit_answer(session, game, body.question_id, body.option_id, body.position, body.waited, body.text)
 
 
 @router.get("/songs/{song_id}/games", response_model=list[GameSummary])

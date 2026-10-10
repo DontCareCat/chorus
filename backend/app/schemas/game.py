@@ -9,10 +9,13 @@ class OptionOut(BaseModel):
 
 
 class AnswerOut(BaseModel):
-    selected_option_id: int
-    correct: bool
-    correct_option_id: int
+    selected_option_id: int | None  # None in typing mode
+    correct: bool  # a full match in typing mode
+    correct_option_id: int | None
     answered_at: datetime
+    typed_text: str | None = None
+    match: str | None = None  # typing mode: full | partial | none
+    word: str | None = None  # typing mode: the word that was asked
 
 
 class QuestionOut(BaseModel):
@@ -25,6 +28,7 @@ class QuestionOut(BaseModel):
     recovery_start: float | None  # start of the previous lyric line (own start for the first line); None if unsynced
     question_text: str
     text: str | None  # full original line; revealed only after the question is answered
+    word: str | None = None  # the asked word; revealed only after the question is answered
     options: list[OptionOut]
     answer: AnswerOut | None
 
@@ -57,6 +61,7 @@ class GameOut(BaseModel):
     sample_rate: int | None  # of the audio file; lets the browser open its audio context at the same rate
     language: str
     difficulty: str
+    mode: str = "choice"  # choice | typing
     synced: bool  # False → free-play mode, no playback gating
     lyrics_offset: float  # seconds; applied once on the frontend when mapping lyric time to audio time
     started_at: datetime
@@ -70,6 +75,7 @@ class GameSummary(BaseModel):
     public_id: str
     song_id: int
     difficulty: str
+    mode: str = "choice"
     started_at: datetime
     finished_at: datetime | None
     score: int  # points
@@ -82,18 +88,22 @@ class GameSummary(BaseModel):
 class GameCreate(BaseModel):
     song_id: int
     difficulty: str = Field("medium", max_length=16)
+    mode: str = Field("choice", max_length=8)  # choice | typing
 
 
 class AnswerIn(BaseModel):
     question_id: int
-    option_id: int
+    option_id: int | None = None  # choice mode
+    text: str | None = Field(None, max_length=100)  # typing mode: what the player typed
     position: float | None = Field(None, ge=0, le=100_000)  # audio time (s) when the player answered; None = unknown
     waited: float = Field(0, ge=0, le=100_000)  # seconds the game spent waiting for this answer (multiplier decay)
 
 
 class AnswerResult(BaseModel):
     correct: bool
-    correct_option_id: int
+    correct_option_id: int | None = None  # None in typing mode
+    match: str | None = None  # typing mode: full | partial | none
+    word: str | None = None  # typing mode: the word that was asked
     text: str  # the full line, now revealed
     score: int  # the game's points so far
     points: int  # points this answer earned

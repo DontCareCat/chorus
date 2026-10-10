@@ -10,7 +10,8 @@ from app.schemas.game import (
     AnswerOut, AnswerResult, GameOut, GameSummary, LineOut, OptionOut, ProgressOut, QuestionOut,
 )
 from app.services.game import scoring
-from app.services.game.generator import GENERATOR_VERSION, ensure_questions
+from app.services.game.generator import GENERATOR_VERSION, ensure_questions, question_difficulty
+from app.services.game.matching import judge
 from app.services.library.tags import read_sample_rate
 
 
@@ -21,11 +22,11 @@ def active_lyrics(session: Session, song: Song) -> Lyrics:
     return lyrics
 
 
-def create_game(session: Session, song: Song, difficulty: str, user: User) -> Game:
+def create_game(session: Session, song: Song, difficulty: str, user: User, mode: str = "choice") -> Game:
     lyrics = active_lyrics(session, song)
-    ensure_questions(session, song, lyrics, difficulty)
+    ensure_questions(session, song, lyrics, difficulty, mode=mode)
     game = Game(user_id=user.id, song_id=song.id, lyrics_id=lyrics.id, language=song.language, difficulty=difficulty,
-                question_version=GENERATOR_VERSION)
+                mode=mode, question_version=GENERATOR_VERSION)
     session.add(game)
     session.commit()
     return game
@@ -41,7 +42,7 @@ def get_game(session: Session, public_id: str, user: User) -> Game:
 
 def _questions(session: Session, game: Game) -> list[Question]:
     return (
-        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version)
+        session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=question_difficulty(game.mode, game.difficulty), version=game.question_version)
         .order_by(Question.lyric_line_id, Question.blank_index).all()
     )
 
@@ -60,14 +61,15 @@ def game_out(session: Session, game: Game) -> GameOut:
     questions = []
     for i, q in enumerate(_questions(session, game)):
         a = answers.get(q.id)
-        correct = next(o.id for o in q.options if o.is_correct)
+        correct = next((o.id for o in q.options if o.is_correct), None)
         questions.append(QuestionOut(
             id=q.id, line_id=q.lyric_line_id, blank_index=q.blank_index, sequence=i, audio_start=q.audio_start, audio_end=q.audio_end,
             recovery_start=recovery[q.lyric_line_id],
-            question_text=q.sentence, text=lines[q.lyric_line_id].text if a else None,
+            question_text=q.sentence, text=lines[q.lyric_line_id].text if a else None, word=q.missing_word if a else None,
             options=[OptionOut(id=o.id, text=o.text) for o in q.options],
-            answer=AnswerOut(selected_option_id=a.selected_option_id, correct=a.is_correct,
-                             correct_option_id=correct, answered_at=a.answered_at) if a else None,
+            answer=AnswerOut(selected_option_id=a.selected_option_id, correct=a.is_correct, correct_option_id=correct,
+                             answered_at=a.answered_at, typed_text=a.typed_text, match=a.match,
+                             word=q.missing_word if game.mode == "typing" else None) if a else None,
         ))
     question_lines = {q.line_id for q in questions}
     line_out = [
@@ -77,7 +79,7 @@ def game_out(session: Session, game: Game) -> GameOut:
     ]
     return GameOut(
         public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate,
-        language=game.language, difficulty=game.difficulty,
+        language=game.language, difficulty=game.difficulty, mode=game.mode,
         synced=lyrics.is_synced, lyrics_offset=song.lyrics_offset, started_at=game.started_at,
         finished_at=game.finished_at,
         progress=ProgressOut(answered=len(answers), total=len(questions), score=game.score, correct=game.correct_count,
@@ -87,24 +89,34 @@ def game_out(session: Session, game: Game) -> GameOut:
 
 
 def summary(session: Session, game: Game) -> GameSummary:
-    total = session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=game.difficulty, version=game.question_version).count()
-    return GameSummary(public_id=game.public_id, song_id=game.song_id, difficulty=game.difficulty,
+    total = session.query(Question).filter_by(lyrics_id=game.lyrics_id, difficulty=question_difficulty(game.mode, game.difficulty), version=game.question_version).count()
+    return GameSummary(public_id=game.public_id, song_id=game.song_id, difficulty=game.difficulty, mode=game.mode,
                        started_at=game.started_at, finished_at=game.finished_at, score=game.score,
                        correct_count=game.correct_count, best_multiplier=game.best_multiplier,
                        answered=len(game.answers), total=total)
 
 
 def submit_answer(
-    session: Session, game: Game, question_id: int, option_id: int, position: float | None = None, waited: float = 0.0,
+    session: Session, game: Game, question_id: int, option_id: int | None = None, position: float | None = None,
+    waited: float = 0.0, text: str | None = None,
 ) -> AnswerResult:
     q = session.get(Question, question_id)
-    if q is None or q.lyrics_id != game.lyrics_id or q.difficulty != game.difficulty or q.version != game.question_version:
+    if (q is None or q.lyrics_id != game.lyrics_id or q.version != game.question_version
+            or q.difficulty != question_difficulty(game.mode, game.difficulty)):
         raise AppError("question_not_in_game", "This question does not belong to the game", 404)
-    option = next((o for o in q.options if o.id == option_id), None)
-    if option is None:
-        raise AppError("invalid_option", "This option does not belong to the question", 422)
-    correct_id = next(o.id for o in q.options if o.is_correct)
-    text = session.get(LyricLine, q.lyric_line_id).text
+    typing = game.mode == "typing"
+    if typing and (text is None or not text.strip()):
+        raise AppError("answer_required", "Type your answer first", 422)
+    if not typing and option_id is None:
+        raise AppError("wrong_answer_type", "This is a multiple-choice game: choose one of the options", 422)
+    option = None
+    if not typing:
+        option = next((o for o in q.options if o.id == option_id), None)
+        if option is None:
+            raise AppError("invalid_option", "This option does not belong to the question", 422)
+    correct_id = None if typing else next(o.id for o in q.options if o.is_correct)
+    line_text = session.get(LyricLine, q.lyric_line_id).text
+    word = q.missing_word if typing else None
 
     # Answers of one game are applied one at a time, in arrival order: the streak depends on that order.
     session.query(Game).filter_by(id=game.id).with_for_update().one()
@@ -113,20 +125,32 @@ def submit_answer(
     existing = next((a for a in game.answers if a.question_id == q.id), None)
     if existing is not None:  # idempotent: the first answer stands
         return AnswerResult(
-            correct=existing.is_correct, correct_option_id=correct_id, text=text, score=game.score, points=existing.points,
-            ahead=existing.ahead, multiplier=existing.multiplier, streak=game.streak, next_multiplier=game.multiplier,
-            already_answered=True, finished=game.finished_at is not None)
+            correct=existing.is_correct, correct_option_id=correct_id, match=existing.match, word=word, text=line_text,
+            score=game.score, points=existing.points, ahead=existing.ahead, multiplier=existing.multiplier,
+            streak=game.streak, next_multiplier=game.multiplier, already_answered=True, finished=game.finished_at is not None)
     song = session.get(Song, game.song_id)
     start = q.audio_start
-    ahead = bool(option.is_correct and position is not None and start is not None and position < start + song.lyrics_offset)
-    outcome = scoring.score_answer(game.streak, option.is_correct, ahead, waited)
-    session.add(GameAnswer(game_id=game.id, question_id=q.id, selected_option_id=option.id, is_correct=option.is_correct,
-                           points=outcome.points, ahead=ahead, multiplier=outcome.multiplier))
+    is_ahead = position is not None and start is not None and position < start + song.lyrics_offset
+    if typing:
+        match = judge(text, q.missing_word)
+        correct = match == "full"
+        ahead = bool(is_ahead and match != "none")
+        outcome = scoring.score_typed(game.streak, match, ahead, waited)
+        record = GameAnswer(game_id=game.id, question_id=q.id, selected_option_id=None, is_correct=correct, typed_text=text.strip()[:100],
+                            match=match, points=outcome.points, ahead=ahead, multiplier=outcome.multiplier)
+    else:
+        match = None
+        correct = option.is_correct
+        ahead = bool(correct and is_ahead)
+        outcome = scoring.score_answer(game.streak, correct, ahead, waited)
+        record = GameAnswer(game_id=game.id, question_id=q.id, selected_option_id=option.id, is_correct=correct,
+                            points=outcome.points, ahead=ahead, multiplier=outcome.multiplier)
+    session.add(record)
     game.score += outcome.points
     game.streak = outcome.streak
     game.multiplier = outcome.next_multiplier
     game.best_multiplier = max(game.best_multiplier, outcome.next_multiplier)
-    if option.is_correct:
+    if correct:
         game.correct_count += 1
     session.flush()
     total = len(_questions(session, game))
@@ -135,6 +159,6 @@ def submit_answer(
         game.finished_at = utcnow()
     session.commit()
     return AnswerResult(
-        correct=option.is_correct, correct_option_id=correct_id, text=text, score=game.score, points=outcome.points,
-        ahead=ahead, multiplier=outcome.multiplier, streak=outcome.streak, next_multiplier=outcome.next_multiplier,
-        finished=game.finished_at is not None)
+        correct=correct, correct_option_id=correct_id, match=match, word=word, text=line_text, score=game.score,
+        points=outcome.points, ahead=ahead, multiplier=outcome.multiplier, streak=outcome.streak,
+        next_multiplier=outcome.next_multiplier, finished=game.finished_at is not None)

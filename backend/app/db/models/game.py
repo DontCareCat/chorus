@@ -18,6 +18,7 @@ class Game(Base):
     lyrics_id: Mapped[int] = mapped_column(ForeignKey("lyrics.id"), index=True)
     language: Mapped[str] = mapped_column(String(16))
     difficulty: Mapped[str] = mapped_column(String(16))
+    mode: Mapped[str] = mapped_column(String(8), default="choice", server_default="choice")  # choice | typing
     question_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")  # which generated question set this game uses
     started_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
@@ -37,7 +38,9 @@ class GameAnswer(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     game_id: Mapped[int] = mapped_column(ForeignKey("games.id"), index=True)
     question_id: Mapped[int] = mapped_column(ForeignKey("questions.id"), index=True)
-    selected_option_id: Mapped[int] = mapped_column(ForeignKey("question_options.id"))
+    selected_option_id: Mapped[int | None] = mapped_column(ForeignKey("question_options.id"), default=None)  # None in typing mode
+    typed_text: Mapped[str | None] = mapped_column(String(100), default=None)
+    match: Mapped[str | None] = mapped_column(String(8), default=None)  # typing mode: full | partial | none
     is_correct: Mapped[bool] = mapped_column(Boolean)
     points: Mapped[int] = mapped_column(Integer, default=0)
     ahead: Mapped[bool] = mapped_column(Boolean, default=False)
