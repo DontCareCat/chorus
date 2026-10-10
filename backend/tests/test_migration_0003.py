@@ -107,3 +107,24 @@ def test_0006_adds_the_typing_mode_and_cover_columns_and_keeps_answers(tmp_path,
         assert [r[0] for r in c.execute(sa.text("SELECT id FROM games"))] == [1]
         assert c.execute(sa.text("SELECT count(*) FROM game_answers")).scalar_one() == 1
     command.upgrade(config, "head")
+
+
+def test_0007_marks_existing_songs_as_manual_and_new_ones_as_default(tmp_path, monkeypatch):
+    url = f"sqlite:///{(tmp_path / 'v7.db').as_posix()}"
+    monkeypatch.setattr(settings, "database_url", url)
+    config = alembic_config()
+    command.upgrade(config, "0006")
+    engine = sa.create_engine(url)
+    with engine.begin() as c:
+        c.execute(sa.text("INSERT INTO songs (id, source, file_path, file_name, content_hash, title, artist, duration, language, "
+                          "available, lyrics_offset, lyrics_status, removed, created_at) "
+                          "VALUES (1,'upload','/x.wav','x.wav','h','T','A',10,'fr',1,0,'found',0,'2026-01-01')"))
+    command.upgrade(config, "head")
+    with engine.begin() as c:
+        assert c.execute(sa.text("SELECT language, language_source FROM songs")).one() == ("fr", "manual")  # left alone
+        c.execute(sa.text("INSERT INTO songs (id, source, file_path, file_name, content_hash, title, artist, duration, language, "
+                          "available, lyrics_offset, lyrics_status, removed, created_at) "
+                          "VALUES (2,'upload','/y.wav','y.wav','h2','T','A',10,'de',1,0,'found',0,'2026-01-01')"))
+        assert c.execute(sa.text("SELECT language_source FROM songs WHERE id = 2")).scalar_one() == "default"
+    command.downgrade(config, "0006")
+    command.upgrade(config, "head")

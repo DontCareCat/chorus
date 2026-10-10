@@ -11,7 +11,7 @@ from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_cli
 from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.database import get_session
-from app.db.models import Song, SongSource
+from app.db.models import Lyrics, Song, SongSource
 from app.schemas.song import ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
@@ -21,6 +21,7 @@ from app.services.library.covers import (
 )
 from app.services.library.tags import extract_cover
 from app.services.lyrics.background import discover_for_songs
+from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.settings import RuntimeSettings
 
@@ -145,6 +146,23 @@ def patch_song(body: SongPatch, song: Song = Depends(get_song), session: Session
     for key, value in body.model_dump(exclude_unset=True).items():
         if value is not None or key == "album":
             setattr(song, key, value)
+            if key == "language":
+                song.language_source = "manual"  # a language somebody chose is never overridden by detection
+    session.commit()
+    return song
+
+
+@router.post("/songs/{song_id}/language/detect", response_model=SongOut)
+def detect_song_language(song: Song = Depends(get_song), session: Session = Depends(get_session)):
+    """Guess the language from the song's current lyrics and set it (also over an earlier manual choice: this is an
+    explicit request). 422 when the lyrics are missing, too short or not clearly in one language."""
+    lyrics = session.query(Lyrics).filter_by(song_id=song.id, is_active=True).order_by(Lyrics.id.desc()).first()
+    if lyrics is None:
+        raise AppError("no_lyrics", "This song has no lyrics yet, so there is nothing to detect the language from", 422)
+    found = detect_language("\n".join(l.text for l in lyrics.lines))
+    if found is None:
+        raise AppError("language_unclear", "The lyrics are too short or not clearly in one language. Choose the language yourself.", 422)
+    song.language, song.language_source = found.language, "detected"
     session.commit()
     return song
 

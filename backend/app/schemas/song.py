@@ -12,6 +12,7 @@ class SongOut(BaseModel):
     album: str | None
     duration: float
     language: str
+    language_source: str = "default"  # default | detected (from the lyrics) | manual
     lyrics_offset: float
     source: SongSource
     file_name: str

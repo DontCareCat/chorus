@@ -13,6 +13,7 @@ class RuntimeSettings(BaseModel):
     auto_fetch_lyrics: bool = True
     default_language: str = Field("de", min_length=2, max_length=16)
     library_dirs: list[str] = Field(default_factory=list)
+    auto_detect_language: bool = True  # set a new song's language from its lyrics
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)
     allow_guest: bool = True  # administrator only: may people use Chorus without signing in
     allow_registration: bool = True  # administrator only: may new accounts be created

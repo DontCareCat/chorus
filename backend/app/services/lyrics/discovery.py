@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import LyricLine, Lyrics, LyricsSource, LyricsStatus, Song
 from app.services.lyrics.cache import CachedLrclib
+from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrc import parse_lyrics_text
 from app.services.lyrics.lrclib import LrclibUnavailable, LyricsCandidate
 from app.services.lyrics.normalizer import NormalizedLyrics, normalize
@@ -59,6 +60,10 @@ def attach_lyrics(
     ]
     session.add(lyrics)
     song.lyrics_status = LyricsStatus.found
+    if cfg.auto_detect_language and song.language_source != "manual":  # a language a person chose is never overridden
+        found = detect_language("\n".join(l.text for l in norm.lines))
+        if found is not None:
+            song.language, song.language_source = found.language, "detected"
     session.commit()
     return lyrics, norm
 
