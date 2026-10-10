@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     lrclib_base_url: str = "https://lrclib.net/api"
     musicbrainz_base_url: str = "https://musicbrainz.org/ws/2"
     coverart_base_url: str = "https://coverartarchive.org"
+    path_access: str = "local"  # who may browse folders and import by path: "local" = this machine and the administrator; "open" = anyone who can use the app
     covers_dir: str = ""  # where covers found online are kept; empty = a "covers" folder next to MEDIA_DIR
 
 

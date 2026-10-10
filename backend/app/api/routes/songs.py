@@ -7,12 +7,13 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song
+from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, path_access
 from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import Song, SongSource
-from app.schemas.song import ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
+from app.schemas.song import ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
+from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
 from app.services.library.storage import check_extension, save_upload
 from app.services.library.covers import (
@@ -51,7 +52,7 @@ def upload_song(
     return song
 
 
-@router.post("/songs/import", response_model=SongOut, status_code=201)
+@router.post("/songs/import", response_model=SongOut, status_code=201, dependencies=[Depends(path_access)])
 def import_song(
     body: ImportRequest, background: BackgroundTasks, session: Session = Depends(get_session),
     cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
@@ -68,7 +69,7 @@ def import_song(
     return song
 
 
-@router.post("/library/import", response_model=ScanOut)
+@router.post("/library/import", response_model=ScanOut, dependencies=[Depends(path_access)])
 def import_path(
     body: ImportTreeRequest, background: BackgroundTasks, session: Session = Depends(get_session),
     cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
@@ -80,11 +81,50 @@ def import_path(
         raise AppError("invalid_path", "Path must be an absolute path to an existing file or folder", 400)
     if path.is_file():
         check_extension(path.name)
-    result = import_tree(session, path, body.recursive, body.copy_files, cfg.default_language, Path(env.media_dir))
+    result = import_tree(session, path, body.recursive, body.copy_files, cfg.default_language, Path(env.media_dir),
+                         accept=name_filter(body.include, body.exclude))
     if result.new_song_ids:
         background.add_task(discover_for_songs, factory, client, result.new_song_ids)
         background.add_task(fetch_covers_for_songs, factory, covers, result.new_song_ids)
-    return ScanOut(added=result.added, skipped=result.skipped, unavailable=0, errors=result.errors)
+    return ScanOut(added=result.added, skipped=result.skipped, unavailable=0, filtered=result.filtered, errors=result.errors)
+
+
+@router.post("/library/import-many", response_model=ScanOut, dependencies=[Depends(path_access)])
+def import_many(
+    body: ImportManyRequest, background: BackgroundTasks, session: Session = Depends(get_session),
+    cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
+    client: LrclibClient = Depends(get_lrclib_client), covers: CoverClient = Depends(get_cover_client),
+):
+    """Import several audio files and/or folders at once (what the folder browser's "Import selected" sends)."""
+    accept = name_filter(body.include, body.exclude)  # validated before anything is imported
+    total = ScanOut(added=0, skipped=0, unavailable=0, errors=[])
+    new_ids: list[int] = []
+    seen: set[Path] = set()
+    for raw in body.paths:
+        path = Path(raw).expanduser()
+        if not path.is_absolute() or not (path.is_file() or path.is_dir()):
+            total.errors.append(f"{raw}: not an existing file or folder")
+            continue
+        path = path.resolve()
+        if path in seen:
+            continue
+        seen.add(path)
+        if path.is_file():
+            try:
+                check_extension(path.name)
+            except AppError as e:
+                total.errors.append(f"{path.name}: {e.message}")
+                continue
+        result = import_tree(session, path, body.recursive, body.copy_files, cfg.default_language, Path(env.media_dir), accept=accept)
+        total.added += result.added
+        total.skipped += result.skipped
+        total.filtered += result.filtered
+        total.errors += result.errors
+        new_ids += result.new_song_ids
+    if new_ids:
+        background.add_task(discover_for_songs, factory, client, new_ids)
+        background.add_task(fetch_covers_for_songs, factory, covers, new_ids)
+    return total
 
 
 @router.post("/library/scan", response_model=ScanOut)

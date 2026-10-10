@@ -150,7 +150,7 @@ def api(session, lrclib, covers, tmp_path, monkeypatch) -> Iterator[TestClient]:
     app.dependency_overrides[get_lrclib_client] = lambda: client
     cover_client = covers.client()
     app.dependency_overrides[get_cover_client] = lambda: cover_client
-    with TestClient(app) as c:
+    with TestClient(app, client=("127.0.0.1", 50000)) as c:  # this machine: path imports are allowed
         yield c
     app.dependency_overrides.clear()
 

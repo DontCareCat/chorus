@@ -63,6 +63,27 @@ def current_user(request: Request, session: Session = Depends(get_session), cfg:
     raise AppError("auth_required", "Sign in to use Chorus.", 401)
 
 
+LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+def is_local_request(request: Request) -> bool:
+    """The request comes from the machine Chorus runs on (a reverse proxy in front makes it look local, so any
+    forwarding header means 'not local')."""
+    if request.headers.get("x-forwarded-for") or request.headers.get("forwarded"):
+        return False
+    return bool(request.client) and request.client.host in LOCAL_HOSTS
+
+
+def path_access(request: Request, user: User = Depends(current_user)) -> User:
+    """Browsing the server's folders and importing from a path are for the person at this machine and for the
+    administrator. (PATH_ACCESS=open lifts it, for a trusted network or a container where every request looks remote.)"""
+    from app.core.config import settings as env
+
+    if env.path_access == "open" or user.is_admin or is_local_request(request):
+        return user
+    raise AppError("path_access_denied", "Only the administrator, or someone at the computer running Chorus, can browse folders or import by path.", 403)
+
+
 def admin_user(user: User = Depends(current_user)) -> User:
     if not user.is_admin:
         raise AppError("admin_required", "Only the administrator can do this.", 403)

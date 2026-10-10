@@ -1,5 +1,5 @@
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -54,6 +54,7 @@ class ScanResult:
     added: int = 0
     skipped: int = 0
     unavailable: int = 0
+    filtered: int = 0  # left out by an include / exclude pattern
     errors: list[str] = field(default_factory=list)
     new_song_ids: list[int] = field(default_factory=list)
 
@@ -76,6 +77,7 @@ def walk_audio(root: Path, recursive: bool = True) -> Iterator[Path]:
 
 def import_tree(
     session: Session, root: Path, recursive: bool, copy: bool, language: str, media_dir: Path, restore_removed: bool = True,
+    accept: Callable[[str], bool] | None = None,
 ) -> ScanResult:
     """Register every audio file under a folder (or the single file `root`).
 
@@ -85,6 +87,9 @@ def import_tree(
     source = SongSource.import_ if copy else SongSource.library
     files = [root] if root.is_file() else list(walk_audio(root, recursive))
     for p in files:
+        if accept is not None and not accept(p.name):
+            result.filtered += 1
+            continue
         try:
             song, created = register_song(session, p, source, language, media_dir, restore_removed=restore_removed)
         except AppError as e:

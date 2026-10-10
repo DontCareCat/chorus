@@ -37,10 +37,21 @@ class ImportTreeRequest(BaseModel):
     path: str
     recursive: bool = True  # include subfolders
     copy_files: bool = False  # copy files into the app's storage instead of using them where they are
+    include: str | None = None  # regular expression: only file names that match are imported
+    exclude: str | None = None  # regular expression: file names that match are left out
+
+
+class ImportManyRequest(BaseModel):
+    paths: list[str] = Field(min_length=1, max_length=500)  # audio files and/or folders
+    recursive: bool = True
+    copy_files: bool = False
+    include: str | None = None
+    exclude: str | None = None
 
 
 class ScanOut(BaseModel):
     added: int
     skipped: int
     unavailable: int
+    filtered: int = 0
     errors: list[str]
