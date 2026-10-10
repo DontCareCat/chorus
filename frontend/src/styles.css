@@ -562,15 +562,18 @@ html[data-layout="phone"] body { font-size: 16px; }
 
 /* typing mode: one field instead of four options */
 .typing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
-.typing input { flex: 1 1 12rem; height: 56px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; border-radius: 14px; padding: 0 16px; }
+.typing input, .typing textarea { flex: 1 1 12rem; height: 56px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; border-radius: 14px; padding: 0 16px; line-height: 54px; resize: none; overflow: hidden; white-space: nowrap; }
+.typing textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); outline: none; min-height: 56px; }
+.typing textarea:focus { border-color: var(--accent); }
+.typing textarea:disabled { opacity: 1; }
 .typing .btn { height: 56px; padding: 0 24px; font-size: 18px; }
 .typing-result { flex-basis: 100%; font-weight: 600; font-size: 15px; }
-.typing[data-state="correct"] input { border-color: var(--correct); color: var(--correct); background: color-mix(in oklch, var(--correct) 14%, transparent); }
-.typing[data-state="partial"] input { border-color: var(--accent); color: var(--text); background: color-mix(in oklch, var(--accent) 14%, transparent); }
-.typing[data-state="wrong"] input { border-color: var(--wrong); color: var(--wrong); background: color-mix(in oklch, var(--wrong) 14%, transparent); }
+.typing[data-state="correct"] input, .typing[data-state="correct"] textarea { border-color: var(--correct); color: var(--correct); background: color-mix(in oklch, var(--correct) 14%, transparent); }
+.typing[data-state="partial"] input, .typing[data-state="partial"] textarea { border-color: var(--accent); color: var(--text); background: color-mix(in oklch, var(--accent) 14%, transparent); }
+.typing[data-state="wrong"] input, .typing[data-state="wrong"] textarea { border-color: var(--wrong); color: var(--wrong); background: color-mix(in oklch, var(--wrong) 14%, transparent); }
 .reveal[data-ok="partial"] { color: var(--accent); }
 [data-layout="phone"] .typing { margin: 0; gap: 8px; }
-[data-layout="phone"] .typing input { height: 52px; flex: 1 1 8rem; font-size: 20px; }
+[data-layout="phone"] .typing input, [data-layout="phone"] .typing textarea { height: 52px; min-height: 52px; line-height: 50px; flex: 1 1 8rem; font-size: 20px; }
 [data-layout="phone"] .typing .btn { height: 52px; padding: 0 18px; }
 [data-layout="phone"] .typing-result { flex-basis: auto; order: -1; flex: 1 0 100%; margin-bottom: -2px; }
 

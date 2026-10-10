@@ -98,7 +98,7 @@ export const Question = memo(function Question({ question: q, siblings, results,
 /** The typing mode's answer box: one field and a Check button; Enter submits. It takes the focus for each new question. */
 function TypedAnswer({ result, state, reveal, onSubmit }: { result: QuestionResult | undefined; state: string; reveal: string; onSubmit: (text: string) => void }) {
   const [text, setText] = useState("");
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { if (!result) input.current?.focus(); }, [result]);
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -106,8 +106,11 @@ function TypedAnswer({ result, state, reveal, onSubmit }: { result: QuestionResu
   };
   return (
     <form className="typing" data-state={state} onSubmit={submit} autoComplete="off">
-      <input
-        ref={input} type="text" value={result ? (result.typed ?? "") : text} onChange={(e) => setText(e.target.value)} disabled={!!result}
+      {/* a one-row textarea, not an input: Android keyboards offer their "Autofill with Google" strip (passwords, cards,
+          addresses) above every <input type="text"> and ignore autocomplete="off", but not above a textarea */}
+      <textarea
+        ref={input} rows={1} wrap="off" value={result ? (result.typed ?? "") : text} onChange={(e) => setText(e.target.value.replace(/[\r\n]+/g, ""))} disabled={!!result}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }}
         placeholder={en.game.typeHere} aria-label={en.game.typeLabel} {...noAutofill("word-answer")} inputMode="text" enterKeyHint="send" maxLength={100}
       />
       {reveal && <span className="typing-result" role="status">{reveal}</span>}

@@ -19,18 +19,18 @@ describe("typing question", () => {
     const onSubmit = vi.fn();
     render(<Question {...base} results={new Map()} onSubmit={onSubmit} />);
     expect(screen.queryAllByRole("button").filter((b) => b.className.includes("opt"))).toHaveLength(0);
-    const field = screen.getByLabelText("Your answer") as HTMLInputElement;
+    const field = screen.getByLabelText("Your answer") as HTMLTextAreaElement;
     const check = screen.getByRole("button", { name: "Check" }) as HTMLButtonElement;
     expect(check.disabled).toBe(true); // nothing typed yet
     fireEvent.change(field, { target: { value: "  Haus " } });
     expect(check.disabled).toBe(false);
-    fireEvent.submit(field.closest("form")!);
+    fireEvent.keyDown(field, { key: "Enter" }); // Enter sends it (a textarea would otherwise add a line)
     expect(onSubmit).toHaveBeenCalledWith("Haus");
   });
 
   it("the answer field is not offered browser or keyboard autofill", () => {
     render(<Question {...base} results={new Map()} onSubmit={vi.fn()} />);
-    const field = screen.getByLabelText("Your answer") as HTMLInputElement;
+    const field = screen.getByLabelText("Your answer") as HTMLTextAreaElement;
     expect(field.getAttribute("autocomplete")).toBe("off");
     expect(field.closest("form")!.getAttribute("autocomplete")).toBe("off");
     expect(field.getAttribute("autocorrect")).toBe("off");
@@ -41,21 +41,32 @@ describe("typing question", () => {
     expect(field.getAttribute("data-1p-ignore")).toBe("true");
     expect(field.getAttribute("data-bwignore")).toBe("true");
     expect(field.getAttribute("data-form-type")).toBe("other");
-    expect(field.type).toBe("text");
+    expect(field.tagName).toBe("TEXTAREA"); // not an <input>: no Autofill-with-Google strip above the keyboard
+    expect(field.rows).toBe(1);
     expect(field.getAttribute("inputmode")).toBe("text");
+  });
+
+  it("a new line can never get into the answer, and Shift+Enter does not send", () => {
+    const onSubmit = vi.fn();
+    render(<Question {...base} results={new Map()} onSubmit={onSubmit} />);
+    const field = screen.getByLabelText("Your answer") as HTMLTextAreaElement;
+    fireEvent.change(field, { target: { value: "Ha\nus" } });
+    expect(field.value).toBe("Haus");
+    fireEvent.keyDown(field, { key: "Enter", shiftKey: true });
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("does not submit an empty answer", () => {
     const onSubmit = vi.fn();
     render(<Question {...base} results={new Map()} onSubmit={onSubmit} />);
-    fireEvent.submit((screen.getByLabelText("Your answer") as HTMLInputElement).closest("form")!);
+    fireEvent.keyDown(screen.getByLabelText("Your answer"), { key: "Enter" });
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("after the answer the field is locked and shows what was typed and the asked word", () => {
     const results = new Map<number, QuestionResult>([[1, { selectedOptionId: 0, typed: "hous", correct: false, match: "partial", word: "Haus" }]]);
     render(<Question {...base} results={results} onSubmit={vi.fn()} />);
-    const field = screen.getByLabelText("Your answer") as HTMLInputElement;
+    const field = screen.getByLabelText("Your answer") as HTMLTextAreaElement;
     expect(field.disabled).toBe(true);
     expect(field.value).toBe("hous");
     expect(screen.getAllByText("Almost: Haus").length).toBeGreaterThan(0);
