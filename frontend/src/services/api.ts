@@ -55,6 +55,7 @@ export interface SongDto {
   file_name: string;
   available: boolean;
   has_cover: boolean | null;
+  cover_source: "embedded" | "online" | "custom" | "choose" | "none" | null;
   lyrics_status: "pending" | "found" | "needs_choice" | "not_found";
 }
 
@@ -108,10 +109,19 @@ export interface SettingsDto {
   allow_unsynchronized_lyrics: boolean;
   lyrics_cache_ttl_days: number;
   auto_fetch_lyrics: boolean;
+  auto_fetch_covers: boolean;
   default_language: string;
   library_dirs: string[];
   allow_guest: boolean;
   allow_registration: boolean;
+}
+
+export interface CoverCandidateDto {
+  id: string;
+  title: string;
+  artist: string;
+  date: string | null;
+  score: number;
 }
 
 export interface ScanDto {
@@ -199,7 +209,13 @@ export const api = {
   importPath: (path: string, recursive: boolean, copyFiles: boolean) =>
     request<ScanDto>("/api/library/import", json("POST", { path, recursive, copy_files: copyFiles })),
   deleteSong: (id: number) => request<{ result: "hidden" | "deleted" }>(`/api/songs/${id}`, { method: "DELETE" }),
-  coverUrl: (songId: number) => `/api/songs/${songId}/cover`,
+  coverUrl: (songId: number, version?: string | number) => `/api/songs/${songId}/cover${version === undefined ? "" : `?v=${version}`}`,
+  coverAuto: (songId: number) => request<{ status: string }>(`/api/songs/${songId}/cover/auto`, { method: "POST" }),
+  coverCandidates: (songId: number, q?: string) => request<CoverCandidateDto[]>(`/api/songs/${songId}/cover/candidates${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+  coverCandidateImage: (songId: number, mbid: string) => `/api/songs/${songId}/cover/candidates/${mbid}/image`,
+  coverChoose: (songId: number, id: string) => request<SongDto>(`/api/songs/${songId}/cover/choose`, json("POST", { id })),
+  coverUpload: (songId: number, file: File) => request<SongDto>(`/api/songs/${songId}/cover/upload`, form(file)),
+  coverRemove: (songId: number) => request<SongDto>(`/api/songs/${songId}/cover`, { method: "DELETE" }),
   patchSong: (id: number, patch: SongPatch) => request<SongDto>(`/api/songs/${id}`, json("PATCH", patch)),
 
   lyrics: (songId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`),

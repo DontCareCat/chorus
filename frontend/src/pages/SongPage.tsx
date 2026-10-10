@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
+import { CoverPicker } from "../components/CoverPicker";
 import { Icon } from "../components/Icon";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { timecode } from "../game/lyric-window";
@@ -38,6 +39,7 @@ export function SongPage({ songId }: { songId: number }) {
         <Timing song={s} lyrics={lyrics.data} onSaved={song.reload} />
         <div>
           <Finder song={s} hasLyrics={!!lyrics.data} onAttached={() => { lyrics.reload(); song.reload(); }} />
+          <CoverPicker song={s} onChanged={song.reload} />
           <Details song={s} onSaved={song.reload} />
         </div>
       </div>

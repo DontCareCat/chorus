@@ -6,6 +6,8 @@ import type { QuestionResult } from "../game/results";
 import type { QuizQuestion } from "../types/question";
 
 afterEach(cleanup);
+// jsdom has no ResizeObserver (the sentence box uses it to fit its text)
+globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} } as unknown as typeof ResizeObserver;
 
 const typingQ: QuizQuestion = {
   id: 1, lineId: 1, blankIndex: 0, sequence: 0, startTime: 1, endTime: 2, recoveryTime: 0, questionText: "Das ____ ist da", text: null, word: null, options: [], answer: null,

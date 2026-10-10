@@ -96,6 +96,10 @@ export function SettingsPage() {
             <LanguageSelect value={form.default_language} onChange={(v) => set("default_language", v)} />
             <small>{en.settings.defaultLanguageHelp}</small>
           </label>
+          <label className="check">
+            <input type="checkbox" checked={form.auto_fetch_covers} onChange={(e) => set("auto_fetch_covers", e.target.checked)} />
+            <span><strong>{en.settings.autoFetchCovers}</strong><small>{en.settings.autoFetchCoversHelp}</small></span>
+          </label>
           <div className="field" style={{ marginBottom: 0 }}>
             <span>{en.settings.folders}</span>
             {folders.length === 0 ? <p className="muted">{en.settings.noFolders}</p> : (

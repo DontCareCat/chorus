@@ -573,3 +573,11 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .typing input { height: 52px; flex: 1 1 8rem; font-size: 20px; }
 [data-layout="phone"] .typing .btn { height: 52px; padding: 0 18px; }
 [data-layout="phone"] .typing-result { flex-basis: auto; order: -1; flex: 1 0 100%; margin-bottom: -2px; }
+
+/* cover picker (song page) */
+.cover-now { display: flex; align-items: center; gap: 14px; }
+.cover-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 16px; margin-top: 16px; }
+.cover-grid li { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cover-grid .cover { width: 100%; height: auto; aspect-ratio: 1; border-radius: 12px; font-size: 40px; }
+.cover-grid strong { font-size: 15px; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cover-grid small { font-size: 13px; color: var(--text-2); }
