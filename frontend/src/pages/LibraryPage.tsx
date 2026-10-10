@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { FolderBrowser } from "../components/FolderBrowser";
+import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { inLanguage, languageCounts } from "../lib/languages";
 import { buildMatcher } from "../lib/search";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
@@ -34,6 +36,7 @@ export function LibraryPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [regex, setRegex] = useState(false);
+  const [language, setLanguage] = useState("all");
   const [browsing, setBrowsing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -106,9 +109,13 @@ export function LibraryPage() {
   const counts = { all: all.length, ready: all.filter(isReady).length, missing: all.filter((s) => !isReady(s)).length };
   const matcher = useMemo(() => buildMatcher(query, regex), [query, regex]);
   const shown = useMemo(
-    () => all.filter((s) => (filter === "all" || (filter === "ready") === isReady(s)) && matcher.test(s)),
-    [all, filter, matcher],
+    () => all.filter((s) => (filter === "all" || (filter === "ready") === isReady(s)) && inLanguage(s, language) && matcher.test(s)),
+    [all, filter, language, matcher],
   );
+
+  const languages = useMemo(() => languageCounts(all), [all]);
+  // a language that no song has any more (the last one was removed or changed) must not keep an empty list on screen
+  useEffect(() => { if (language !== "all" && !languages.some((l) => l.code === language)) setLanguage("all"); }, [languages, language]);
 
   const unfinished = (games.data ?? []).find((g) => !g.finished_at);
   const resumeSong = unfinished ? all.find((s) => s.id === unfinished.song_id) : undefined;
@@ -215,6 +222,16 @@ export function LibraryPage() {
         </div>
       </div>
 
+      {languages.length > 1 && (
+        <div className="chips lang-chips" role="group" aria-label={en.library.languageFilter}>
+          <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.library.allLanguages}</button>
+          {languages.map((l) => (
+            <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)} title={languageName(l.code)}>
+              {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small>{l.count}</small>
+            </button>
+          ))}
+        </div>
+      )}
       {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}

@@ -100,6 +100,10 @@ export function SettingsPage() {
             <small>{en.settings.defaultLanguageHelp}</small>
           </label>
           <label className="check">
+            <input type="checkbox" checked={form.auto_detect_language} onChange={(e) => set("auto_detect_language", e.target.checked)} />
+            <span><strong>{en.settings.autoDetectLanguage}</strong><small>{en.settings.autoDetectLanguageHelp}</small></span>
+          </label>
+          <label className="check">
             <input type="checkbox" checked={form.auto_fetch_covers} onChange={(e) => set("auto_fetch_covers", e.target.checked)} />
             <span><strong>{en.settings.autoFetchCovers}</strong><small>{en.settings.autoFetchCoversHelp}</small></span>
           </label>

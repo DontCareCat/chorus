@@ -50,6 +50,7 @@ export interface SongDto {
   album: string | null;
   duration: number;
   language: string;
+  language_source: "default" | "detected" | "manual";
   lyrics_offset: number;
   source: "library" | "import" | "upload";
   file_name: string;
@@ -110,6 +111,7 @@ export interface SettingsDto {
   lyrics_cache_ttl_days: number;
   auto_fetch_lyrics: boolean;
   auto_fetch_covers: boolean;
+  auto_detect_language: boolean;
   default_language: string;
   library_dirs: string[];
   allow_guest: boolean;
@@ -235,6 +237,7 @@ export const api = {
   coverChoose: (songId: number, id: string) => request<SongDto>(`/api/songs/${songId}/cover/choose`, json("POST", { id })),
   coverUpload: (songId: number, file: File) => request<SongDto>(`/api/songs/${songId}/cover/upload`, form(file)),
   coverRemove: (songId: number) => request<SongDto>(`/api/songs/${songId}/cover`, { method: "DELETE" }),
+  detectLanguage: (id: number) => request<SongDto>(`/api/songs/${id}/language/detect`, { method: "POST" }),
   patchSong: (id: number, patch: SongPatch) => request<SongDto>(`/api/songs/${id}`, json("PATCH", patch)),
 
   lyrics: (songId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`),

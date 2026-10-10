@@ -631,3 +631,6 @@ button.fs-name:hover { background: var(--surface-2); }
 .search-box input { flex: 1; min-width: 0; }
 .regex-toggle { height: 38px; padding: 0 12px; font-family: var(--font); font-weight: 700; }
 .search-box input[aria-invalid="true"] { border-color: var(--wrong); }
+
+.lang-chips { margin: -8px 0 16px; }
+[data-layout="phone"] .lang-chips { margin: 0 0 10px; }

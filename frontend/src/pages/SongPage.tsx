@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { CoverPicker } from "../components/CoverPicker";
 import { Icon } from "../components/Icon";
-import { LanguageSelect } from "../components/LanguageSelect";
+import { LanguageSelect, languageName } from "../components/LanguageSelect";
 import { noAutofill } from "../lib/noAutofill";
 import { timecode } from "../game/lyric-window";
 import { useAsync } from "../hooks/useAsync";
@@ -51,6 +51,21 @@ export function SongPage({ songId }: { songId: number }) {
 function Details({ song, onSaved }: { song: SongDto; onSaved: () => void }) {
   const [f, setF] = useState({ title: song.title, artist: song.artist, album: song.album ?? "", language: song.language });
   const [notice, setNotice] = useState<Notice>(null);
+  const [detecting, setDetecting] = useState(false);
+  useEffect(() => setF((x) => ({ ...x, language: song.language })), [song.language]); // a detected language shows up in the field
+  const detect = async () => {
+    setDetecting(true);
+    setNotice(null);
+    try {
+      const s = await api.detectLanguage(song.id);
+      setNotice({ kind: "ok", text: en.song.languageDetected(languageName(s.language)) });
+      onSaved();
+    } catch (e) {
+      setNotice({ kind: "error", text: msg(e) });
+    } finally {
+      setDetecting(false);
+    }
+  };
   const save = async () => {
     try {
       await api.patchSong(song.id, { title: f.title, artist: f.artist, album: f.album || null, language: f.language });
@@ -70,10 +85,14 @@ function Details({ song, onSaved }: { song: SongDto; onSaved: () => void }) {
             <input type="text" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...noAutofill(`song-${k}`)} />
           </label>
         ))}
-        <label className="field">
+        <div className="field">
           <span>{en.song.language}</span>
-          <LanguageSelect value={f.language} onChange={(language) => setF({ ...f, language })} />
-        </label>
+          <div className="inline" style={{ alignItems: "center", flexWrap: "nowrap" }}>
+            <LanguageSelect value={f.language} onChange={(language) => setF({ ...f, language })} />
+            <button type="button" className="btn secondary small" onClick={() => void detect()} disabled={detecting} style={{ flex: "none" }}>{detecting ? en.song.detecting : en.song.detectLanguage}</button>
+          </div>
+          <small>{en.song.languageSource[song.language_source]}</small>
+        </div>
         <button type="submit" className="btn">{en.song.save}</button>
         {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
       </form>
