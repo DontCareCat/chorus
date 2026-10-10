@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
 import { en } from "../i18n/en";
@@ -62,7 +63,7 @@ export function SettingsPage() {
   return (
     <>
       <div className="page-head"><h1>{en.settings.title}</h1></div>
-      <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
+      <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         <section className="panel">
           <h2>{en.settings.lyricsPanel}</h2>
           <label className="check">
@@ -115,7 +116,7 @@ export function SettingsPage() {
               </ul>
             )}
             <div className="inline" style={{ marginTop: 12 }}>
-              <input type="text" value={newFolder} placeholder={en.settings.folderPlaceholder} aria-label={en.settings.addFolder} onChange={(e) => setNewFolder(e.target.value)}
+              <input type="text" {...noAutofill("library-folder")} value={newFolder} placeholder={en.settings.folderPlaceholder} aria-label={en.settings.addFolder} onChange={(e) => setNewFolder(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFolder(); } }} style={{ flex: "1 1 14rem", fontSize: 15 }} />
               <button type="button" className="btn secondary" onClick={() => setBrowsing(true)}>{en.settings.browseFolder}</button>
               <button type="button" className="btn secondary" onClick={addFolder} disabled={!newFolder.trim()}>{en.settings.addFolder}</button>
@@ -178,7 +179,7 @@ function PasswordPanel() {
   return (
     <section className="panel" style={{ marginTop: 40 }}>
       <h2>{en.settings.password}</h2>
-      <form onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+      <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
         <label className="field"><span>{en.settings.currentPassword}</span><input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></label>
         <label className="field"><span>{en.settings.newPassword}</span><input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /><small>{en.account.passwordHelp}</small></label>
         <button type="submit" className="btn secondary" disabled={!current || !next}>{en.settings.password}</button>

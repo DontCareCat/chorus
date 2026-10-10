@@ -3,6 +3,7 @@ import { Cover } from "../components/Cover";
 import { CoverPicker } from "../components/CoverPicker";
 import { Icon } from "../components/Icon";
 import { LanguageSelect } from "../components/LanguageSelect";
+import { noAutofill } from "../lib/noAutofill";
 import { timecode } from "../game/lyric-window";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
@@ -62,11 +63,11 @@ function Details({ song, onSaved }: { song: SongDto; onSaved: () => void }) {
   return (
     <section className="panel">
       <h2>{en.song.details}</h2>
-      <form onSubmit={(e) => { e.preventDefault(); void save(); }}>
+      <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); void save(); }}>
         {(["title", "artist", "album"] as const).map((k) => (
           <label className="field" key={k}>
             <span>{en.song[k]}</span>
-            <input type="text" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+            <input type="text" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...noAutofill(`song-${k}`)} />
           </label>
         ))}
         <label className="field">
@@ -215,10 +216,10 @@ function Finder({ song, hasLyrics, onAttached }: { song: SongDto; hasLyrics: boo
       <h2>{hasLyrics ? en.song.replace : en.song.find}</h2>
       {hasLyrics && <p className="muted" style={{ marginBottom: 14 }}>{en.song.chooseHelp}</p>}
       <p style={{ marginBottom: 14 }}><button type="button" className="btn" onClick={() => void auto()} disabled={busy}>{hasLyrics ? en.song.findAgain : en.song.findAuto}</button></p>
-      <form className="inline" onSubmit={(e) => { e.preventDefault(); void search(); }}>
+      <form autoComplete="off" className="inline" onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <label className="field">
           <span>{en.song.search}</span>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={en.song.searchPlaceholder} />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={en.song.searchPlaceholder} {...noAutofill("lyrics-search")} />
         </label>
         <button type="submit" className="btn secondary" disabled={busy || !q.trim()}>{en.song.search}</button>
       </form>

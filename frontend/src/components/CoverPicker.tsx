@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
 import type { CoverCandidateDto, SongDto } from "../services/api";
+import { noAutofill } from "../lib/noAutofill";
 import { Cover } from "./Cover";
 
 interface Props {
@@ -72,10 +73,10 @@ export function CoverPicker({ song, onChanged }: Props) {
         </label>
         {removable && <button type="button" className="btn quiet danger small" onClick={() => void remove()} disabled={busy}>{en.cover.remove}</button>}
       </div>
-      <form className="inline" style={{ marginTop: 14 }} onSubmit={(e) => { e.preventDefault(); void search(); }}>
+      <form autoComplete="off" className="inline" style={{ marginTop: 14 }} onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <label className="field">
           <span>{en.cover.searchField}</span>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={song.album ?? song.title} />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={song.album ?? song.title} {...noAutofill("cover-search")} />
         </label>
         <button type="submit" className="btn secondary" disabled={busy}>{en.song.search}</button>
       </form>

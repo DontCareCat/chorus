@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { noAutofill } from "../lib/noAutofill";
 import type { FormEvent } from "react";
 import { buildPrompt } from "../game/prompt";
 import { useFitText } from "../hooks/useFitText";
@@ -104,10 +105,10 @@ function TypedAnswer({ result, state, reveal, onSubmit }: { result: QuestionResu
     if (!result && text.trim()) onSubmit(text.trim());
   };
   return (
-    <form className="typing" data-state={state} onSubmit={submit}>
+    <form className="typing" data-state={state} onSubmit={submit} autoComplete="off">
       <input
         ref={input} type="text" value={result ? (result.typed ?? "") : text} onChange={(e) => setText(e.target.value)} disabled={!!result}
-        placeholder={en.game.typeHere} aria-label={en.game.typeLabel} autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={100}
+        placeholder={en.game.typeHere} aria-label={en.game.typeLabel} {...noAutofill("word-answer")} inputMode="text" enterKeyHint="send" maxLength={100}
       />
       {reveal && <span className="typing-result" role="status">{reveal}</span>}
       <button type="submit" className="btn" disabled={!!result || !text.trim()}>{en.game.check}</button>

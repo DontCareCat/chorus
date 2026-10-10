@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { buildMatcher } from "../lib/search";
+import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
@@ -153,12 +154,12 @@ export function LibraryPage() {
               <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
-          <form onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
+          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
             <div>
               <label className="field" style={{ marginBottom: 0 }}>
                 <span>{en.library.importPath}</span>
                 <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
-                  <input type="text" value={path} onChange={(e) => setPath(e.target.value)} placeholder={en.library.importPlaceholder} style={{ fontSize: 15 }} />
+                  <input type="text" {...noAutofill("import-path")} value={path} onChange={(e) => setPath(e.target.value)} placeholder={en.library.importPlaceholder} style={{ fontSize: 15 }} />
                   <button type="button" className="btn secondary" onClick={() => setBrowsing(true)} style={{ borderRadius: 10 }}>{en.library.browse}</button>
                   <button type="submit" className="btn inverse" disabled={busy || !path.trim()} style={{ borderRadius: 10 }}>{en.library.importAction}</button>
                 </div>
@@ -209,7 +210,7 @@ export function LibraryPage() {
           ))}
         </div>
         <div className="search-box">
-          <input className="pill" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} aria-invalid={!!matcher.error} />
+          <input className="pill" type="search" {...noAutofill("library-search")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} aria-invalid={!!matcher.error} />
           <button type="button" className="chip regex-toggle" aria-pressed={regex} onClick={() => setRegex((v) => !v)} title={en.library.regexToggle} aria-label={en.library.regexToggle}>.*</button>
         </div>
       </div>

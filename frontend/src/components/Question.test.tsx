@@ -28,6 +28,23 @@ describe("typing question", () => {
     expect(onSubmit).toHaveBeenCalledWith("Haus");
   });
 
+  it("the answer field is not offered browser or keyboard autofill", () => {
+    render(<Question {...base} results={new Map()} onSubmit={vi.fn()} />);
+    const field = screen.getByLabelText("Your answer") as HTMLInputElement;
+    expect(field.getAttribute("autocomplete")).toBe("off");
+    expect(field.closest("form")!.getAttribute("autocomplete")).toBe("off");
+    expect(field.getAttribute("autocorrect")).toBe("off");
+    expect(field.getAttribute("autocapitalize")).toBe("none");
+    expect(field.getAttribute("spellcheck")).toBe("false");
+    expect(field.name).toBe("chorus-word-answer"); // not "name", "address", "card"...
+    expect(field.getAttribute("data-lpignore")).toBe("true");
+    expect(field.getAttribute("data-1p-ignore")).toBe("true");
+    expect(field.getAttribute("data-bwignore")).toBe("true");
+    expect(field.getAttribute("data-form-type")).toBe("other");
+    expect(field.type).toBe("text");
+    expect(field.getAttribute("inputmode")).toBe("text");
+  });
+
   it("does not submit an empty answer", () => {
     const onSubmit = vi.fn();
     render(<Question {...base} results={new Map()} onSubmit={onSubmit} />);

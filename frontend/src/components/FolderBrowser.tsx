@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAsync } from "../hooks/useAsync";
+import { noAutofill } from "../lib/noAutofill";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
 import type { FsListingDto, ScanDto } from "../services/api";
@@ -105,9 +106,9 @@ export function FolderBrowser({ mode, start = "", recursiveDefault = true, copyD
           </button>
         </header>
 
-        <form className="path-bar" onSubmit={submitPath}>
+        <form autoComplete="off" className="path-bar" onSubmit={submitPath}>
           <button type="button" className="btn secondary small" onClick={() => data?.parent && go(data.parent)} disabled={!data?.parent} aria-label={en.browser.up} title={en.browser.up}>↑</button>
-          <input type="text" value={typed} onChange={(e) => { setTyped(e.target.value); setEdited(true); }} aria-label={en.browser.path} spellCheck={false} autoCapitalize="none" autoComplete="off" />
+          <input type="text" value={typed} onChange={(e) => { setTyped(e.target.value); setEdited(true); }} aria-label={en.browser.path} {...noAutofill("folder-path")} />
           <select aria-label={en.browser.places} value="" onChange={(e) => e.target.value && go(e.target.value)}>
             <option value="">{en.browser.places}</option>
             {(data?.roots ?? []).map((r) => <option key={r.path} value={r.path}>{r.name}</option>)}
@@ -163,8 +164,8 @@ export function FolderBrowser({ mode, start = "", recursiveDefault = true, copyD
               <details className="fs-filter">
                 <summary>{en.browser.filter}</summary>
                 <div className="inline">
-                  <label className="field"><span>{en.browser.include}</span><input type="text" value={include} onChange={(e) => setInclude(e.target.value)} spellCheck={false} placeholder="\.(mp3|flac)$" /></label>
-                  <label className="field"><span>{en.browser.exclude}</span><input type="text" value={exclude} onChange={(e) => setExclude(e.target.value)} spellCheck={false} placeholder="live|remix" /></label>
+                  <label className="field"><span>{en.browser.include}</span><input type="text" value={include} onChange={(e) => setInclude(e.target.value)} {...noAutofill("include-pattern")} placeholder="\.(mp3|flac)$" /></label>
+                  <label className="field"><span>{en.browser.exclude}</span><input type="text" value={exclude} onChange={(e) => setExclude(e.target.value)} {...noAutofill("exclude-pattern")} placeholder="live|remix" /></label>
                 </div>
                 <small className="hint">{en.browser.filterHelp}</small>
               </details>
