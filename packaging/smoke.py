@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import urllib.request
 import uuid
 import wave
@@ -91,6 +92,9 @@ def main(executable: str) -> int:
             song = post(base + "/api/songs", files=[("Band - Lied.wav", wav.read_bytes())])
             post(f"{base}/api/songs/{song['id']}/lyrics/upload", files=[("l.lrc", LRC.encode())])
             assert json.loads(get(base + "/api/scores")) == [], "scoreboard endpoint failed"
+            assert json.loads(get(base + "/api/scores?mode=typing")) == [], "typing scoreboard endpoint failed"
+            listing = json.loads(get(base + "/api/fs/list?" + urllib.parse.urlencode({"path": data})))
+            assert listing["path"] and "entries" in listing, "folder browsing failed"
             game = post(base + "/api/games", json_body={"song_id": song["id"], "difficulty": "medium"})
             assert game["questions"], "no questions generated (wordfreq data missing from the package?)"
             assert (Path(data) / "app.db").is_file(), "database not created in the data dir"

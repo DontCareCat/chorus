@@ -102,7 +102,7 @@ cp .env.example .env          # then edit: passwords, and MUSIC_DIR (your music 
 docker compose up -d --build
 ```
 
-Open <http://localhost:8000>, then press **Scan folders** (your `MUSIC_DIR` is mounted read-only at `/music`). A prebuilt image is published with each release: `ghcr.io/dontcarecat/chorus:<version>` (SQLite in `/data` unless you set `DATABASE_URL`).
+Open <http://localhost:8000>, then press **Scan folders** (your `MUSIC_DIR` is mounted read-only at `/music`). Browsing folders and importing from a path are limited to this computer and the administrator; the compose file sets `PATH_ACCESS=open` because requests reach a container from Docker's network. With a plain `docker run`, create the first account (it becomes the administrator) or pass `-e PATH_ACCESS=open`. A prebuilt image is published with each release: `ghcr.io/dontcarecat/chorus:<version>` (SQLite in `/data` unless you set `DATABASE_URL`).
 
 By default it listens on this computer only. To reach it from other devices, set `CHORUS_BIND=0.0.0.0` in `.env`: **anyone on that network can then use it**, including scanning and importing from the mounted folders.
 
