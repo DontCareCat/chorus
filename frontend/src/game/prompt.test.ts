@@ -3,7 +3,7 @@ import { buildPrompt, groupByLine } from "./prompt";
 import type { QuizQuestion } from "../types/question";
 
 const q = (id: number, lineId: number, blankIndex: number, text: string): QuizQuestion => ({
-  id, lineId, blankIndex, sequence: id, startTime: 0, endTime: 1, recoveryTime: 0, questionText: text, text: null, options: [], answer: null,
+  id, lineId, blankIndex, sequence: id, startTime: 0, endTime: 1, recoveryTime: 0, questionText: text, text: null, word: null, options: [], answer: null,
 });
 const SENTENCE = "Wir ____ mit dem ____ zum ____";
 const a = q(1, 7, 0, SENTENCE), b = q(2, 7, 1, SENTENCE), c = q(3, 7, 2, SENTENCE);

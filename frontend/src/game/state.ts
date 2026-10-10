@@ -16,6 +16,7 @@ export function buildQuiz(game: GameDto): QuizQuestion[] {
       recoveryTime: t(q.recovery_start),
       questionText: q.question_text,
       text: q.text,
+      word: q.word ?? null,
       options: q.options,
       answer: q.answer,
     }))

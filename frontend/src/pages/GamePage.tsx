@@ -18,6 +18,7 @@ import { usePlaybackSync } from "../hooks/usePlaybackSync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api } from "../services/api";
+import type { Answer } from "../services/api";
 import { createEngine, getEngineKind } from "../services/audio/create-engine";
 import type { GameEngine, PlaybackEngine } from "../services/audio/engine";
 import type { GameDto } from "../types/game";
@@ -101,7 +102,7 @@ function GameScreen({ game }: { game: GameDto }) {
   useEffect(() => {
     if (!g.finished) return;
     const t = setTimeout(() => {
-      api.songScores(game.song_id).then((rows) => setRank(rows.find((r) => r.me)?.rank ?? null), () => undefined);
+      api.songScores(game.song_id, game.mode).then((rows) => setRank(rows.find((r) => r.me)?.rank ?? null), () => undefined);
     }, 400); // the server has the last answer by then
     return () => clearTimeout(t);
   }, [g.finished, game.song_id]);
@@ -136,9 +137,9 @@ function GameScreen({ game }: { game: GameDto }) {
   }, []);
 
   const answer = useCallback(
-    (q: (typeof g.quiz)[number], optionId: number) => {
+    (q: (typeof g.quiz)[number], given: Answer) => {
       // The server scores the answer: "ahead" from where the audio is, the multiplier from how long the game waited.
-      g.answer(q.id, optionId, { position: engine?.getCurrentTime() ?? 0, waited: waited.current }, () => playback.markAnswered(q.id));
+      g.answer(q.id, given, { position: engine?.getCurrentTime() ?? 0, waited: waited.current }, () => playback.markAnswered(q.id));
       waited.current = 0;
       // The next open question (after this one, else the first open one) appears at once; the result of this
       // answer shows in a line of its own and in the lyric sheet. With nothing left, this question stays up.
@@ -177,11 +178,11 @@ function GameScreen({ game }: { game: GameDto }) {
       }
       const i = ["1", "2", "3", "4"].indexOf(e.key);
       const o = i >= 0 && focusedQ ? focusedQ.options[i] : undefined;
-      if (focusedQ && o && !g.answeredSet.has(focusedQ.id)) answer(focusedQ, o.id);
+      if (game.mode === "choice" && focusedQ && o && !g.answeredSet.has(focusedQ.id)) answer(focusedQ, { optionId: o.id });
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedQ, g.answeredSet, answer, engine, seekTo, vol.step, vol.toggleMute]);
+  }, [focusedQ, g.answeredSet, answer, engine, seekTo, vol.step, vol.toggleMute, game.mode]);
 
   const start = () => {
     if (!audioRef.current || engine) return;
@@ -207,7 +208,8 @@ function GameScreen({ game }: { game: GameDto }) {
   answerRef.current = answer;
   const focusedRef = useRef(focusedQ);
   focusedRef.current = focusedQ;
-  const onAnswer = useCallback((optionId: number) => { if (focusedRef.current) answerRef.current(focusedRef.current, optionId); }, []);
+  const onAnswer = useCallback((optionId: number) => { if (focusedRef.current) answerRef.current(focusedRef.current, { optionId }); }, []);
+  const onSubmit = useCallback((text: string) => { if (focusedRef.current) answerRef.current(focusedRef.current, { text }); }, []);
 
   const phone = layout === "phone";
   // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
@@ -233,6 +235,8 @@ function GameScreen({ game }: { game: GameDto }) {
       total={g.total}
       onAnswer={onAnswer}
       answersOnly={phone}
+      typing={game.mode === "typing"}
+      onSubmit={onSubmit}
     />
   ) : (
     <p className="notice">{en.game.notFound}</p>
@@ -325,7 +329,8 @@ function lastAnswerText(quiz: readonly QuizQuestionT[], results: ReadonlyMap<num
   const q = questionId === null ? undefined : quiz.find((x) => x.id === questionId);
   const shown = q ? resultWord(q, results.get(q.id)) : null;
   if (!shown) return { text: "", ok: undefined };
-  return { text: shown.ok === undefined ? en.game.lastPending : shown.ok ? en.game.lastCorrect(shown.word) : en.game.lastWrong(shown.word), ok: shown.ok };
+  const text = shown.ok === undefined ? en.game.lastPending : shown.match === "partial" ? en.game.lastAlmost(shown.word) : shown.ok ? en.game.lastCorrect(shown.word) : en.game.lastWrong(shown.word);
+  return { text, ok: shown.match === "partial" ? undefined : shown.ok };
 }
 
 /** The result of the answer just given, shown beside the already-visible next question (never in its way). */

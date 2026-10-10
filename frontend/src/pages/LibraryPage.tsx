@@ -5,9 +5,13 @@ import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { GameSummaryDto, SongDto, SongScoreDto } from "../services/api";
+import type { GameMode } from "../types/game";
 
 const DIFFICULTIES = ["easy", "medium", "hard", "expert"] as const;
-const PERCENT: Record<string, number> = { easy: 10, medium: 30, hard: 60, expert: 80 };
+const PERCENT: Record<GameMode, Record<string, number>> = {
+  choice: { easy: 10, medium: 30, hard: 60, expert: 80 },
+  typing: { easy: 10, medium: 25, hard: 40, expert: 60 }, // typing a word takes longer: fewer words per level
+};
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.generic);
 const AUDIO_RE = /\.(mp3|m4a|flac|ogg|opus|wav)$/i;
 type Filter = "all" | "ready" | "missing";
@@ -243,13 +247,14 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
   const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("medium");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const board = useAsync(() => api.songScores(song.id), [song.id]);
+  const [mode, setMode] = useState<GameMode>("choice");
+  const board = useAsync(() => api.songScores(song.id, mode), [song.id, mode]);
 
   const start = async () => {
     setBusy(true);
     setError(null);
     try {
-      const g = await api.createGame(song.id, difficulty);
+      const g = await api.createGame(song.id, difficulty, mode);
       location.hash = paths.game(g.public_id);
     } catch (e) {
       setError(msg(e));
@@ -260,19 +265,30 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
   return (
     <div className="start-panel">
       <div>
+        <div className="label">{en.library.modeLabel}</div>
+        <div className="segmented mode-switch" role="group" aria-label={en.library.modeLabel}>
+          {(["choice", "typing"] as const).map((m) => (
+            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
+              <b>{en.library.modes[m].name}</b>
+              <small>{en.library.modes[m].help}</small>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
         <div className="label">{en.library.difficultyLabel}</div>
         <div className="segmented" role="group" aria-label={en.library.difficultyLabel}>
           {DIFFICULTIES.map((d) => (
             <button key={d} type="button" aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
               <b>{en.library.difficulty[d]}</b>
-              <small>{PERCENT[d]}% of words</small>
+              <small>{PERCENT[mode][d]}% of words</small>
             </button>
           ))}
         </div>
       </div>
       <button type="button" className="btn large" onClick={() => void start()} disabled={busy}>{en.library.startGame}</button>
       <div className="history">
-        <History games={games} board={board.data ?? []} />
+        <History games={games.filter((g) => g.mode === mode)} board={board.data ?? []} />
         {error && <p className="notice error">{error}</p>}
       </div>
     </div>

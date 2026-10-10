@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { decay, multiplierFor, scoreAnswer, secondsToDecay, untilNextLevel } from "./scoring";
+import { decay, multiplierFor, scoreAnswer, scoreTyped, secondsToDecay, untilNextLevel } from "./scoring";
 
 interface Step { correct: boolean; ahead: boolean; waited: number }
 interface Case { name: string; steps: Step[]; expect: number[][] }
@@ -12,6 +12,24 @@ describe("scoring (shared vectors, same as the backend)", () => {
       let streak = 0;
       c.steps.forEach((step, i) => {
         const o = scoreAnswer(streak, step.correct, step.ahead, step.waited);
+        expect([o.points, o.multiplier, o.streak, o.nextMultiplier], `step ${i}`).toEqual(c.expect[i]);
+        streak = o.streak;
+      });
+      expect(c.steps.length).toBe(c.expect.length);
+    });
+  }
+});
+
+interface TypedStep { match: "full" | "partial" | "none"; ahead: boolean; waited: number }
+interface TypedCase { name: string; steps: TypedStep[]; expect: number[][] }
+const typedVectors = (JSON.parse(readFileSync(new URL("../../../shared/scoring-typing-vectors.json", import.meta.url), "utf8")) as { cases: TypedCase[] }).cases;
+
+describe("typing mode scoring (shared vectors, same as the backend)", () => {
+  for (const c of typedVectors) {
+    it(c.name, () => {
+      let streak = 0;
+      c.steps.forEach((step, i) => {
+        const o = scoreTyped(streak, step.match, step.ahead, step.waited);
         expect([o.points, o.multiplier, o.streak, o.nextMultiplier], `step ${i}`).toEqual(c.expect[i]);
         streak = o.streak;
       });

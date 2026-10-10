@@ -3,6 +3,7 @@ import type { QuestionResult } from "../game/results";
 import { answeredIds, buildQuiz, syncQuestions } from "../game/state";
 import type { SyncQuestion } from "../game/synchronization";
 import { api } from "../services/api";
+import type { Answer } from "../services/api";
 import type { AnswerResultDto } from "../services/api";
 import type { GameDto } from "../types/game";
 import type { QuizQuestion } from "../types/question";
@@ -41,7 +42,7 @@ export interface UseGame {
   finished: boolean;
   error: string | null;
   /** Records the answer immediately (never waits for the network) and then confirms with the server. */
-  answer: (questionId: number, optionId: number, ctx: { position: number | null; waited: number }, onLocal: () => void) => void;
+  answer: (questionId: number, answer: Answer, ctx: { position: number | null; waited: number }, onLocal: () => void) => void;
 }
 
 export function useGame(game: GameDto): UseGame {
@@ -60,13 +61,20 @@ export function useGame(game: GameDto): UseGame {
     const m = new Map<number, QuestionResult>();
     for (const q of quiz) {
       if (q.answer) {
-        m.set(q.id, { selectedOptionId: q.answer.selected_option_id, correct: q.answer.correct, correctOptionId: q.answer.correct_option_id, text: q.text ?? undefined });
+        const a = q.answer;
+        m.set(q.id, {
+          selectedOptionId: a.selected_option_id ?? 0, correct: a.correct, correctOptionId: a.correct_option_id ?? undefined, text: q.text ?? undefined,
+          ...(a.match ? { typed: a.typed_text ?? undefined, match: a.match, word: a.word ?? q.word ?? undefined } : {}),
+        });
       }
     }
     for (const [id, r] of optimistic) m.set(id, r);
     for (const [id, r] of confirmed) {
       const prev = m.get(id);
-      m.set(id, { selectedOptionId: prev?.selectedOptionId ?? 0, correct: r.correct, correctOptionId: r.correct_option_id, text: r.text });
+      m.set(id, {
+        selectedOptionId: prev?.selectedOptionId ?? 0, correct: r.correct, correctOptionId: r.correct_option_id ?? undefined, text: r.text,
+        ...(r.match ? { typed: prev?.typed, match: r.match, word: r.word ?? undefined } : {}),
+      });
     }
     return m;
   }, [quiz, optimistic, confirmed]);
@@ -75,16 +83,16 @@ export function useGame(game: GameDto): UseGame {
   const syncQs = useMemo(() => (game.synced ? syncQuestions(quiz) : []), [game.synced, quiz]);
 
   const answer = useCallback(
-    (questionId: number, optionId: number, ctx: { position: number | null; waited: number }, onLocal: () => void) => {
+    (questionId: number, given: Answer, ctx: { position: number | null; waited: number }, onLocal: () => void) => {
       if (answeredSet.has(questionId)) return;
-      setOptimistic((m) => new Map(m).set(questionId, { selectedOptionId: optionId }));
+      setOptimistic((m) => new Map(m).set(questionId, "optionId" in given ? { selectedOptionId: given.optionId } : { selectedOptionId: 0, typed: given.text }));
       onLocal(); // tells the playback controller right away: the fade-in must not wait for the server
       const seq = ++sent.current;
-      api.answer(game.public_id, questionId, optionId, ctx.position, ctx.waited).then(
+      api.answer(game.public_id, questionId, given, ctx.position, ctx.waited).then(
         (r) => {
           setConfirmed((m) => new Map(m).set(questionId, r));
           if (r.already_answered) return;
-          setGain({ id: seq, points: r.points, ahead: r.ahead, multiplier: r.multiplier, correct: r.correct });
+          setGain({ id: seq, points: r.points, ahead: r.ahead, multiplier: r.multiplier, correct: r.points > 0 });
           if (seq > applied.current) {
             applied.current = seq; // answers can be confirmed out of order: the newest one describes the game
             setStanding((s) => ({ points: r.score, streak: r.streak, multiplier: r.next_multiplier, best: Math.max(s.best, r.next_multiplier) }));

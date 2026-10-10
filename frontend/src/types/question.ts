@@ -11,6 +11,7 @@ export interface QuizQuestion {
   recoveryTime: number | null; // start of the previous lyric line
   questionText: string;
   text: string | null;
+  word: string | null;
   options: OptionDto[];
   answer: AnswerDto | null;
 }

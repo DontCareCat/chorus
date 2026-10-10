@@ -8,7 +8,7 @@ export type WindowPart =
   | { kind: "text"; text: string }
   | { kind: "blank"; index: number; focused: boolean }
   /** An answered blank: the RIGHT word is always shown; `state` says how the player did (pending = not confirmed yet). */
-  | { kind: "word"; index: number; word: string; state: "correct" | "wrong" | "pending"; focused: boolean };
+  | { kind: "word"; index: number; word: string; state: "correct" | "partial" | "wrong" | "pending"; focused: boolean };
 
 export interface WindowLine {
   lineId: number;
@@ -51,8 +51,8 @@ export function buildWindowLines(
       const r = q ? results.get(q.id) : undefined;
       const focused = q?.id === focusedId;
       const word = q ? rightWord(q, r) : undefined;
-      if (q && r && word !== undefined) parts.push({ kind: "word", index: i, word, state: r.correct ? "correct" : "wrong", focused });
-      else if (q && r) parts.push({ kind: "word", index: i, word: q.options.find((o) => o.id === r.selectedOptionId)?.text ?? "", state: "pending", focused });
+      if (q && r && word !== undefined) parts.push({ kind: "word", index: i, word, state: r.match === "partial" ? "partial" : r.correct ? "correct" : "wrong", focused });
+      else if (q && r) parts.push({ kind: "word", index: i, word: r.typed ?? q.options.find((o) => o.id === r.selectedOptionId)?.text ?? "", state: "pending", focused });
       else parts.push({ kind: "blank", index: i, focused });
     });
     const open = qs.filter((q) => !results.has(q.id));

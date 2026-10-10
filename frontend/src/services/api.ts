@@ -1,4 +1,4 @@
-import type { GameDto } from "../types/game";
+import type { GameDto, GameMode, Match } from "../types/game";
 
 /** Fired when the server says nobody may use it without signing in (guests switched off). */
 export const AUTH_REQUIRED = "chorus:auth-required";
@@ -125,6 +125,7 @@ export interface GameSummaryDto {
   public_id: string;
   song_id: number;
   difficulty: string;
+  mode: GameMode;
   started_at: string;
   finished_at: string | null;
   score: number; // points
@@ -136,7 +137,9 @@ export interface GameSummaryDto {
 
 export interface AnswerResultDto {
   correct: boolean;
-  correct_option_id: number;
+  correct_option_id: number | null;
+  match?: Match | null;
+  word?: string | null;
   text: string;
   score: number; // the game's points so far
   points: number; // points this answer earned
@@ -156,6 +159,7 @@ export interface SongScoreDto {
   total: number;
   best_multiplier: number;
   difficulty: string;
+  mode: GameMode;
   finished_at: string;
   me: boolean;
 }
@@ -183,6 +187,9 @@ export interface AuthStateDto {
   first_account: boolean;
 }
 
+/** What the player gave: a chosen option (multiple choice) or the typed word (typing mode). */
+export type Answer = { optionId: number } | { text: string };
+
 export const api = {
   songs: () => request<SongDto[]>("/api/songs"),
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
@@ -208,13 +215,14 @@ export const api = {
   saveSettings: (s: SettingsDto) => request<SettingsDto>("/api/settings", json("PUT", s)),
 
   songGames: (songId: number) => request<GameSummaryDto[]>(`/api/songs/${songId}/games`),
-  createGame: (songId: number, difficulty: string) => request<GameDto>("/api/games", json("POST", { song_id: songId, difficulty })),
+  createGame: (songId: number, difficulty: string, mode: GameMode = "choice") =>
+    request<GameDto>("/api/games", json("POST", { song_id: songId, difficulty, mode })),
   getGame: (publicId: string) => request<GameDto>(`/api/games/${publicId}`),
-  scores: () => request<GlobalScoreDto[]>("/api/scores"),
-  songScores: (songId: number) => request<SongScoreDto[]>(`/api/songs/${songId}/scores`),
+  scores: (mode: GameMode = "choice") => request<GlobalScoreDto[]>(`/api/scores?mode=${mode}`),
+  songScores: (songId: number, mode: GameMode = "choice") => request<SongScoreDto[]>(`/api/songs/${songId}/scores?mode=${mode}`),
   myGames: () => request<GameSummaryDto[]>("/api/games"),
-  answer: (publicId: string, questionId: number, optionId: number, position: number | null, waited: number) =>
-    request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, option_id: optionId, position, waited })),
+  answer: (publicId: string, questionId: number, answer: Answer, position: number | null, waited: number) =>
+    request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, ...("optionId" in answer ? { option_id: answer.optionId } : { text: answer.text }), position, waited })),
 
   me: () => request<AuthStateDto>("/api/auth/me"),
   register: (username: string, password: string, displayName: string) =>

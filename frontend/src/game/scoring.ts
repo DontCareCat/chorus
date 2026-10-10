@@ -6,6 +6,9 @@ export const AHEAD_BONUS = 15;
 export const STREAK_STEP = 4; // correct answers in a row per multiplier level
 export const MAX_MULTIPLIER = 8;
 export const DECAY_SECONDS = 5; // waiting time that costs one level
+export const TYPING_FULL = 10;
+export const TYPING_PARTIAL = 5;
+export const TYPING_AHEAD = 1.5; // typing mode: answering ahead multiplies the points (instead of the flat bonus)
 export const MAX_WAIT_SECONDS = 600;
 
 export const multiplierFor = (streak: number): number => Math.min(MAX_MULTIPLIER, 1 + Math.floor(streak / STREAK_STEP));
@@ -43,3 +46,14 @@ export function untilNextLevel(streak: number): number {
 
 /** Seconds until the game's waiting costs the next multiplier level, counting from `waited` seconds of waiting. */
 export const secondsToDecay = (waited: number): number => DECAY_SECONDS - (waited % DECAY_SECONDS);
+
+/** Typing mode: a full match is worth 10, a partial one 5, both x1.5 ahead, then x the streak multiplier. A partial match keeps the streak. */
+export function scoreTyped(streak: number, match: "full" | "partial" | "none", ahead: boolean, waited = 0): Outcome {
+  const decayed = decay(streak, waited);
+  const applied = multiplierFor(decayed);
+  if (match === "none") return { points: 0, multiplier: applied, streak: 0, nextMultiplier: 1 };
+  const base = match === "full" ? TYPING_FULL : TYPING_PARTIAL;
+  const points = Math.floor(base * (ahead ? TYPING_AHEAD : 1) * applied + 0.5); // half up
+  const next = match === "full" ? decayed + 1 : decayed;
+  return { points, multiplier: applied, streak: next, nextMultiplier: multiplierFor(next) };
+}

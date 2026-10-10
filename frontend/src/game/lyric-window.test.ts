@@ -4,7 +4,7 @@ import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
 
 const q = (id: number, lineId: number, blankIndex: number, questionText: string, right: number): QuizQuestion => ({
-  id, lineId, blankIndex, sequence: id, startTime: 0, endTime: 1, recoveryTime: 0, questionText, text: null, answer: null,
+  id, lineId, blankIndex, sequence: id, startTime: 0, endTime: 1, recoveryTime: 0, questionText, text: null, word: null, answer: null,
   options: [{ id: id * 10, text: "Haus" }, { id: id * 10 + 1, text: "Baum" }, { id: id * 10 + 2, text: "Auto" }, { id: id * 10 + 3, text: "Stadt" }].map((o, i) => (i === right ? { ...o } : o)),
 });
 
@@ -60,6 +60,19 @@ describe("buildWindowLines", () => {
     const parts = buildWindowLines(lines, quiz, one, 0, null)[1]!.parts;
     expect(parts.filter((p) => p.kind === "word")).toHaveLength(1);
     expect(parts.filter((p) => p.kind === "blank")).toHaveLength(1);
+  });
+});
+
+describe("typing mode in the window", () => {
+  const tq = (id: number): QuizQuestion => ({ ...q(id, 2, 0, "Das ____ ist da", 0), options: [] });
+  it("shows the asked word coloured by the match, and the typed text while unconfirmed", () => {
+    const quiz1 = [tq(1)];
+    const lines1 = [{ line_id: 2, audio_start: 5, text: null }];
+    const wordOf = (r: QuestionResult) => buildWindowLines(lines1, quiz1, new Map([[1, r]]), 0, null)[0]!.parts.find((p) => p.kind === "word");
+    expect(wordOf({ selectedOptionId: 0, typed: "haus", correct: true, match: "full", word: "Haus" })).toMatchObject({ word: "Haus", state: "correct" });
+    expect(wordOf({ selectedOptionId: 0, typed: "hous", correct: false, match: "partial", word: "Haus" })).toMatchObject({ word: "Haus", state: "partial" });
+    expect(wordOf({ selectedOptionId: 0, typed: "baum", correct: false, match: "none", word: "Haus" })).toMatchObject({ word: "Haus", state: "wrong" });
+    expect(wordOf({ selectedOptionId: 0, typed: "hau" })).toMatchObject({ word: "hau", state: "pending" });
   });
 });
 

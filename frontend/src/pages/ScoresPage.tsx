@@ -3,10 +3,12 @@ import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { api } from "../services/api";
 import type { GlobalScoreDto, SongScoreDto } from "../services/api";
+import type { GameMode } from "../types/game";
 
 /** The two scoreboards: everybody's total over all songs, and the best games on one song. */
 export function ScoresPage() {
   const [tab, setTab] = useState<"all" | "song">("all");
+  const [mode, setMode] = useState<GameMode>("choice");
   const songs = useAsync(() => api.songs(), []);
   const [songId, setSongId] = useState<number | null>(null);
   const chosen = songId ?? songs.data?.[0]?.id ?? null;
@@ -24,7 +26,12 @@ export function ScoresPage() {
           <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}><b>{en.scores[t]}</b></button>
         ))}
       </div>
-      {tab === "all" ? <GlobalBoard /> : (
+      <div className="segmented tabs" role="group" aria-label={en.library.modeLabel} style={{ marginTop: 8 }}>
+        {(["choice", "typing"] as const).map((m) => (
+          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}><b>{en.library.modes[m].name}</b></button>
+        ))}
+      </div>
+      {tab === "all" ? <GlobalBoard mode={mode} /> : (
         <>
           <label className="field" style={{ marginTop: 14 }}>
             <span>{en.scores.chooseSong}</span>
@@ -32,7 +39,7 @@ export function ScoresPage() {
               {(songs.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.title} · {s.artist}</option>)}
             </select>
           </label>
-          {chosen !== null && <SongBoard songId={chosen} key={chosen} />}
+          {chosen !== null && <SongBoard songId={chosen} mode={mode} key={`${chosen}-${mode}`} />}
         </>
       )}
     </>
@@ -43,16 +50,16 @@ function Empty() {
   return <p className="empty">{en.scores.empty}</p>;
 }
 
-function GlobalBoard() {
-  const rows = useAsync(() => api.scores(), []);
+function GlobalBoard({ mode }: { mode: GameMode }) {
+  const rows = useAsync(() => api.scores(mode), [mode]);
   if (rows.error) return <p className="notice error">{rows.error.message}</p>;
   if (!rows.data) return <p className="muted">…</p>;
   if (rows.data.length === 0) return <Empty />;
   return <Board rows={rows.data.map((r: GlobalScoreDto) => ({ rank: r.rank, name: r.display_name, detail: en.scores.songs(r.songs), points: r.points, me: r.me }))} />;
 }
 
-function SongBoard({ songId }: { songId: number }) {
-  const rows = useAsync(() => api.songScores(songId), [songId]);
+function SongBoard({ songId, mode }: { songId: number; mode: GameMode }) {
+  const rows = useAsync(() => api.songScores(songId, mode), [songId, mode]);
   if (rows.error) return <p className="notice error">{rows.error.message}</p>;
   if (!rows.data) return <p className="muted">…</p>;
   if (rows.data.length === 0) return <Empty />;

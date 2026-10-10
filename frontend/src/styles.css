@@ -350,6 +350,8 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .lw-word { font-weight: 700; }
 .lw-word[data-state="correct"] { color: var(--correct); }
 .lw-word[data-state="wrong"] { color: var(--wrong); }
+.lw-word[data-state="partial"] { color: var(--accent); }
+.lw-word[data-state="partial"]::after { content: "~"; font-size: 0.7em; margin-left: 0.2em; vertical-align: 0.1em; }
 .lw-word[data-state="pending"] { color: var(--text); text-decoration: underline dotted; }
 .lw-word[data-state="correct"]::after { content: "✓"; font-size: 0.6em; margin-left: 0.2em; vertical-align: 0.25em; }
 .lw-word[data-state="wrong"]::after { content: "✗"; font-size: 0.6em; margin-left: 0.2em; vertical-align: 0.25em; }
@@ -557,3 +559,17 @@ html[data-layout="phone"] body { font-size: 16px; }
   [data-layout="phone"] .opt { height: 72px; font-size: 22px; }
   [data-layout="phone"] .transport-inner { min-height: 72px; }
 }
+
+/* typing mode: one field instead of four options */
+.typing { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.typing input { flex: 1 1 12rem; height: 56px; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; border-radius: 14px; padding: 0 16px; }
+.typing .btn { height: 56px; padding: 0 24px; font-size: 18px; }
+.typing-result { flex-basis: 100%; font-weight: 600; font-size: 15px; }
+.typing[data-state="correct"] input { border-color: var(--correct); color: var(--correct); background: color-mix(in oklch, var(--correct) 14%, transparent); }
+.typing[data-state="partial"] input { border-color: var(--accent); color: var(--text); background: color-mix(in oklch, var(--accent) 14%, transparent); }
+.typing[data-state="wrong"] input { border-color: var(--wrong); color: var(--wrong); background: color-mix(in oklch, var(--wrong) 14%, transparent); }
+.reveal[data-ok="partial"] { color: var(--accent); }
+[data-layout="phone"] .typing { margin: 0; gap: 8px; }
+[data-layout="phone"] .typing input { height: 52px; flex: 1 1 8rem; font-size: 20px; }
+[data-layout="phone"] .typing .btn { height: 52px; padding: 0 18px; }
+[data-layout="phone"] .typing-result { flex-basis: auto; order: -1; flex: 1 0 100%; margin-bottom: -2px; }

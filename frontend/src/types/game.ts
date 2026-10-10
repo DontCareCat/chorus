@@ -1,14 +1,21 @@
+export type GameMode = "choice" | "typing";
+
 // Mirrors the backend GameOut (app/schemas/game.py).
 export interface OptionDto {
   id: number;
   text: string;
 }
 
+export type Match = "full" | "partial" | "none";
+
 export interface AnswerDto {
-  selected_option_id: number;
-  correct: boolean;
-  correct_option_id: number;
+  selected_option_id: number | null; // null in typing mode
+  correct: boolean; // a full match in typing mode
+  correct_option_id: number | null;
   answered_at: string;
+  typed_text?: string | null;
+  match?: Match | null;
+  word?: string | null;
 }
 
 export interface QuestionDto {
@@ -21,6 +28,7 @@ export interface QuestionDto {
   recovery_start: number | null;
   question_text: string;
   text: string | null;
+  word?: string | null; // the asked word, revealed once answered
   options: OptionDto[];
   answer: AnswerDto | null;
 }
@@ -34,6 +42,7 @@ export interface GameDto {
   sample_rate: number | null; // of the audio file (Hz)
   language: string;
   difficulty: string;
+  mode: GameMode;
   synced: boolean;
   lyrics_offset: number;
   started_at: string;
