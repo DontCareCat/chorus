@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
+import { FolderBrowser } from "../components/FolderBrowser";
+import { buildMatcher } from "../lib/search";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { paths } from "../router";
@@ -30,6 +32,8 @@ export function LibraryPage() {
   const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [regex, setRegex] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -99,10 +103,11 @@ export function LibraryPage() {
   const all = songs.data ?? [];
   const isReady = (s: SongDto) => s.lyrics_status === "found" && s.available;
   const counts = { all: all.length, ready: all.filter(isReady).length, missing: all.filter((s) => !isReady(s)).length };
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return all.filter((s) => (filter === "all" || (filter === "ready") === isReady(s)) && (!q || `${s.title} ${s.artist}`.toLowerCase().includes(q)));
-  }, [all, filter, query]);
+  const matcher = useMemo(() => buildMatcher(query, regex), [query, regex]);
+  const shown = useMemo(
+    () => all.filter((s) => (filter === "all" || (filter === "ready") === isReady(s)) && matcher.test(s)),
+    [all, filter, matcher],
+  );
 
   const unfinished = (games.data ?? []).find((g) => !g.finished_at);
   const resumeSong = unfinished ? all.find((s) => s.id === unfinished.song_id) : undefined;
@@ -154,6 +159,7 @@ export function LibraryPage() {
                 <span>{en.library.importPath}</span>
                 <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
                   <input type="text" value={path} onChange={(e) => setPath(e.target.value)} placeholder={en.library.importPlaceholder} style={{ fontSize: 15 }} />
+                  <button type="button" className="btn secondary" onClick={() => setBrowsing(true)} style={{ borderRadius: 10 }}>{en.library.browse}</button>
                   <button type="submit" className="btn inverse" disabled={busy || !path.trim()} style={{ borderRadius: 10 }}>{en.library.importAction}</button>
                 </div>
                 <small>{en.library.importHelp}</small>
@@ -171,6 +177,13 @@ export function LibraryPage() {
         </section>
       )}
       {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
+      {browsing && (
+        <FolderBrowser
+          mode="import" start={path.trim() && path.trim().startsWith("/") ? path.trim() : ""} recursiveDefault={recursive} copyDefault={copyFiles}
+          onClose={() => setBrowsing(false)}
+          onImported={(r) => { setNotice({ kind: r.errors.length ? "error" : "ok", text: `${en.browser.result(r.added, r.skipped, r.filtered ?? 0)}${r.errors.length ? `. ${r.errors.slice(0, 3).join(" ")}` : ""}` }); songs.reload(); }}
+        />
+      )}
 
       {unfinished && resumeSong && (
         <section className="continue" aria-label={en.library.continueTitle}>
@@ -195,9 +208,13 @@ export function LibraryPage() {
             </button>
           ))}
         </div>
-        <input className="pill" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} />
+        <div className="search-box">
+          <input className="pill" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} aria-invalid={!!matcher.error} />
+          <button type="button" className="chip regex-toggle" aria-pressed={regex} onClick={() => setRegex((v) => !v)} title={en.library.regexToggle} aria-label={en.library.regexToggle}>.*</button>
+        </div>
       </div>
 
+      {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}
       {all.length > 0 && shown.length === 0 && <p className="empty">{en.library.noMatch}</p>}

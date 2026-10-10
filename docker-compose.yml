@@ -29,6 +29,9 @@ services:
     environment:
       DATABASE_URL: mysql+pymysql://chorus:${MYSQL_PASSWORD:-chorus}@mysql:3306/chorus?charset=utf8mb4
       LIBRARY_DIRS: /music
+      # Browsing folders / importing by path is limited to this machine and the administrator. Requests reach a container
+      # through Docker's network, so none looks local: "open" lifts the limit (the port is bound to 127.0.0.1 by default).
+      PATH_ACCESS: open
     volumes:
       - chorus-data:/data                      # uploaded/imported copies of songs
       - ${MUSIC_DIR:-./music}:/music:ro        # your music, read-only: scanned in place, never modified

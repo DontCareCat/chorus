@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FolderBrowser } from "../components/FolderBrowser";
 import { LanguageSelect } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
@@ -17,6 +18,7 @@ export function SettingsPage() {
   const [form, setForm] = useState<SettingsDto | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
   const [newFolder, setNewFolder] = useState("");
+  const [browsing, setBrowsing] = useState(false);
   const [forever, setForever] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
 
@@ -115,6 +117,7 @@ export function SettingsPage() {
             <div className="inline" style={{ marginTop: 12 }}>
               <input type="text" value={newFolder} placeholder={en.settings.folderPlaceholder} aria-label={en.settings.addFolder} onChange={(e) => setNewFolder(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addFolder(); } }} style={{ flex: "1 1 14rem", fontSize: 15 }} />
+              <button type="button" className="btn secondary" onClick={() => setBrowsing(true)}>{en.settings.browseFolder}</button>
               <button type="button" className="btn secondary" onClick={addFolder} disabled={!newFolder.trim()}>{en.settings.addFolder}</button>
             </div>
             <small>{en.settings.foldersHelp}</small>
@@ -136,6 +139,10 @@ export function SettingsPage() {
           </section>
         )}
 
+        {browsing && (
+          <FolderBrowser mode="folder" start={newFolder.trim().startsWith("/") ? newFolder.trim() : ""} onClose={() => setBrowsing(false)}
+            onPickFolder={(p) => setFolders((f) => (f.includes(p) ? f : [...f, p]))} />
+        )}
         <AudioPanel />
 
         <div className="page-actions">

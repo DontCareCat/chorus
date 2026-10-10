@@ -124,10 +124,25 @@ export interface CoverCandidateDto {
   score: number;
 }
 
+export interface FsEntryDto {
+  name: string;
+  kind: "dir" | "audio";
+  size: number | null;
+  link: boolean;
+}
+
+export interface FsListingDto {
+  path: string;
+  parent: string | null;
+  entries: FsEntryDto[];
+  roots: { name: string; path: string }[];
+}
+
 export interface ScanDto {
   added: number;
   skipped: number;
   unavailable: number;
+  filtered?: number;
   errors: string[];
 }
 
@@ -206,6 +221,10 @@ export const api = {
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),
+  listFolder: (path?: string, hidden = false) =>
+    request<FsListingDto>(`/api/fs/list?${new URLSearchParams({ ...(path ? { path } : {}), hidden: String(hidden) })}`),
+  importMany: (opts: { paths: string[]; recursive: boolean; copyFiles: boolean; include?: string; exclude?: string }) =>
+    request<ScanDto>("/api/library/import-many", json("POST", { paths: opts.paths, recursive: opts.recursive, copy_files: opts.copyFiles, include: opts.include || null, exclude: opts.exclude || null })),
   importPath: (path: string, recursive: boolean, copyFiles: boolean) =>
     request<ScanDto>("/api/library/import", json("POST", { path, recursive, copy_files: copyFiles })),
   deleteSong: (id: number) => request<{ result: "hidden" | "deleted" }>(`/api/songs/${id}`, { method: "DELETE" }),
