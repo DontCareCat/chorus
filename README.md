@@ -12,14 +12,18 @@ Add songs from your own music folders. Chorus finds synchronized lyrics for them
 ## What it does
 
 - **Library**: scan folders (files are used where they are, never modified), import a file or a whole folder (optionally with subfolders), or upload files. Embedded cover art is shown.
+- **Folder browser**: *Add music > Browse…* opens a window (full screen on phones) for picking music on the computer that runs Chorus: type or paste any path, walk through folders, tick several songs and folders and import them in one go. Optional *regular expression* filters (include / leave out) apply to file names. The library search has a `.*` toggle for regular-expression search.
+- **Album covers**: songs without embedded art get a cover from MusicBrainz and the Cover Art Archive, saved in Chorus's own `covers` folder (never in your music folders). A clear match is saved by itself; when it is not clear you choose from candidates on the song page, or upload your own image. Turn the lookup off in Settings (it sends the artist and album to MusicBrainz).
 - **Lyrics**: found automatically (a `.lrc` file next to the song, then [LRCLIB](https://lrclib.net)); if there is no confident match you can search by hand or upload a `.lrc` / text file. Saved lyrics can be replaced at any time: *Search again* lists the candidates (the ones in use are marked) and never swaps anything by itself; games already started keep their lyrics. Lyrics are cached. You can nudge the timing and preview it against the audio.
 - **Game**: choose how much of the song is asked: easy 10%, medium 30%, hard 60%, expert 80% of the words. A line can have several blanks; the sentence hides all of them so one answer never reveals another.
 - **Playback**: play / pause / stop, back 5 seconds, a seekable timeline, volume (desktop). The *timeline* at the top shows your questions, the audio, and where the audio will stop and wait for you. The lyrics scroll past as a *window*: the line being sung is a little larger and brighter, the others fade with distance, timecodes sit quietly on the left, and answered words show the right word in green (you had it) or red (you did not), right inside the line.
 - **Score**: every right answer earns 10 points, +15 if you answered *ahead* of the music (before its line starts), all multiplied by a streak multiplier: every 4 right answers in a row add a level, x2 up to x8. A wrong answer resets it. While the audio waits for you, a countdown eats one level every 5 seconds.
+- **Typing mode**: besides choosing from four words you can *type* the missing word (levels ask 10 / 25 / 40 / 60 % of the words). A full match earns 10 points, a partial match 5 (a typo, the word cut short, or an ending added), a wrong answer 0 and resets your streak; answering ahead of the song multiplies the answer by 1.5, then the streak multiplier applies. Typing and choosing have separate scoreboards.
 - **Scoreboards**: a global board (each account's best finished game per song, added up) and one per song, on the *Scores* page; the start panel shows your rank.
 - **Even questions**: questions are spread evenly over the whole song, repeated chorus lines included (a repeat asks new words).
 - **Accounts**: sign in with a name and password, or just play as the shared *Guest*. Each account has its own games and scores; the library is shared.
 - **Look**: light and dark themes (switch in the header), one monospaced typeface. Phones get a layout of their own: the lyrics and a 2x2 block of answers, with the controls within thumb reach; tablets and laptops get a compact two-column game screen. The game screen always fits the screen.
+- **Keyboard (PC)**: Space plays/pauses the game (not while typing), arrows seek, up/down volume, `M` mutes, 1-4 answer in choice mode.
 - **Audio**: *Settings > Audio on this device* offers *Direct audio* (the plain player, stepped fades) for devices where the smooth-fade path sounds distorted.
 - Works with **SQLite** (default) or **MySQL**, chosen by one setting.
 
@@ -150,6 +154,9 @@ Environment variables (backend; also in a `backend/.env` file):
 | `LIBRARY_DIRS` | *(empty)* | comma-separated folders to scan (first-run default of the setting below) |
 | `MAX_UPLOAD_MB` | `500` | size limit for one uploaded file |
 | `LRCLIB_BASE_URL` | `https://lrclib.net/api` | lyrics service |
+| `PATH_ACCESS` | `local` | `local`: browsing folders and importing from a path is for requests from this computer and for the administrator; `open`: anybody who can use the app (the Docker compose file sets it, because requests reach a container from Docker's network) |
+| `MUSICBRAINZ_BASE_URL`, `COVERART_BASE_URL` | the public services | where album covers are looked up |
+| `COVERS_DIR` | next to `MEDIA_DIR` | where covers found online are kept |
 | `FRONTEND_DIST` | *(empty)* | folder of the built frontend to serve (the Docker image sets it) |
 
 Settings page (stored in the database): allow unsynchronized lyrics, look up lyrics automatically, default language for new songs, how long downloaded lyrics are cached (or forever), library folders.
