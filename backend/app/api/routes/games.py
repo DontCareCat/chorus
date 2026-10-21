@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, BackgroundTasks, Depends
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import current_user, get_song
+from app.api.deps import current_user, get_session_factory, get_song, get_translator, get_wiktionary
 from app.db.database import get_session
-from app.db.models import Game, Song, User
+from app.db.models import Game, Question, Song, User
 from app.schemas.game import AnswerIn, AnswerResult, GameCreate, GameOut, GameSummary
+from app.services.dictionary import service as dictionary
+from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.game import play
 
 router = APIRouter(prefix="/api", tags=["games"], dependencies=[Depends(current_user)])
@@ -22,9 +24,17 @@ def read_game(public_id: str, session: Session = Depends(get_session), user: Use
 
 
 @router.post("/games/{public_id}/answers", response_model=AnswerResult)
-def answer(public_id: str, body: AnswerIn, session: Session = Depends(get_session), user: User = Depends(current_user)):
+def answer(
+    public_id: str, body: AnswerIn, background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
+    factory: sessionmaker = Depends(get_session_factory), translator: Translator = Depends(get_translator),
+    wiktionary: Wiktionary = Depends(get_wiktionary),
+):
     game = play.get_game(session, public_id, user)
-    return play.submit_answer(session, game, body.question_id, body.option_id, body.position, body.waited, body.text)
+    result = play.submit_answer(session, game, body.question_id, body.option_id, body.position, body.waited, body.text)
+    if not result.already_answered:  # the word goes into the dictionary; its article and translation follow in the background
+        dictionary.record_asked(session, user.id, game.language, session.get(Question, body.question_id))
+        background.add_task(dictionary.enrich_pending, factory, translator, wiktionary, user.id)
+    return result
 
 
 @router.get("/songs/{song_id}/games", response_model=list[GameSummary])

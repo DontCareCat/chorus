@@ -8,6 +8,7 @@ from app.db.database import SessionLocal, get_session
 from app.db.models import Song, User
 from app.services.accounts import auth
 from app.services.library.covers import CoverClient
+from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.settings import RuntimeSettings, load_settings
@@ -29,6 +30,24 @@ def _cover_client() -> CoverClient:
 
 def get_cover_client() -> CoverClient:  # overridden in tests
     return _cover_client()
+
+
+@lru_cache
+def _translator() -> Translator:
+    return Translator()
+
+
+def get_translator() -> Translator:  # overridden in tests
+    return _translator()
+
+
+@lru_cache
+def _wiktionary() -> Wiktionary:
+    return Wiktionary()
+
+
+def get_wiktionary() -> Wiktionary:  # overridden in tests
+    return _wiktionary()
 
 
 def get_session_factory() -> sessionmaker:  # overridden in tests (background tasks open their own session)

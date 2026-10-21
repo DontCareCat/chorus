@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import admin_user, current_user, get_cfg
+from app.api.deps import admin_user, current_user, get_cfg, get_session_factory, get_translator, get_wiktionary
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import User
+from app.schemas.dictionary import LanguagePatch
 from app.schemas.auth import AuthState, Credentials, PasswordChange, RegisterIn, UserOut
 from app.services.accounts import auth
+from app.services.dictionary import service as dictionary
+from app.services.game.nlp import base_language
+from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.settings import RuntimeSettings
 
 router = APIRouter(prefix="/api", tags=["accounts"])
@@ -35,6 +39,20 @@ def me(request: Request, session: Session = Depends(get_session), cfg: RuntimeSe
     user = auth.user_for_token(session, request.cookies.get(auth.COOKIE))
     if user is None and cfg.allow_guest:
         user = auth.ensure_guest(session)
+    return _state(session, cfg, user)
+
+
+@router.patch("/auth/me", response_model=AuthState)
+def update_me(body: LanguagePatch, background: BackgroundTasks, user: User = Depends(current_user), session: Session = Depends(get_session),
+              cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
+              translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary)):
+    """The language the dictionary translates into. Changing it fetches the translations again in the background."""
+    code = base_language(body.translation_language)
+    if code != user.translation_language:
+        user.translation_language = code
+        session.commit()
+        dictionary.reset_translations(session, user)
+        background.add_task(dictionary.enrich_pending, factory, translator, wiktionary, user.id)
     return _state(session, cfg, user)
 
 
