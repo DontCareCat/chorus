@@ -94,6 +94,12 @@ const audit = () => {
       await page.screenshot({ path: "/tmp/audit-dictionary.png" });
     }
   }
+  // Headless Chromium cannot show a phone's address bar, where plain 100vh is taller than the visible page and makes
+  // every page scroll even when it is empty. So: no style rule may still use vh (the browser keeps the last valid
+  // declaration, so "100vh; 100dvh" reads back as dvh).
+  await page.goto(B);
+  const vh = await page.evaluate(() => [...document.styleSheets].flatMap((sh) => [...sh.cssRules]).flatMap((r) => r.cssRules ? [...r.cssRules] : [r]).filter((r) => /[0-9]vh\b/.test(r.cssText)).map((r) => r.cssText.slice(0, 90)));
+  ok(vh.length === 0, "no rule sizes anything with plain vh (use dvh, design guide section 14): " + (vh.join(" | ") || "none"));
   await browser.close();
   console.log(process.exitCode ? "FAILED" : "LAYOUT AUDIT PASSED");
 })();

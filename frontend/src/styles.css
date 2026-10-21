@@ -95,7 +95,7 @@ h1, h2, h3, p { margin: 0; }
 ul, ol { list-style: none; margin: 0; padding: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.shell { min-height: 100vh; }
+.shell { min-height: 100vh; min-height: 100dvh; } /* dvh: on phones plain 100vh is the height with the browser bars hidden, so every page scrolled by the bars' height even when empty */
 /* Rows with a hover / selected background bleed into the page gutter by --row-pad, so their text keeps the gutter's edge and never touches the rectangle's edge (design guide section 14). */
 :root { --row-pad: 14px; }
 [data-layout="phone"] { --row-pad: 12px; }
