@@ -3,6 +3,7 @@ import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
 import { formatInterval } from "../lib/interval";
+import { isOneOf, usePref } from "../lib/prefs";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { DictEntryDto, Rating, ReviewNextDto, ReviewSummaryDto } from "../services/api";
@@ -10,16 +11,6 @@ import { headword } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
 const SIZES = [20, 40, 60] as const;
-const SIZE_KEY = "chorus.reviewSize";
-
-const savedSize = (): number => {
-  try {
-    const n = Number(localStorage.getItem(SIZE_KEY));
-    return (SIZES as readonly number[]).includes(n) ? n : 20;
-  } catch {
-    return 20;
-  }
-};
 
 /**
  * Spaced review in sessions of 20, 40 or 60 words. A session always has its words, whether or not their time has come:
@@ -27,7 +18,7 @@ const savedSize = (): number => {
  */
 export function ReviewPage() {
   const [summary, setSummary] = useState<ReviewSummaryDto | null>(null);
-  const [size, setSize] = useState<number>(savedSize);
+  const [size, setSize] = usePref<number>("review_size", 20, isOneOf(...SIZES));
   const [session, setSession] = useState<{ target: number; shown: number[] } | null>(null);
   const [next, setNext] = useState<ReviewNextDto | null>(null);
   const [back, setBack] = useState<DictEntryDto | null>(null);
@@ -56,7 +47,6 @@ export function ReviewPage() {
 
   const start = useCallback(async () => {
     if (!summary) return;
-    try { localStorage.setItem(SIZE_KEY, String(size)); } catch { /* the choice is only a convenience */ }
     const r = await fetchNext([]);
     if (r?.card) {
       setSession({ target: Math.min(size, summary.available, summary.left_today ?? size), shown: [r.card.id] });

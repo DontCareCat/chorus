@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
 import { findDuplicates, type DuplicateReason } from "../lib/duplicates";
 import { inLanguage, languageCounts } from "../lib/languages";
 import { buildMatcher } from "../lib/search";
@@ -34,10 +35,10 @@ export function LibraryPage() {
   const [recursive, setRecursive] = useState(true);
   const [copyFiles, setCopyFiles] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
-  const [filter, setFilter] = useState<Filter>("all");
-  const [query, setQuery] = useState("");
-  const [regex, setRegex] = useState(false);
-  const [language, setLanguage] = useState("all");
+  const [filter, setFilter] = usePref<Filter>("lib_status", "all", isOneOf("all", "ready", "missing", "duplicates"));
+  const [query, setQuery] = usePref("lib_query", "", isString);
+  const [regex, setRegex] = usePref("lib_regex", false, isBool);
+  const [language, setLanguage] = usePref("lib_language", "all", isString);
   const [browsing, setBrowsing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -226,7 +227,7 @@ export function LibraryPage() {
         </div>
         <div className="search-box">
           <input className="pill" type="search" {...noAutofill("library-search")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} aria-invalid={!!matcher.error} />
-          <button type="button" className="chip regex-toggle" aria-pressed={regex} onClick={() => setRegex((v) => !v)} title={en.library.regexToggle} aria-label={en.library.regexToggle}>.*</button>
+          <button type="button" className="chip regex-toggle" aria-pressed={regex} onClick={() => setRegex(!regex)} title={en.library.regexToggle} aria-label={en.library.regexToggle}>.*</button>
         </div>
       </div>
 

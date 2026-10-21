@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { isId, isOneOf, usePref } from "../lib/prefs";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
 import { api } from "../services/api";
@@ -7,11 +7,11 @@ import type { GameMode } from "../types/game";
 
 /** The two scoreboards: everybody's total over all songs, and the best games on one song. */
 export function ScoresPage() {
-  const [tab, setTab] = useState<"all" | "song">("all");
-  const [mode, setMode] = useState<GameMode>("choice");
+  const [tab, setTab] = usePref<"all" | "song">("scores_tab", "all", isOneOf("all", "song"));
+  const [mode, setMode] = usePref<GameMode>("scores_mode", "choice", isOneOf("choice", "typing"));
   const songs = useAsync(() => api.songs(), []);
-  const [songId, setSongId] = useState<number | null>(null);
-  const chosen = songId ?? songs.data?.[0]?.id ?? null;
+  const [songId, setSongId] = usePref<number | null>("scores_song", null, isId);
+  const chosen = songs.data?.some((s) => s.id === songId) ? songId : songs.data?.[0]?.id ?? null; // (a remembered song that is gone falls back to the first)
 
   return (
     <>

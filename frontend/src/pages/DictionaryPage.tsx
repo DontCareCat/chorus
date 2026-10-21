@@ -4,6 +4,7 @@ import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
+import { isOneOf, isString, usePref } from "../lib/prefs";
 import { noAutofill } from "../lib/noAutofill";
 import { api, ApiError } from "../services/api";
 import type { DictEntryDto, DictStatus } from "../services/api";
@@ -18,10 +19,10 @@ export function headword(e: DictEntryDto): string {
 }
 
 export function DictionaryPage() {
-  const [status, setStatus] = useState<DictStatus>("all");
-  const [language, setLanguage] = useState("all");
-  const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [status, setStatus] = usePref<DictStatus>("dict_status", "all", isOneOf("all", "due", "new", "suspended"));
+  const [language, setLanguage] = usePref("dict_language", "all", isString);
+  const [query, setQuery] = usePref("dict_query", "", isString);
+  const [debounced, setDebounced] = useState(query);
   const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
