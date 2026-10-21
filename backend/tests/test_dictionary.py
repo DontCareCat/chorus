@@ -311,5 +311,5 @@ def test_deleting_a_user_removes_their_words(api, song, session):
     assert entries(bob)["total"] == 1
     bob_id = session.query(User).filter_by(username="bob").one().id
     assert admin.delete(f"/api/users/{bob_id}").status_code == 200
-    session.expire_all()
+    session.rollback()  # end this session's snapshot (MySQL repeatable read) before looking again
     assert session.query(DictionaryEntry).count() == 0

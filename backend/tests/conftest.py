@@ -25,6 +25,7 @@ def session() -> Iterator[Session]:
     with sessionmaker(bind=engine, expire_on_commit=False)() as s:
         yield s
     Base.metadata.drop_all(engine)
+    engine.dispose()  # a MySQL server runs out of connections otherwise
 
 
 # ---------- API-level fixtures ----------
