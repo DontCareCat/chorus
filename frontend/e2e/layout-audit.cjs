@@ -51,6 +51,12 @@ const audit = () => {
     const parent = el.parentElement.getBoundingClientRect();
     if (el.closest(".menu-panel") && Math.abs((r.left + r.right) / 2 - (parent.left + parent.right) / 2) > 2) stretched.push("theme switch is not centred in the menu");
   }
+  // dropdowns: our own arrow, the same distance from the right edge as the text is from the left (never the browser's)
+  for (const el of document.querySelectorAll("select")) {
+    const cs = getComputedStyle(el); if (!el.getBoundingClientRect().width) continue;
+    if (cs.appearance !== "none" || cs.backgroundImage === "none") stretched.push("select uses the browser's arrow");
+    else if (parseFloat(cs.paddingRight) < parseFloat(cs.paddingLeft) + 20) stretched.push("select arrow has no room beside its text");
+  }
   return { out, stretched };
 };
 
@@ -70,6 +76,7 @@ const audit = () => {
 
   const pages = [
     ["library", "", ".song", async () => { await page.click(".play-btn >> nth=0").catch(() => {}); }],
+    ["library (select mode)", "", ".song", async () => { await page.click("text=Select >> nth=0"); await page.check(".pick >> nth=0"); }],
     ["dictionary (row open)", "#/dictionary", ".word", async () => { await page.click(".word-main >> nth=0"); await page.waitForSelector(".example"); }],
     ["review start", "#/dictionary/review", ".review-start", async () => {}],
     ["scores", "#/scores", "h1", async () => {}],

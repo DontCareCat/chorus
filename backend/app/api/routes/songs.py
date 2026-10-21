@@ -12,7 +12,7 @@ from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import Lyrics, Song, SongSource
-from app.schemas.song import ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
+from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
 from app.services.library.storage import check_extension, save_upload
@@ -165,6 +165,19 @@ def detect_song_language(song: Song = Depends(get_song), session: Session = Depe
     song.language, song.language_source = found.language, "detected"
     session.commit()
     return song
+
+
+@router.post("/songs/bulk-delete", response_model=BulkDeleteOut)
+def bulk_delete_songs(body: BulkDeleteRequest, session: Session = Depends(get_session)):
+    """Remove many songs at once, each as a single delete would (library files are only hidden)."""
+    out = {"hidden": 0, "deleted": 0, "missing": 0}
+    for song_id in dict.fromkeys(body.ids):
+        song = session.get(Song, song_id)
+        if song is None or song.removed:
+            out["missing"] += 1
+            continue
+        out[remove_song(session, song, Path(env.media_dir))] += 1
+    return out
 
 
 @router.delete("/songs/{song_id}")

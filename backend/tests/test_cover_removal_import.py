@@ -240,3 +240,14 @@ def test_delete_only_removes_files_inside_the_current_media_folder(api, tmp_path
     monkeypatch.setattr(env, "media_dir", str(tmp_path / "somewhere-else"))  # e.g. MEDIA_DIR was changed later
     assert api.delete(f"/api/songs/{s['id']}").json() == {"result": "deleted"}
     assert stored.exists()  # not ours to delete any more
+
+
+def test_bulk_delete_removes_many_songs_like_single_deletes(api, tree):
+    api.post("/api/library/import", json={"path": str(tree), "recursive": False, "copy_files": True})
+    ids = [x["id"] for x in api.get("/api/songs").json()]
+    r = api.post("/api/songs/bulk-delete", json={"ids": ids + [ids[0], 9999]})
+    assert r.status_code == 200
+    assert r.json() == {"hidden": 0, "deleted": len(ids), "missing": 1}  # the repeated id counts once, the unknown id is reported
+    assert api.get("/api/songs").json() == []
+    assert (tree / "A - Top.wav").exists()
+    assert api.post("/api/songs/bulk-delete", json={"ids": []}).status_code == 422

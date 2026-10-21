@@ -34,6 +34,15 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await tab.close();
   ok(/chorus_lib_status=/.test(await page.evaluate(() => document.cookie)), "it is a cookie, as asked");
 
+  // the library's language filter must survive a reload (it was reset while the songs were still loading)
+  const other = (await api("GET", "songs")).find((x) => x.title !== song.title);
+  await api("PATCH", `songs/${other.id}`, { language: "fr" });
+  await page.goto(B); await page.waitForSelector(".lang-chips");
+  await page.click('.lang-chips .chip:has-text("French")');
+  await page.reload(); await page.waitForSelector(".song");
+  ok((await page.getAttribute('.lang-chips .chip:has-text("French")', "aria-pressed")) === "true", "the library language filter is still French after a reload");
+  await page.click('.lang-chips .chip:has-text("All")');
+
   console.log("[dictionary]");
   await page.goto(B + "#/dictionary"); await page.waitForSelector(".word");
   await page.click('.chips button:has-text("New")');

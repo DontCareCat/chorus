@@ -308,6 +308,8 @@ export const api = {
     request<ScanDto>("/api/library/import-many", json("POST", { paths: opts.paths, recursive: opts.recursive, copy_files: opts.copyFiles, include: opts.include || null, exclude: opts.exclude || null })),
   importPath: (path: string, recursive: boolean, copyFiles: boolean) =>
     request<ScanDto>("/api/library/import", json("POST", { path, recursive, copy_files: copyFiles })),
+  deleteSongs: (ids: number[]) =>
+    request<{ hidden: number; deleted: number; missing: number }>("/api/songs/bulk-delete", json("POST", { ids })),
   deleteSong: (id: number) => request<{ result: "hidden" | "deleted" }>(`/api/songs/${id}`, { method: "DELETE" }),
   coverUrl: (songId: number, version?: string | number) => `/api/songs/${songId}/cover${version === undefined ? "" : `?v=${version}`}`,
   coverAuto: (songId: number) => request<{ status: string }>(`/api/songs/${songId}/cover/auto`, { method: "POST" }),

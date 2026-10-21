@@ -12,6 +12,7 @@ from app.schemas.dictionary import (
     ReviewNext, ReviewSummary, ScheduleState,
 )
 from app.services.dictionary import service, srs
+from app.services.dictionary.service import sentence_key
 from app.services.dictionary.lookup import Translator, Wiktionary
 
 router = APIRouter(prefix="/api/dictionary", tags=["dictionary"], dependencies=[Depends(current_user)])
@@ -20,7 +21,11 @@ router = APIRouter(prefix="/api/dictionary", tags=["dictionary"], dependencies=[
 def entry_out(session: Session, entry: DictionaryEntry) -> EntryOut:
     songs = {s.id: s for s in session.query(Song).filter(Song.id.in_({e.song_id for e in entry.examples})).all()} if entry.examples else {}
     examples = []
+    seen: set[str] = set()
     for ex in entry.examples:
+        if sentence_key(ex.sentence) in seen:
+            continue  # entries saved before duplicates were refused
+        seen.add(sentence_key(ex.sentence))
         song = songs.get(ex.song_id)
         ok = song is not None and not song.removed and song.available and ex.audio_start is not None
         offset = song.lyrics_offset if song else 0.0

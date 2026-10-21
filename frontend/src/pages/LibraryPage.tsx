@@ -40,6 +40,8 @@ export function LibraryPage() {
   const [regex, setRegex] = usePref("lib_regex", false, isBool);
   const [language, setLanguage] = usePref("lib_language", "all", isString);
   const [browsing, setBrowsing] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -106,6 +108,18 @@ export function LibraryPage() {
     });
   };
 
+  const stopSelecting = () => { setSelecting(false); setPicked(new Set()); };
+  const toggle = (id: number) => setPicked((p) => { const n = new Set(p); if (!n.delete(id)) n.add(id); return n; });
+  const removePicked = async () => {
+    const ids = [...picked];
+    if (ids.length === 0 || !window.confirm(en.library.removeManyLibrary(ids.length))) return;
+    await run(async () => {
+      const r = await api.deleteSongs(ids);
+      stopSelecting();
+      return en.library.removedMany(r.hidden + r.deleted);
+    });
+  };
+
   const all = songs.data ?? [];
   const isReady = (s: SongDto) => s.lyrics_status === "found" && s.available;
   const duplicates = useMemo(() => findDuplicates(all), [all]);
@@ -120,11 +134,12 @@ export function LibraryPage() {
     return duplicates.flatMap((g) => g.ids.map((id) => byId.get(id)!)).filter(keep); // a group's songs sit together
   }, [all, filter, language, matcher, duplicates, dupReasons]);
   // the last duplicate was removed: do not leave the list on an empty filter
-  useEffect(() => { if (filter === "duplicates" && counts.duplicates === 0) setFilter("all"); }, [filter, counts.duplicates]);
+  useEffect(() => { if (songs.data && filter === "duplicates" && counts.duplicates === 0) setFilter("all"); }, [songs.data, filter, counts.duplicates]);
 
   const languages = useMemo(() => languageCounts(all), [all]);
   // a language that no song has any more (the last one was removed or changed) must not keep an empty list on screen
-  useEffect(() => { if (language !== "all" && !languages.some((l) => l.code === language)) setLanguage("all"); }, [languages, language]);
+  // (only once the songs have loaded: before that the list is empty and would wipe the remembered filter)
+  useEffect(() => { if (songs.data && language !== "all" && !languages.some((l) => l.code === language)) setLanguage("all"); }, [songs.data, languages, language]);
 
   const unfinished = (games.data ?? []).find((g) => !g.finished_at);
   const resumeSong = unfinished ? all.find((s) => s.id === unfinished.song_id) : undefined;
@@ -137,6 +152,9 @@ export function LibraryPage() {
           <div className="count">{en.library.count(all.length)}</div>
         </div>
         <div className="page-actions">
+          <button type="button" className="btn secondary" onClick={() => (selecting ? stopSelecting() : setSelecting(true))} aria-pressed={selecting} disabled={all.length === 0}>
+            {selecting ? en.library.selectDone : en.library.select}
+          </button>
           <button type="button" className="btn secondary scan-top" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
           <button type="button" className="btn" onClick={() => setAddOpen((v) => !v)} aria-expanded={addOpen}>
             <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{addOpen ? "×" : "+"}</span>
@@ -245,10 +263,18 @@ export function LibraryPage() {
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}
       {all.length > 0 && shown.length === 0 && <p className="empty">{en.library.noMatch}</p>}
+      {selecting && (
+        <div className="select-bar" role="toolbar" aria-label={en.library.select}>
+          <strong>{en.library.selectedCount(picked.size)}</strong>
+          <button type="button" className="btn quiet small" onClick={() => setPicked(new Set(shown.map((s) => s.id)))} disabled={shown.length === 0}>{en.library.selectAll(shown.length)}</button>
+          <button type="button" className="btn quiet small" onClick={() => setPicked(new Set())} disabled={picked.size === 0}>{en.library.selectNone}</button>
+          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={picked.size === 0 || busy}>{en.library.removeSelected(picked.size)}</button>
+        </div>
+      )}
       <ul className="songs">
         {shown.map((s) => (
           <SongRow
-            key={s.id} song={s} duplicate={dupReasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
+            key={s.id} song={s} selecting={selecting} picked={picked.has(s.id)} onPick={() => toggle(s.id)} duplicate={dupReasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
             onToggle={() => setOpen(open === s.id ? null : s.id)} onRemove={() => void remove(s)}
           />
         ))}
@@ -257,12 +283,13 @@ export function LibraryPage() {
   );
 }
 
-function SongRow({ song: s, duplicate, open, games, onToggle, onRemove }: { song: SongDto; duplicate?: DuplicateReason[]; open: boolean; games: GameSummaryDto[]; onToggle: () => void; onRemove: () => void }) {
+function SongRow({ song: s, selecting, picked, onPick, duplicate, open, games, onToggle, onRemove }: { song: SongDto; selecting: boolean; picked: boolean; onPick: () => void; duplicate?: DuplicateReason[]; open: boolean; games: GameSummaryDto[]; onToggle: () => void; onRemove: () => void }) {
   const ready = s.lyrics_status === "found" && s.available;
   const label = s.available ? en.lyricsStatus[s.lyrics_status] : en.library.fileMissing;
   return (
     <li className="song">
-      <div className="song-main">
+      <div className="song-main" data-picked={selecting && picked}>
+        {selecting && <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} />}
         <Cover songId={s.id} title={s.title} hasCover={s.has_cover} />
         <div className="song-text">
           <div className="song-title" title={s.title}>{s.title}</div>

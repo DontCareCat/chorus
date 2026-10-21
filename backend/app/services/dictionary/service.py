@@ -23,6 +23,11 @@ def word_key(word: str) -> str:
     return word.strip().casefold()[:100]
 
 
+def sentence_key(text: str) -> str:
+    """Two lines that differ only in case, spacing or punctuation are the same sentence (a chorus repeated in another song or edit)."""
+    return " ".join("".join(c if c.isalnum() else " " for c in text.casefold()).split())
+
+
 def record_asked(session: Session, user_id: int, language: str, question: Question) -> tuple[DictionaryEntry, bool]:
     """Put the word of a question into the user's dictionary (right or wrong) with the line it came from.
     Returns (entry, created). Asking the same word again only adds a new example sentence."""
@@ -36,8 +41,8 @@ def record_asked(session: Session, user_id: int, language: str, question: Questi
         session.flush()
     line = session.get(LyricLine, question.lyric_line_id)
     sentence = (line.text if line is not None else question.sentence).strip()
-    have = {(e.song_id, e.sentence) for e in entry.examples}
-    if sentence and (question.song_id, sentence) not in have and len(entry.examples) < MAX_EXAMPLES:
+    have = {sentence_key(e.sentence) for e in entry.examples}
+    if sentence and sentence_key(sentence) not in have and len(entry.examples) < MAX_EXAMPLES:
         entry.examples.append(DictionaryExample(
             song_id=question.song_id, sentence=sentence, audio_start=question.audio_start, audio_end=question.audio_end))
     session.commit()

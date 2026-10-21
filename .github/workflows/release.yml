@@ -80,8 +80,29 @@ jobs:
 
       - name: Package (macOS)
         if: runner.os == 'macOS'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
-          codesign --force --deep -s - dist/Chorus.app
+          # A stable self-signed identity (secrets MACOS_CERT_P12 / MACOS_CERT_PASSWORD) keeps the app's designated requirement the
+          # same in every release, so macOS keeps the privacy permissions (e.g. Removable Volumes) you granted. Without the secrets
+          # the app is ad-hoc signed, and macOS asks again after each update.
+          if [ -n "$MACOS_CERT_P12" ]; then
+            KC="$RUNNER_TEMP/chorus-signing.keychain-db"
+            echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/chorus.p12"
+            security create-keychain -p ci "$KC"
+            security set-keychain-settings -lut 3600 "$KC"
+            security unlock-keychain -p ci "$KC"
+            security import "$RUNNER_TEMP/chorus.p12" -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KC" > /dev/null
+            security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+            codesign --force --deep -s "Chorus Release Signing" dist/Chorus.app
+            codesign -d -r- dist/Chorus.app 2>&1 | grep designated
+            rm -f "$RUNNER_TEMP/chorus.p12"
+          else
+            codesign --force --deep -s - dist/Chorus.app
+          fi
+          codesign --verify --deep --strict dist/Chorus.app
           mkdir -p out dmg && cp -R dist/Chorus.app dmg/ && ln -s /Applications dmg/Applications
           hdiutil create -volname Chorus -srcfolder dmg -ov -format UDZO \
             "out/Chorus-${{ steps.version.outputs.value }}-${{ matrix.name }}.dmg"

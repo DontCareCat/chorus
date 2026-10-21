@@ -476,3 +476,20 @@ def test_back_only_works_on_your_own_words_and_checks_the_values(api, song):
     assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={**prev, "interval_seconds": -5}).status_code == 422
     assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={**prev, "reps": 10**9}).status_code == 422
     assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={"interval_seconds": 1}).status_code == 422
+
+
+def test_sentence_key_ignores_case_spacing_and_punctuation():
+    from app.services.dictionary.service import sentence_key
+    assert sentence_key("Ich gehe,  nach Haus!") == sentence_key("ich gehe nach haus")
+    assert sentence_key("Ich gehe") != sentence_key("Ich gehe nicht")
+
+
+def test_the_same_line_from_another_song_is_not_a_second_example(api, song, session):
+    from app.db.models import DictionaryExample
+    g = start(api, song)
+    ask(api, g, g["questions"][0])
+    ex = session.query(DictionaryExample).first()
+    session.add(DictionaryExample(entry_id=ex.entry_id, song_id=ex.song_id, sentence=ex.sentence.upper() + "!", audio_start=1.0, audio_end=2.0))
+    session.commit()  # an entry saved before duplicates were refused
+    item = entries(api)["items"][0]
+    assert len(item["examples"]) == 1

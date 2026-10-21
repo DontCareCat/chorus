@@ -42,6 +42,16 @@ class ImportTreeRequest(BaseModel):
     exclude: str | None = None  # regular expression: file names that match are left out
 
 
+class BulkDeleteRequest(BaseModel):
+    ids: list[int] = Field(min_length=1, max_length=5000)
+
+
+class BulkDeleteOut(BaseModel):
+    hidden: int
+    deleted: int
+    missing: int  # ids that no longer exist
+
+
 class ImportManyRequest(BaseModel):
     paths: list[str] = Field(min_length=1, max_length=500)  # audio files and/or folders
     recursive: bool = True
