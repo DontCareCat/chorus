@@ -421,6 +421,8 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
    player once the bars hid. body is as tall as the game screen; overflow only stops the page from scrolling. */
 .game-lock, .game-lock body { overflow: hidden; overscroll-behavior: none; }
 .shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+/* Keyboard open (see useKeyboardFit): the screen is exactly the visible area, wherever the browser panned it. */
+.kb-open .shell[data-route="game"] { position: fixed; top: var(--vv-top); left: 0; right: 0; height: var(--vv-h); } /* fixed, not a transform: body's overflow:hidden would clip a moved screen at the body's own height */
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
 main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding: 0; display: flex; flex-direction: column; }

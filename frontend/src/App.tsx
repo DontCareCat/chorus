@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
-import { useGameLock, useLayout } from "./hooks/useLayout";
+import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -29,6 +29,7 @@ export function App() {
   const phone = layout === "phone";
   const isGame = route.name === "game";
   useGameLock(isGame);
+  useKeyboardFit(isGame);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cards, setCards] = useState(0);
   const signedIn = auth.user !== null;
