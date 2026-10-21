@@ -235,6 +235,20 @@ export interface DictListDto {
   languages: { code: string; count: number }[];
 }
 
+/** A card's review schedule; "Back" sends the one from before the rating. */
+export interface ScheduleDto {
+  due_at: string | null;
+  interval_seconds: number;
+  reps: number;
+  lapses: number;
+  introduced_at: string | null;
+  last_reviewed_at: string | null;
+}
+
+export interface RatedDto extends DictEntryDto {
+  previous: ScheduleDto;
+}
+
 export type DictStatus = "all" | "due" | "new" | "suspended";
 export type Rating = "again" | "hard" | "good" | "easy";
 
@@ -344,7 +358,8 @@ export const api = {
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
   reviewSummary: (scope?: ReviewScope) => request<ReviewSummaryDto>(`/api/dictionary/review/summary?${scopeQuery(scope)}`),
   reviewNext: (exclude: number[] = [], scope?: ReviewScope) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}&${scopeQuery(scope)}`),
-  rate: (id: number, rating: Rating) => request<DictEntryDto>(`/api/dictionary/review/${id}/answer`, json("POST", { rating })),
+  rate: (id: number, rating: Rating) => request<RatedDto>(`/api/dictionary/review/${id}/answer`, json("POST", { rating })),
+  undoRating: (id: number, previous: ScheduleDto) => request<DictEntryDto>(`/api/dictionary/review/${id}/undo`, json("POST", previous)),
   users: () => request<UserDto[]>("/api/users"),
   deleteUser: (id: number) => request<{ deleted: number }>(`/api/users/${id}`, { method: "DELETE" }),
 };

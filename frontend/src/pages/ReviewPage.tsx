@@ -7,7 +7,7 @@ import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isOneOf, isString, readPref, usePref, writePref } from "../lib/prefs";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
-import type { DictEntryDto, DictStatus, Rating, ReviewNextDto, ReviewScope, ReviewSummaryDto } from "../services/api";
+import type { DictStatus, RatedDto, Rating, ReviewNextDto, ReviewScope, ReviewSummaryDto } from "../services/api";
 import { headword } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
@@ -40,7 +40,7 @@ export function ReviewPage() {
   const [size, setSize] = usePref<number>("review_size", 20, isOneOf(...SIZES));
   const [session, setSession] = useState<{ target: number; shown: number[] } | null>(null);
   const [next, setNext] = useState<ReviewNextDto | null>(null);
-  const [back, setBack] = useState<DictEntryDto | null>(null);
+  const [back, setBack] = useState<RatedDto | null>(null);
   const [rated, setRated] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -78,7 +78,7 @@ export function ReviewPage() {
   // the translation may still be on its way when the back of the card is shown
   useEffect(() => {
     if (!back || back.enrich_status !== "pending") return;
-    const t = setTimeout(() => { api.getWord(back.id).then(setBack, () => undefined); }, 2000);
+    const t = setTimeout(() => { api.getWord(back.id).then((w) => setBack((b) => (b && b.id === w.id ? { ...w, previous: b.previous } : b)), () => undefined); }, 2000);
     return () => clearTimeout(t);
   }, [back]);
 
@@ -96,6 +96,24 @@ export function ReviewPage() {
       setBusy(false);
     }
   }, [card]);
+
+  // Back: take the rating back (the card's schedule is restored) and show the front again
+  const goBack = useCallback(async () => {
+    if (!back || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await api.undoRating(back.id, back.previous);
+      setBack(null);
+      setRated((n) => Math.max(0, n - 1));
+      setError(null);
+    } catch (e) {
+      fail(e);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }, [back]);
 
   const proceed = useCallback(async () => {
     if (!session || busyRef.current) return;
@@ -121,6 +139,9 @@ export function ReviewPage() {
       if (card && !back) {
         const i = Number(e.key) - 1;
         if (i >= 0 && i < 4) { e.preventDefault(); void rate(RATINGS[i]!); }
+      } else if (back && (e.key === "Backspace" || e.key === "ArrowLeft")) {
+        e.preventDefault();
+        void goBack();
       } else if (back && (e.key === "Enter" || e.key === " " || e.key === "ArrowRight")) {
         if (tag === "BUTTON" && e.key !== "ArrowRight") return; // a focused button keeps its own key
         e.preventDefault();
@@ -129,7 +150,7 @@ export function ReviewPage() {
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [card, back, rate, proceed]);
+  }, [card, back, rate, proceed, goBack]);
 
   if (error && !summary) return <p className="notice error">{error}</p>;
   if (!summary) return <p className="muted">…</p>;
@@ -208,9 +229,12 @@ export function ReviewPage() {
           <ul className="examples">
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>
-          <button type="button" className="btn inverse large" onClick={() => void proceed()} autoFocus>
-            {session.shown.length >= session.target ? en.dictionary.finish : en.dictionary.nextCard}
-          </button>
+          <div className="review-actions">
+            <button type="button" className="btn secondary large" onClick={() => void goBack()} disabled={busy} title={en.dictionary.backHelp} aria-label={en.dictionary.backHelp}>{en.dictionary.back}</button>
+            <button type="button" className="btn inverse large" onClick={() => void proceed()} disabled={busy} autoFocus>
+              {session.shown.length >= session.target ? en.dictionary.finish : en.dictionary.nextCard}
+            </button>
+          </div>
         </div>
       )}
     </section>

@@ -94,6 +94,15 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   ok(!/^(der|die|das) /.test(word), "the front shows the word without an article: " + word);
   const labels = await page.$$eval(".rate-btn", (b) => b.map((x) => x.textContent.replace(/\d$/, "").trim()));
   ok(JSON.stringify(labels) === JSON.stringify(["Again1 min", "Hard10 min", "Good1 d", "Easy4 d"]), "buttons show the first intervals: " + labels.join(" | "));
+  const firstId = (await api("GET", "dictionary?status=new&limit=500")).items.find((e) => e.surface === word)?.id;
+  await page.click('.rate-btn[data-rating="easy"]'); // a misclick...
+  await page.waitForSelector(".review-back");
+  ok((await api("GET", `dictionary/${firstId}`)).interval_seconds === 345600, "Easy was stored (4 days)");
+  await page.click('.review-actions button:has-text("Back")');
+  await page.waitForSelector(".review-card:not(.review-back) .rate");
+  const undone = await api("GET", `dictionary/${firstId}`);
+  ok((await page.textContent(".review-word")) === word && undone.reps === 0 && undone.due_at === null && undone.interval_seconds === 0, "Back shows the same word again and the rating is undone");
+  ok(/1 of /.test(await page.textContent(".review-top")), "and the progress did not move: " + (await page.textContent(".review-top")).trim());
   await page.click('.rate-btn[data-rating="good"]');
   await page.waitForSelector(".review-back");
   ok(await page.$$eval(".review-back .example", (e) => e.length) >= 1 && !!(await page.textContent(".review-tr")), "after rating: translation and sentences are shown");
@@ -103,6 +112,10 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await page.waitForFunction(() => document.querySelector(".review-back .snippet-btn")?.dataset.playing === "true");
   ok(true, "a sentence can be played from the card");
   await page.click('button:has-text("Next")');
+  await page.waitForSelector(".review-card:not(.review-back) .rate");
+  await page.keyboard.press("4"); // Easy by key...
+  await page.waitForSelector(".review-back");
+  await page.keyboard.press("Backspace"); // ...taken back by key
   await page.waitForSelector(".review-card:not(.review-back) .rate");
   await page.keyboard.press("2"); // Hard, by key
   await page.waitForSelector(".review-back");

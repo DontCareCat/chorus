@@ -680,7 +680,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .review-tr { margin: 0; font-size: 24px; color: var(--text-2); overflow-wrap: anywhere; }
 .review-back { text-align: left; justify-items: stretch; }
 .review-back .review-word, .review-back .review-tr, .review-back .hint { text-align: center; }
-.review-back .btn { justify-self: center; margin-top: 8px; }
+.review-back .review-actions { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
 .review-done { text-align: center; padding: 48px 0; }
 .review-done h1 { font-size: clamp(32px, 6vw, 48px); letter-spacing: -0.03em; margin-bottom: 8px; }
 .rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 12px; }

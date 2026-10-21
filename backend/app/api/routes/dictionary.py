@@ -8,8 +8,8 @@ from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import DictionaryEntry, Song, User
 from app.schemas.dictionary import (
-    EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatingIn, ReviewFront,
-    ReviewNext, ReviewSummary,
+    EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
+    ReviewNext, ReviewSummary, ScheduleState,
 )
 from app.services.dictionary import service, srs
 from app.services.dictionary.lookup import Translator, Wiktionary
@@ -97,11 +97,20 @@ def review_next(
     return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user, None, scope.status, scope.language, scope.q)))
 
 
-@router.post("/review/{entry_id}/answer", response_model=EntryOut)
+@router.post("/review/{entry_id}/answer", response_model=RatedOut)
 def review_answer(entry_id: int, body: RatingIn, session: Session = Depends(get_session), user: User = Depends(current_user)):
-    """Store how hard it was; the answer is the back of the card: article, translation and the sentences."""
+    """Store how hard it was; the answer is the back of the card: article, translation and the sentences, plus the
+    schedule the rating replaced (send it to `/undo` to take the rating back)."""
     entry = _own(session, entry_id, user)
-    service.rate(session, entry, body.rating)
+    previous = service.rate(session, entry, body.rating)
+    return RatedOut(**entry_out(session, entry).model_dump(), previous=ScheduleState(**previous))
+
+
+@router.post("/review/{entry_id}/undo", response_model=EntryOut)
+def review_undo(entry_id: int, body: ScheduleState, session: Session = Depends(get_session), user: User = Depends(current_user)):
+    """Back: put the schedule from before the last rating back, so the card can be rated again."""
+    entry = _own(session, entry_id, user)
+    service.restore(session, entry, body.model_dump())
     return entry_out(session, entry)
 
 

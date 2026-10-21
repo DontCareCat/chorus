@@ -431,3 +431,48 @@ def test_paused_words_are_never_reviewed_even_under_the_paused_filter(api, song)
 
 def test_a_bad_scope_is_refused(api):
     assert api.get("/api/dictionary/review/next", params={"status": "nope"}).status_code == 422
+
+
+# ---------- Back: taking a rating back ----------
+def test_back_puts_the_schedule_back_so_the_card_can_be_rated_again(api, song):
+    g = start(api, song)
+    ask(api, g, g["questions"][0])
+    api.patch("/api/auth/me", json={"daily_card_limit": 5})
+    card = api.get("/api/dictionary/review/next").json()["card"]
+    easy = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "easy"}).json()
+    assert easy["interval_seconds"] == 4 * 86400 and easy["reps"] == 1
+    prev = easy["previous"]
+    assert (prev["due_at"], prev["interval_seconds"], prev["reps"], prev["lapses"], prev["introduced_at"], prev["last_reviewed_at"]) == (None, 0, 0, 0, None, None)
+    assert api.get("/api/dictionary/review/summary").json()["left_today"] == 4  # the rating counted against the day
+    back = api.post(f"/api/dictionary/review/{card['id']}/undo", json=prev)
+    assert back.status_code == 200
+    b = back.json()
+    assert (b["due_at"], b["interval_seconds"], b["reps"]) == (None, 0, 0)
+    s = api.get("/api/dictionary/review/summary").json()
+    assert (s["new"], s["left_today"]) == (1, 5)  # a new word again, and the day's count is back
+    good = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"}).json()
+    assert good["interval_seconds"] == 86400 and good["reps"] == 1  # as if the misclick never happened
+
+
+def test_back_after_a_second_review_restores_the_earlier_one(api, song):
+    g = start(api, song)
+    ask(api, g, g["questions"][0])
+    card = api.get("/api/dictionary/review/next").json()["card"]
+    first = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"}).json()
+    second = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "again"}).json()
+    assert second["lapses"] == 1 and second["interval_seconds"] == 60
+    restored = api.post(f"/api/dictionary/review/{card['id']}/undo", json=second["previous"]).json()
+    assert restored["interval_seconds"] == first["interval_seconds"] == 86400 and restored["lapses"] == 0 and restored["reps"] == 1
+
+
+def test_back_only_works_on_your_own_words_and_checks_the_values(api, song):
+    g = start(api, song)
+    ask(api, g, g["questions"][0])
+    card = api.get("/api/dictionary/review/next").json()["card"]
+    prev = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"}).json()["previous"]
+    bob = other_browser(api)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
+    assert bob.post(f"/api/dictionary/review/{card['id']}/undo", json=prev).status_code == 404
+    assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={**prev, "interval_seconds": -5}).status_code == 422
+    assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={**prev, "reps": 10**9}).status_code == 422
+    assert api.post(f"/api/dictionary/review/{card['id']}/undo", json={"interval_seconds": 1}).status_code == 422

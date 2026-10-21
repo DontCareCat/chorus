@@ -32,6 +32,8 @@ export const en = {
     due: "Due",
     new: "New",
     nextCard: "Next",
+    back: "Back",
+    backHelp: "Undo this answer and rate the word again",
     finish: "Finish",
     showInLibrary: "Back to the dictionary",
     again: "Again",

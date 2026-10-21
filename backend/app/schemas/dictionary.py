@@ -33,6 +33,21 @@ class EntryOut(BaseModel):
     examples: list[ExampleOut]
 
 
+class ScheduleState(BaseModel):
+    """A card's review schedule: what a rating changes, and what an undo puts back."""
+
+    due_at: datetime | None
+    interval_seconds: int = Field(ge=0, le=366 * 86400)
+    reps: int = Field(ge=0, le=100000)
+    lapses: int = Field(ge=0, le=100000)
+    introduced_at: datetime | None
+    last_reviewed_at: datetime | None
+
+
+class RatedOut(EntryOut):
+    previous: ScheduleState  # the schedule before this rating, for "Back"
+
+
 class LanguageCount(BaseModel):
     code: str
     count: int

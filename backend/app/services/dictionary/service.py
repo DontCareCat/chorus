@@ -210,6 +210,23 @@ def next_card(
     return q.order_by(group, DictionaryEntry.due_at, DictionaryEntry.added_at, DictionaryEntry.id).first()
 
 
-def rate(session: Session, entry: DictionaryEntry, rating: str, now: datetime | None = None) -> None:
+SCHEDULE_FIELDS = ("due_at", "interval_seconds", "reps", "lapses", "introduced_at", "last_reviewed_at")
+
+
+def schedule_of(entry: DictionaryEntry) -> dict:
+    return {f: getattr(entry, f) for f in SCHEDULE_FIELDS}
+
+
+def rate(session: Session, entry: DictionaryEntry, rating: str, now: datetime | None = None) -> dict:
+    """Apply a rating. Returns the schedule it replaced (so the rating can be taken back)."""
+    before = schedule_of(entry)
     srs.review(entry, rating, now or utcnow())
+    session.commit()
+    return before
+
+
+def restore(session: Session, entry: DictionaryEntry, state: dict) -> None:
+    """Put an earlier schedule back: "Back" after a misclicked rating."""
+    for f in SCHEDULE_FIELDS:
+        setattr(entry, f, state[f])
     session.commit()
