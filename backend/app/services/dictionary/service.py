@@ -59,8 +59,7 @@ def import_from_games(session: Session, user: User) -> tuple[int, int]:
 
 
 # ---------- enrichment (article, translation) ----------
-_inflight: set[int] = set()
-_inflight_lock = threading.Lock()
+_enrich_lock = threading.Lock()  # one enrichment at a time: every answer starts a task, and they would all ask for the same words
 
 
 def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary) -> None:
@@ -101,9 +100,10 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
 
 
 def enrich_pending(factory: sessionmaker, translator: Translator, wiktionary: Wiktionary, user_id: int, entry_id: int | None = None) -> None:
-    """Background task: finish the user's pending entries (or one entry). Opens its own session and never raises."""
+    """Background task: finish the user's pending entries (or one entry). Opens its own session and never raises.
+    Tasks started by later answers wait their turn and then find nothing left to do."""
     try:
-        with factory() as session:
+        with _enrich_lock, factory() as session:
             if not load_settings(session).translation_enabled:
                 return
             user = session.get(User, user_id)
@@ -112,18 +112,13 @@ def enrich_pending(factory: sessionmaker, translator: Translator, wiktionary: Wi
             q = session.query(DictionaryEntry).filter_by(user_id=user_id)
             q = q.filter_by(id=entry_id) if entry_id is not None else q.filter_by(enrich_status="pending")
             for entry in q.order_by(DictionaryEntry.id).all():
-                with _inflight_lock:
-                    if entry.id in _inflight:
-                        continue
-                    _inflight.add(entry.id)
                 try:
                     enrich_entry(session, entry, user.translation_language, translator, wiktionary)
                 except Exception:
                     log.exception("enriching dictionary entry %s failed", entry.id)
                     session.rollback()
-                finally:
-                    with _inflight_lock:
-                        _inflight.discard(entry.id)
+                    entry.enrich_status = "failed"  # a later "look up again" can finish it
+                    session.commit()
     except Exception:
         log.exception("dictionary enrichment failed")
 
