@@ -137,10 +137,10 @@ def test_0008_adds_the_dictionary_and_keeps_users(tmp_path, monkeypatch):
     command.upgrade(config, "0007")
     engine = sa.create_engine(url)
     with engine.begin() as c:
-        c.execute(sa.text("INSERT INTO users (id, username, display_name, is_guest, is_admin, created_at) VALUES (1,'ann','Ann',0,1,'2026-01-01')"))
+        c.execute(sa.text("INSERT INTO users (id, username, display_name, is_guest, is_admin, created_at) VALUES (5,'ann','Ann',0,1,'2026-01-01')"))
     command.upgrade(config, "head")
     with engine.connect() as c:
-        assert c.execute(sa.text("SELECT translation_language FROM users")).scalar_one() == "en"
+        assert c.execute(sa.text("SELECT translation_language FROM users WHERE id = 5")).scalar_one() == "en"
         assert c.execute(sa.text("SELECT COUNT(*) FROM dictionary_entries")).scalar_one() == 0
     command.downgrade(config, "0007")
     assert "dictionary_entries" not in sa.inspect(engine).get_table_names()
