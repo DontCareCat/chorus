@@ -77,11 +77,15 @@ def review_summary(session: Session = Depends(get_session), user: User = Depends
 
 
 @router.get("/review/next", response_model=ReviewNext)
-def review_next(session: Session = Depends(get_session), user: User = Depends(current_user)):
-    entry, later = service.next_card(session, user)
+def review_next(
+    exclude: str = Query("", pattern=r"^(\d+(,\d+)*)?$", max_length=1000), session: Session = Depends(get_session), user: User = Depends(current_user),
+):
+    """The next card of a review session (`exclude`: ids of the cards it already showed). It is the closest-to-due
+    card even when its time has not come yet; no card means every word has been shown."""
+    entry = service.next_card(session, user, [int(x) for x in exclude.split(",") if x])
     card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language,
                        intervals=Intervals(**srs.intervals(entry.interval_seconds))) if entry else None
-    return ReviewNext(card=card, next_due_at=later, summary=ReviewSummary(**service.review_summary(session, user)))
+    return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user)))
 
 
 @router.post("/review/{entry_id}/answer", response_model=EntryOut)

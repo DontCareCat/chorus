@@ -694,3 +694,8 @@ button.fs-name:hover { background: var(--surface-2); }
 [data-layout="phone"] .word-main { padding: 12px 0; }
 [data-layout="phone"] .word-head { font-size: 18px; }
 [data-layout="phone"] .word-meta { flex-direction: column; align-items: flex-end; gap: 4px; }
+.review-start { display: grid; gap: 16px; justify-items: center; text-align: center; padding: 24px 0; }
+.review-start h1 { font-size: clamp(32px, 6vw, 48px); letter-spacing: -0.03em; margin: 0; }
+.review-start .hint { max-width: 46ch; margin: 0; }
+.review-start .field { margin: 0; }
+.review-start .chips { justify-content: center; }

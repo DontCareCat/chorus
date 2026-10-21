@@ -242,11 +242,13 @@ export interface ReviewSummaryDto {
   due: number;
   new: number;
   total: number;
+  available: number;
+  reviewed_today: number;
+  left_today: number | null; // null = no daily limit
 }
 
 export interface ReviewNextDto {
   card: { id: number; word: string; language: string; intervals: Record<Rating, number> } | null;
-  next_due_at: string | null;
   summary: ReviewSummaryDto;
 }
 
@@ -257,6 +259,7 @@ export interface UserDto {
   is_guest: boolean;
   is_admin: boolean;
   translation_language: string;
+  daily_card_limit: number; // 0 = unlimited
 }
 
 export interface AuthStateDto {
@@ -321,7 +324,7 @@ export const api = {
   logout: () => request<AuthStateDto>("/api/auth/logout", { method: "POST" }),
   changePassword: (current: string, next: string) =>
     request<{ ok: boolean }>("/api/auth/password", json("POST", { current_password: current, new_password: next })),
-  setTranslationLanguage: (code: string) => request<AuthStateDto>("/api/auth/me", json("PATCH", { translation_language: code })),
+  updateAccount: (changes: { translation_language?: string; daily_card_limit?: number }) => request<AuthStateDto>("/api/auth/me", json("PATCH", changes)),
   dictionary: (opts: { status?: DictStatus; language?: string; q?: string; limit?: number; offset?: number } = {}) =>
     request<DictListDto>(`/api/dictionary?${new URLSearchParams({ status: opts.status ?? "all", ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}), limit: String(opts.limit ?? 100), offset: String(opts.offset ?? 0) })}`),
   setSuspended: (id: number, suspended: boolean) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", { suspended })),
@@ -330,7 +333,7 @@ export const api = {
   getWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}`),
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
   reviewSummary: () => request<ReviewSummaryDto>("/api/dictionary/review/summary"),
-  reviewNext: () => request<ReviewNextDto>("/api/dictionary/review/next"),
+  reviewNext: (exclude: number[] = []) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}`),
   rate: (id: number, rating: Rating) => request<DictEntryDto>(`/api/dictionary/review/${id}/answer`, json("POST", { rating })),
   users: () => request<UserDto[]>("/api/users"),
   deleteUser: (id: number) => request<{ deleted: number }>(`/api/users/${id}`, { method: "DELETE" }),

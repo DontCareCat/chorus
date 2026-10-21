@@ -12,6 +12,11 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
 (async () => {
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await page.addInitScript(() => { // record every volume the player sets on an audio element (the fades of a played sentence)
+    window.__vols = [];
+    const d = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "volume");
+    Object.defineProperty(HTMLMediaElement.prototype, "volume", { get() { return d.get.call(this); }, set(v) { window.__vols.push(+v.toFixed(3)); d.set.call(this, v); } });
+  });
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
   const api = async (method, path, data) => { const r = await page.request.fetch(B + "api/" + path, { method, ...(data ? { data } : {}) }); return r.json(); };
@@ -62,15 +67,29 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   ok(true, "the play button starts the line");
   await page.waitForTimeout(1500);
   ok(await btn.getAttribute("data-playing") === "true", "still playing after 1.5 s");
+  const vols = await page.evaluate(() => window.__vols);
+  ok(vols[0] === 0 && vols.some((v) => v > 0 && v < 1), "the sentence fades in from silence: " + vols.slice(0, 6).join(" "));
+
   await page.waitForFunction(() => document.querySelector(".snippet-btn")?.dataset.playing === "false", null, { timeout: 8000 });
   ok(true, "it stopped by itself at the end of the line (5 s)");
+  const volsEnd = await page.evaluate(() => window.__vols);
+  const tail = volsEnd.slice(-14);
+  ok(tail.some((v) => v > 0 && v < 1 && v < 0.9) && volsEnd[volsEnd.length - 1] === 1, "it faded out before the end and left the volume at 1: " + tail.join(" "));
   await btn.click(); await page.waitForTimeout(300); await btn.click();
   await page.waitForFunction(() => document.querySelector(".snippet-btn")?.dataset.playing === "false");
   ok(true, "a second tap stops it");
 
   console.log("[review]");
+  ok((await page.$$(".lang-chips .chip")).length >= 2, "the language filter is there even with a single language: " + (await page.$$eval(".lang-chips .chip", (c) => c.map((x) => x.textContent.trim()).join(" | "))));
+  const sum = await api("GET", "dictionary/review/summary");
+  ok(sum.new === (await api("GET", "dictionary?status=new")).total && sum.new > 20, `the New count (${sum.new}) is every word the New filter lists`);
   await page.click('a:has-text("Review")');
+  await page.waitForSelector(".review-start");
+  ok((await page.$$eval(".review-start .chip", (c) => c.map((x) => x.textContent.trim()))).join() === "20,40,60", "a session is 20, 40 or 60 words");
+  await page.click('.review-start .chip:has-text("40")');
+  await page.click('button:has-text("Start")');
   await page.waitForSelector(".review-word");
+  ok((await page.textContent(".review-top")).includes("1 of 40") || (await page.textContent(".review-top")).includes("1 of " + sum.available), "progress is shown: " + await page.textContent(".review-top"));
   const word = await page.textContent(".review-word");
   ok(!/^(der|die|das) /.test(word), "the front shows the word without an article: " + word);
   const labels = await page.$$eval(".rate-btn", (b) => b.map((x) => x.textContent.replace(/\d$/, "").trim()));
@@ -93,6 +112,28 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await page.keyboard.press("Enter");
   await page.waitForSelector(".review-card:not(.review-back) .rate");
   await page.screenshot({ path: "/tmp/dict-review-desktop.png" });
+
+  console.log("[a session gives cards whose time has not come yet]");
+  const seen = new Set([await page.textContent(".review-word")]);
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("3"); await page.waitForSelector(".review-back"); await page.keyboard.press("Enter");
+    await page.waitForSelector(".review-card:not(.review-back) .rate"); seen.add(await page.textContent(".review-word"));
+  }
+  ok(seen.size === 7, "7 different cards in a row, each once per session, including words reviewed earlier today having been rated Good");
+
+  console.log("[daily limit]");
+  await page.goto(B + "#/settings"); await page.waitForSelector("text=Review cards per day");
+  const lim = page.locator("label.field:has-text('Review cards per day') select");
+  ok((await lim.inputValue()) === "0" && (await lim.locator("option").first().textContent()) === "Unlimited", "unlimited is the default and the first option");
+  await lim.selectOption("10"); await page.waitForSelector("text=Daily card limit saved.");
+  ok((await api("GET", "auth/me")).user.daily_card_limit === 10, "the limit is saved");
+  const doneToday = (await api("GET", "dictionary/review/summary")).reviewed_today;
+  await api("PATCH", "auth/me", { daily_card_limit: doneToday });
+  await page.goto(B + "#/dictionary/review"); await page.waitForSelector(".review-done");
+  ok(/reviewed your \d+ cards for today/.test(await page.textContent(".review-done")), "at the limit the review says so: " + await page.textContent(".review-done"));
+  await lim.count(); await page.goto(B + "#/settings"); await page.waitForSelector("text=Review cards per day");
+  await lim.selectOption("0"); await page.waitForSelector("text=Daily card limit saved.");
+  ok((await api("GET", "auth/me")).user.daily_card_limit === 0, "and back to unlimited");
 
   console.log("[pause, remove, language]");
   await page.goto(B + "#/dictionary"); await page.waitForSelector(".word");
@@ -120,7 +161,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   let m = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   ok(m <= 0, "the dictionary does not overflow sideways on a phone");
   await page.screenshot({ path: "/tmp/dict-phone.png" });
-  await page.goto(B + "#/dictionary/review"); await page.waitForSelector(".rate");
+  await page.goto(B + "#/dictionary/review"); await page.waitForSelector(".review-start"); await page.click("button:has-text(\"Start\")"); await page.waitForSelector(".rate");
   m = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   const box = await page.evaluate(() => [...document.querySelectorAll(".rate-btn")].map((b) => b.getBoundingClientRect().bottom <= innerHeight));
   ok(m <= 0 && box.every(Boolean), "the review fits the phone screen with all four buttons visible");

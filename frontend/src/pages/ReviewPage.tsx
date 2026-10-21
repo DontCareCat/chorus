@@ -2,41 +2,69 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
-import { formatInterval, formatWait } from "../lib/interval";
+import { formatInterval } from "../lib/interval";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
-import type { DictEntryDto, Rating, ReviewNextDto } from "../services/api";
+import type { DictEntryDto, Rating, ReviewNextDto, ReviewSummaryDto } from "../services/api";
 import { headword } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
+const SIZES = [20, 40, 60] as const;
+const SIZE_KEY = "chorus.reviewSize";
 
-/** Spaced review: the word alone, then how hard it was; then the article, translation and the song lines (each playable). */
+const savedSize = (): number => {
+  try {
+    const n = Number(localStorage.getItem(SIZE_KEY));
+    return (SIZES as readonly number[]).includes(n) ? n : 20;
+  } catch {
+    return 20;
+  }
+};
+
+/**
+ * Spaced review in sessions of 20, 40 or 60 words. A session always has its words, whether or not their time has come:
+ * the ones that are due first, then new words, then the ones due soonest. Each word is shown once per session.
+ */
 export function ReviewPage() {
+  const [summary, setSummary] = useState<ReviewSummaryDto | null>(null);
+  const [size, setSize] = useState<number>(savedSize);
+  const [session, setSession] = useState<{ target: number; shown: number[] } | null>(null);
   const [next, setNext] = useState<ReviewNextDto | null>(null);
   const [back, setBack] = useState<DictEntryDto | null>(null);
+  const [rated, setRated] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const snippets = useSnippets();
   const busyRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : en.errors.generic);
+  const loadSummary = useCallback(() => { api.reviewSummary().then(setSummary, fail); }, []);
+  useEffect(loadSummary, [loadSummary]);
+
+  const fetchNext = useCallback(async (shown: number[]) => {
     try {
-      setNext(await api.reviewNext());
+      const r = await api.reviewNext(shown);
+      setNext(r);
       setBack(null);
       setError(null);
+      return r;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : en.errors.generic);
+      fail(e);
+      return null;
     }
   }, []);
-  useEffect(() => { void load(); }, [load]);
 
-  // nothing due right now: check again when the next card is
-  useEffect(() => {
-    if (!next || next.card || !next.next_due_at) return;
-    const wait = Math.min(60000, Math.max(1000, new Date(next.next_due_at).getTime() - Date.now() + 500));
-    const t = setTimeout(() => void load(), wait);
-    return () => clearTimeout(t);
-  }, [next, load]);
+  const start = useCallback(async () => {
+    if (!summary) return;
+    try { localStorage.setItem(SIZE_KEY, String(size)); } catch { /* the choice is only a convenience */ }
+    const r = await fetchNext([]);
+    if (r?.card) {
+      setSession({ target: Math.min(size, summary.available, summary.left_today ?? size), shown: [r.card.id] });
+      setRated(0);
+    }
+  }, [summary, size, fetchNext]);
+
+  const card = session ? next?.card ?? null : null;
 
   // the translation may still be on its way when the back of the card is shown
   useEffect(() => {
@@ -45,22 +73,36 @@ export function ReviewPage() {
     return () => clearTimeout(t);
   }, [back]);
 
-  const card = next?.card ?? null;
   const rate = useCallback(async (rating: Rating) => {
     if (!card || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
       setBack(await api.rate(card.id, rating));
+      setRated((n) => n + 1);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : en.errors.generic);
+      fail(e);
     } finally {
       busyRef.current = false;
       setBusy(false);
     }
   }, [card]);
 
-  const proceed = useCallback(() => { if (!busyRef.current) void load(); }, [load]);
+  const proceed = useCallback(async () => {
+    if (!session || busyRef.current) return;
+    if (session.shown.length >= session.target) { // the session is complete
+      setNext(null);
+      setBack(null);
+      setSession(null);
+      loadSummary();
+      setDone(true);
+      return;
+    }
+    const r = await fetchNext(session.shown);
+    if (r?.card) setSession({ ...session, shown: [...session.shown, r.card.id] });
+    else { setSession(null); setDone(true); loadSummary(); }
+  }, [session, fetchNext, loadSummary]);
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
@@ -71,35 +113,62 @@ export function ReviewPage() {
         const i = Number(e.key) - 1;
         if (i >= 0 && i < 4) { e.preventDefault(); void rate(RATINGS[i]!); }
       } else if (back && (e.key === "Enter" || e.key === " " || e.key === "ArrowRight")) {
-        if ((e.target as HTMLElement | null)?.tagName === "BUTTON" && e.key !== "ArrowRight") return; // a focused button keeps its own key
+        if (tag === "BUTTON" && e.key !== "ArrowRight") return; // a focused button keeps its own key
         e.preventDefault();
-        proceed();
+        void proceed();
       }
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
   }, [card, back, rate, proceed]);
 
-  if (error && !next) return <p className="notice error">{error}</p>;
-  if (!next) return <p className="muted">…</p>;
+  if (error && !summary) return <p className="notice error">{error}</p>;
+  if (!summary) return <p className="muted">…</p>;
 
-  const left = next.summary;
+  const top = (
+    <div className="review-top">
+      <a href={paths.dictionary()}>{en.dictionary.showInLibrary}</a>
+      {session ? <span className="muted" aria-label="Progress">{en.dictionary.progress(Math.min(session.shown.length, session.target), session.target)}</span>
+        : <span className="muted">{en.dictionary.reviewLeft(summary.due, summary.new)}{summary.left_today !== null ? ` · ${en.dictionary.leftToday(summary.left_today)}` : ""}</span>}
+    </div>
+  );
+
   return (
     <section className="review" aria-live="polite">
-      <div className="review-top">
-        <a href={paths.dictionary()}>{en.dictionary.showInLibrary}</a>
-        <span className="muted">{en.dictionary.reviewLeft(left.due, left.new)}</span>
-      </div>
+      {top}
       {error && <p className="notice error" role="alert">{error}</p>}
 
-      {!card && !back && (
-        <div className="review-done">
-          <h1>{en.dictionary.nothingDue}</h1>
-          {next.next_due_at ? <p>{en.dictionary.when(formatWait(new Date(next.next_due_at).getTime() - Date.now()))}</p> : <p>{en.dictionary.nothingDueHelp}</p>}
+      {!session && (
+        <div className="review-start">
+          {done && (
+            <div className="review-done">
+              <h1>{en.dictionary.sessionDone}</h1>
+              <p>{en.dictionary.sessionDoneHelp(rated)}</p>
+            </div>
+          )}
+          {summary.left_today === 0 ? (
+            <div className="review-done"><h1>{en.dictionary.limitReached(summary.reviewed_today)}</h1><p>{en.dictionary.limitReachedHelp}</p></div>
+          ) : summary.available === 0 ? (
+            <div className="review-done"><h1>{en.dictionary.nothingDue}</h1><p>{en.dictionary.nothingDueHelp}</p></div>
+          ) : (
+            <>
+              {!done && <h1>{en.dictionary.sessionTitle}</h1>}
+              <p className="hint">{en.dictionary.sessionHelp(summary.available)}</p>
+              <div className="field">
+                <span>{en.dictionary.sessionSize}</span>
+                <div className="chips" role="group" aria-label={en.dictionary.sessionSize}>
+                  {SIZES.map((n) => (
+                    <button key={n} type="button" className="chip" aria-pressed={size === n} onClick={() => setSize(n)}>{n}</button>
+                  ))}
+                </div>
+              </div>
+              <button type="button" className="btn inverse large" onClick={() => { setDone(false); void start(); }}>{done ? en.dictionary.again2 : en.dictionary.start}</button>
+            </>
+          )}
         </div>
       )}
 
-      {card && !back && (
+      {session && card && !back && (
         <div className="review-card">
           <p className="review-word" lang={card.language}>{card.word}</p>
           <p className="hint">{en.dictionary.howHard}</p>
@@ -115,7 +184,7 @@ export function ReviewPage() {
         </div>
       )}
 
-      {back && (
+      {session && back && (
         <div className="review-card review-back">
           <p className="review-word" lang={back.language}>{headword(back)}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
@@ -123,7 +192,9 @@ export function ReviewPage() {
           <ul className="examples">
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>
-          <button type="button" className="btn inverse large" onClick={proceed} autoFocus>{en.dictionary.nextCard}</button>
+          <button type="button" className="btn inverse large" onClick={() => void proceed()} autoFocus>
+            {session.shown.length >= session.target ? en.dictionary.finish : en.dictionary.nextCard}
+          </button>
         </div>
       )}
     </section>

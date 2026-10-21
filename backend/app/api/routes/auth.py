@@ -5,7 +5,7 @@ from app.api.deps import admin_user, current_user, get_cfg, get_session_factory,
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import User
-from app.schemas.dictionary import LanguagePatch
+from app.schemas.dictionary import AccountPatch
 from app.schemas.auth import AuthState, Credentials, PasswordChange, RegisterIn, UserOut
 from app.services.accounts import auth
 from app.services.dictionary import service as dictionary
@@ -43,16 +43,21 @@ def me(request: Request, session: Session = Depends(get_session), cfg: RuntimeSe
 
 
 @router.patch("/auth/me", response_model=AuthState)
-def update_me(body: LanguagePatch, background: BackgroundTasks, user: User = Depends(current_user), session: Session = Depends(get_session),
+def update_me(body: AccountPatch, background: BackgroundTasks, user: User = Depends(current_user), session: Session = Depends(get_session),
               cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
               translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary)):
-    """The language the dictionary translates into. Changing it fetches the translations again in the background."""
-    code = base_language(body.translation_language)
-    if code != user.translation_language:
-        user.translation_language = code
+    """The user's own dictionary settings: the language it translates into (changing it fetches the translations again
+    in the background) and how many cards a day the review gives (0 = no limit)."""
+    if body.daily_card_limit is not None:
+        user.daily_card_limit = body.daily_card_limit
         session.commit()
-        dictionary.reset_translations(session, user)
-        background.add_task(dictionary.enrich_pending, factory, translator, wiktionary, user.id)
+    if body.translation_language is not None:
+        code = base_language(body.translation_language)
+        if code != user.translation_language:
+            user.translation_language = code
+            session.commit()
+            dictionary.reset_translations(session, user)
+            background.add_task(dictionary.enrich_pending, factory, translator, wiktionary, user.id)
     return _state(session, cfg, user)
 
 

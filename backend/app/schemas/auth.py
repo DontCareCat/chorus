@@ -10,6 +10,7 @@ class UserOut(BaseModel):
     is_guest: bool
     is_admin: bool
     translation_language: str = "en"
+    daily_card_limit: int = 0  # dictionary cards per day, 0 = no limit
 
 
 class AuthState(BaseModel):

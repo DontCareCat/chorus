@@ -244,15 +244,16 @@ def test_review_walks_a_card_through_the_buttons(api, song):
     g = start(api, song)
     ask(api, g, g["questions"][0])
     s = api.get("/api/dictionary/review/summary").json()
-    assert s == {"due": 0, "new": 1, "total": 1}
+    assert s == {"due": 0, "new": 1, "total": 1, "available": 1, "reviewed_today": 0, "left_today": None}
     nxt = api.get("/api/dictionary/review/next").json()
     card = nxt["card"]
     assert set(card) == {"id", "word", "language", "intervals"} and card["intervals"] == {"again": 60, "hard": 600, "good": 86400, "easy": 345600}
     back = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"}).json()
     assert back["id"] == card["id"] and back["examples"] and back["interval_seconds"] == 86400 and back["reps"] == 1
-    assert api.get("/api/dictionary/review/summary").json() == {"due": 0, "new": 0, "total": 1}
-    later = api.get("/api/dictionary/review/next").json()
-    assert later["card"] is None and later["next_due_at"] is not None
+    assert api.get("/api/dictionary/review/summary").json() == {"due": 0, "new": 0, "total": 1, "available": 1, "reviewed_today": 1, "left_today": None}
+    again = api.get("/api/dictionary/review/next").json()
+    assert again["card"]["id"] == card["id"]  # a review always has cards: this one is simply the nearest, though its day has not come
+    assert api.get(f"/api/dictionary/review/next?exclude={card['id']}").json()["card"] is None
 
 
 def test_a_due_card_comes_back_with_longer_intervals(api, song, session):
@@ -273,25 +274,57 @@ def test_a_due_card_comes_back_with_longer_intervals(api, song, session):
     assert nxt["card"]["intervals"]["good"] > 86400
 
 
-def test_suspended_cards_are_not_reviewed_and_new_cards_are_limited_per_day(api, song, session):
+def test_suspended_cards_are_never_reviewed(api, song):
+    g = start(api, song, difficulty="expert")
+    for q in g["questions"]:
+        ask(api, g, q)
+    first = api.get("/api/dictionary/review/next").json()["card"]
+    api.patch(f"/api/dictionary/{first['id']}", json={"suspended": True})
+    assert api.get("/api/dictionary/review/next").json()["card"]["id"] != first["id"]
+    s = api.get("/api/dictionary/review/summary").json()
+    assert s["available"] == s["total"] - 1
+
+
+def test_the_new_count_is_the_new_filter_and_every_new_word_can_be_reviewed(api, song):
     g = start(api, song, difficulty="expert")
     for q in g["questions"]:
         ask(api, g, q)
     total = entries(api)["total"]
-    assert total >= 2
-    first = api.get("/api/dictionary/review/next").json()["card"]
-    api.patch(f"/api/dictionary/{first['id']}", json={"suspended": True})
-    assert api.get("/api/dictionary/review/next").json()["card"]["id"] != first["id"]
-    from app.services.dictionary import service
+    assert total > 20  # more than the old daily limit
+    assert api.get("/api/dictionary/review/summary").json()["new"] == entries(api, status="new")["total"] == total
+    shown = []
+    while True:
+        card = api.get("/api/dictionary/review/next", params={"exclude": ",".join(map(str, shown))}).json()["card"]
+        if card is None:
+            break
+        shown.append(card["id"])
+    assert sorted(shown) == sorted(e["id"] for e in entries(api, limit=500)["items"])
 
-    service.NEW_PER_DAY, old = 1, service.NEW_PER_DAY
-    try:
-        c = api.get("/api/dictionary/review/next").json()["card"]
-        api.post(f"/api/dictionary/review/{c['id']}/answer", json={"rating": "hard"})
-        assert api.get("/api/dictionary/review/next").json()["card"] is None  # today's allowance of new cards is used up
-        assert api.get("/api/dictionary/review/summary").json()["new"] == 0
-    finally:
-        service.NEW_PER_DAY = old
+
+def test_a_session_gives_overdue_cards_then_new_then_the_nearest_upcoming(api, song, session):
+    from datetime import timedelta
+    from app.db.models.types import utcnow
+
+    g = start(api, song, difficulty="expert")
+    for q in g["questions"]:
+        ask(api, g, q)
+    ids = [e["id"] for e in entries(api, limit=500)["items"]]
+    assert len(ids) >= 5
+    overdue_old, overdue_new, soon, later = ids[0], ids[1], ids[2], ids[3]
+    now = utcnow()
+    for i, due in [(overdue_old, now - timedelta(days=3)), (overdue_new, now - timedelta(hours=1)), (soon, now + timedelta(hours=2)), (later, now + timedelta(days=9))]:
+        e = session.get(DictionaryEntry, i)
+        e.due_at, e.interval_seconds = due, 86400
+    session.commit()
+    order, shown = [], []
+    while True:
+        card = api.get("/api/dictionary/review/next", params={"exclude": ",".join(map(str, shown))}).json()["card"]
+        if card is None:
+            break
+        shown.append(card["id"])
+    assert shown[:2] == [overdue_old, overdue_new]  # overdue, longest overdue first
+    assert shown[2:-2] and set(shown[2:-2]) == set(ids) - {overdue_old, overdue_new, soon, later}  # then the new words
+    assert shown[-2:] == [soon, later]  # then the ones whose time has not come, nearest first
 
 
 def test_bad_rating_is_rejected(api, song):
@@ -313,3 +346,34 @@ def test_deleting_a_user_removes_their_words(api, song, session):
     assert admin.delete(f"/api/users/{bob_id}").status_code == 200
     session.rollback()  # end this session's snapshot (MySQL repeatable read) before looking again
     assert session.query(DictionaryEntry).count() == 0
+
+
+# ---------- the daily card limit (per user) ----------
+def test_the_daily_limit_is_a_per_user_setting_with_no_limit_by_default(api):
+    me = api.get("/api/auth/me").json()["user"]
+    assert me["daily_card_limit"] == 0
+    r = api.patch("/api/auth/me", json={"daily_card_limit": 25})
+    assert r.json()["user"]["daily_card_limit"] == 25 and r.json()["user"]["translation_language"] == "en"  # only what was sent changes
+    assert api.patch("/api/auth/me", json={"daily_card_limit": -1}).status_code == 422
+    assert api.patch("/api/auth/me", json={"daily_card_limit": 5000}).status_code == 422
+    bob = other_browser(api)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
+    assert bob.get("/api/auth/me").json()["user"]["daily_card_limit"] == 0
+
+
+def test_no_cards_are_given_once_the_daily_limit_is_reached(api, song):
+    g = start(api, song, difficulty="expert")
+    for q in g["questions"]:
+        ask(api, g, q)
+    api.patch("/api/auth/me", json={"daily_card_limit": 2})
+    s = api.get("/api/dictionary/review/summary").json()
+    assert (s["reviewed_today"], s["left_today"]) == (0, 2)
+    for expected_left in (1, 0):
+        card = api.get("/api/dictionary/review/next").json()["card"]
+        assert card is not None
+        api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"})
+        assert api.get("/api/dictionary/review/summary").json()["left_today"] == expected_left
+    assert api.get("/api/dictionary/review/next").json()["card"] is None
+    api.patch("/api/auth/me", json={"daily_card_limit": 0})  # no limit again
+    assert api.get("/api/dictionary/review/summary").json()["left_today"] is None
+    assert api.get("/api/dictionary/review/next").json()["card"] is not None

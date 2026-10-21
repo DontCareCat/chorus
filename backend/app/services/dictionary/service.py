@@ -2,7 +2,7 @@ import logging
 import threading
 from datetime import datetime, timezone
 
-from sqlalchemy import func, or_
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, LyricLine, Question, Song, User
@@ -16,7 +16,7 @@ from app.services.settings import load_settings
 
 log = logging.getLogger(__name__)
 MAX_EXAMPLES = 5
-NEW_PER_DAY = 20
+SESSION_SIZES = (20, 40, 60)
 
 
 def word_key(word: str) -> str:
@@ -143,10 +143,6 @@ def _search(q, text: str):
     ))
 
 
-def _today_start(now: datetime) -> datetime:
-    return now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-
-
 def filtered(session: Session, user: User, status: str = "all", language: str | None = None, text: str | None = None, now: datetime | None = None):
     now = now or utcnow()
     q = session.query(DictionaryEntry).filter_by(user_id=user.id)
@@ -168,36 +164,42 @@ def language_counts(session: Session, user: User) -> list[tuple[str, int]]:
     return sorted(((code, n) for code, n in rows), key=lambda r: (-r[1], r[0]))
 
 
-def new_allowance(session: Session, user: User, now: datetime) -> int:
-    introduced = session.query(DictionaryEntry).filter(
-        DictionaryEntry.user_id == user.id, DictionaryEntry.introduced_at >= _today_start(now)).count()
-    return max(0, NEW_PER_DAY - introduced)
+def reviewed_today(session: Session, user: User, now: datetime) -> int:
+    """Cards reviewed since midnight UTC (a card reviewed twice today counts once)."""
+    start = now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    return session.query(DictionaryEntry).filter(DictionaryEntry.user_id == user.id, DictionaryEntry.last_reviewed_at >= start).count()
+
+
+def left_today(session: Session, user: User, now: datetime) -> int | None:
+    if not user.daily_card_limit:
+        return None
+    return max(0, user.daily_card_limit - reviewed_today(session, user, now))
 
 
 def review_summary(session: Session, user: User, now: datetime | None = None) -> dict[str, int]:
     now = now or utcnow()
-    due = filtered(session, user, "due", now=now).count()
-    new = min(filtered(session, user, "new", now=now).count(), new_allowance(session, user, now))
-    total = session.query(DictionaryEntry).filter_by(user_id=user.id).count()
-    return {"due": due, "new": new, "total": total}
+    return {
+        "due": filtered(session, user, "due", now=now).count(),
+        "new": filtered(session, user, "new", now=now).count(),  # the same words the New filter lists
+        "total": session.query(DictionaryEntry).filter_by(user_id=user.id).count(),
+        "available": session.query(DictionaryEntry).filter_by(user_id=user.id, suspended=False).count(),
+        "reviewed_today": reviewed_today(session, user, now),
+        "left_today": left_today(session, user, now),
+    }
 
 
-def next_card(session: Session, user: User, now: datetime | None = None) -> tuple[DictionaryEntry | None, datetime | None]:
-    """The card to show next: the one that has waited longest, else a new one (within the daily limit).
-    When there is none, the second value says when the next one is due."""
+def next_card(session: Session, user: User, exclude: list[int] | None = None, now: datetime | None = None) -> DictionaryEntry | None:
+    """The next card of a review session. A session always has cards, whether or not their time has come:
+    overdue cards first (longest overdue first), then new words (oldest first), then the ones due soonest.
+    `exclude` are the cards this session already showed. None when every card was shown or the daily limit is reached."""
     now = now or utcnow()
-    due = filtered(session, user, "due", now=now).order_by(DictionaryEntry.due_at, DictionaryEntry.id).first()
-    if due is not None:
-        return due, None
-    if new_allowance(session, user, now) > 0:
-        new = filtered(session, user, "new", now=now).order_by(DictionaryEntry.added_at, DictionaryEntry.id).first()
-        if new is not None:
-            return new, None
-    later = (
-        session.query(func.min(DictionaryEntry.due_at))
-        .filter(DictionaryEntry.user_id == user.id, DictionaryEntry.suspended.is_(False), DictionaryEntry.due_at > now).scalar()
-    )
-    return None, later
+    if left_today(session, user, now) == 0:  # the daily limit is used up
+        return None
+    group = case((DictionaryEntry.due_at.is_(None), 1), (DictionaryEntry.due_at <= now, 0), else_=2)
+    q = session.query(DictionaryEntry).filter(DictionaryEntry.user_id == user.id, DictionaryEntry.suspended.is_(False))
+    if exclude:
+        q = q.filter(DictionaryEntry.id.not_in(exclude))
+    return q.order_by(group, DictionaryEntry.due_at, DictionaryEntry.added_at, DictionaryEntry.id).first()
 
 
 def rate(session: Session, entry: DictionaryEntry, rating: str, now: datetime | None = None) -> None:

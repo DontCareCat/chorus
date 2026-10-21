@@ -2,6 +2,7 @@
 export interface AudioLike {
   src: string;
   currentTime: number;
+  volume: number;
   play(): Promise<void>;
   pause(): void;
   addEventListener(type: "ended" | "error" | "pause", fn: () => void): void;
@@ -11,6 +12,19 @@ export interface Snippet {
   songId: number;
   start: number;
   end: number;
+}
+
+/** Seconds a sentence takes to fade in and out (never more than 40 % of its length each, so short lines still fade). */
+export const FADE_IN = 0.15;
+export const FADE_OUT = 0.3;
+
+/** The volume (0..1) at `time` for a sentence from `start` to `end`: a linear fade in at its start and out at its end. */
+export function fadeGain(time: number, start: number, end: number): number {
+  const len = Math.max(0.001, end - start);
+  const fin = Math.min(FADE_IN, len * 0.4), fout = Math.min(FADE_OUT, len * 0.4);
+  const up = fin > 0 ? (time - start) / fin : 1;
+  const down = fout > 0 ? (end - time) / fout : 1;
+  return Math.min(1, Math.max(0, Math.min(up, down)));
 }
 
 type Timer = ReturnType<typeof setInterval>;
@@ -28,7 +42,7 @@ export class SnippetPlayer {
   constructor(
     private readonly audio: AudioLike,
     private readonly urlFor: (songId: number) => string,
-    private readonly pollMs = 30,
+    private readonly pollMs = 20,
     private readonly setTimer: (fn: () => void, ms: number) => Timer = (fn, ms) => setInterval(fn, ms), // (not the bare global: it must not be called as a method)
     private readonly clearTimer: (t: Timer) => void = (t) => clearInterval(t),
   ) {
@@ -61,6 +75,7 @@ export class SnippetPlayer {
       this.audio.src = this.urlFor(snippet.songId);
       this.loaded = snippet.songId;
     }
+    this.audio.volume = 0; // fades in from silence: a line cut out of a song must not start with a click
     this.audio.currentTime = Math.max(0, snippet.start);
     this.set(key);
     try {
@@ -70,9 +85,13 @@ export class SnippetPlayer {
       return false;
     }
     if (this.key !== key) return true; // stopped or replaced while the browser was starting
-    this.timer = this.setTimer(() => {
-      if (this.audio.currentTime >= snippet.end) this.stop();
-    }, this.pollMs);
+    const tick = () => {
+      const t = this.audio.currentTime;
+      if (t >= snippet.end) this.stop();
+      else this.audio.volume = fadeGain(t, snippet.start, snippet.end);
+    };
+    tick();
+    this.timer = this.setTimer(tick, this.pollMs);
     return true;
   }
 
@@ -83,6 +102,7 @@ export class SnippetPlayer {
     }
     if (this.key !== null) {
       this.audio.pause();
+      this.audio.volume = 1;
       this.set(null);
     }
   }

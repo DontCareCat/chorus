@@ -100,7 +100,7 @@ export function DictionaryPage() {
               <input className="pill" type="search" {...noAutofill("dictionary-search")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.dictionary.search} aria-label={en.dictionary.search} />
             </div>
           </div>
-          {(data?.languages.length ?? 0) > 1 && (
+          {(data?.languages.length ?? 0) > 0 && (
             <div className="chips lang-chips" role="group" aria-label={en.dictionary.languageFilter}>
               <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.dictionary.allLanguages}</button>
               {data!.languages.map((l) => (

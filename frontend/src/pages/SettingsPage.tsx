@@ -96,8 +96,17 @@ export function SettingsPage() {
           <h2>{en.settings.dictionaryPanel}</h2>
           <label className="field">
             <span>{en.settings.translateInto}</span>
-            <LanguageSelect value={user?.translation_language ?? "en"} onChange={(code) => { void api.setTranslationLanguage(code).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.translationSaved }), (e) => setNotice({ kind: "error", text: msg(e) })); }} />
+            <LanguageSelect value={user?.translation_language ?? "en"} onChange={(code) => { void api.updateAccount({ translation_language: code }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.translationSaved }), (e) => setNotice({ kind: "error", text: msg(e) })); }} />
             <small>{en.settings.translateIntoHelp}</small>
+          </label>
+          <label className="field">
+            <span>{en.settings.dailyLimit}</span>
+            <select value={user?.daily_card_limit ?? 0} onChange={(e) => { void api.updateAccount({ daily_card_limit: Number(e.target.value) }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.dailyLimitSaved }), (err) => setNotice({ kind: "error", text: msg(err) })); }}>
+              {[0, 10, 20, 40, 60, 100, 200, 500].concat(user && ![0, 10, 20, 40, 60, 100, 200, 500].includes(user.daily_card_limit) ? [user.daily_card_limit] : []).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : a - b)).map((n) => (
+                <option key={n} value={n}>{n === 0 ? en.settings.unlimited : n}</option>
+              ))}
+            </select>
+            <small>{en.settings.dailyLimitHelp}</small>
           </label>
           <label className="check">
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />

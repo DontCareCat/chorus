@@ -52,6 +52,9 @@ class ReviewSummary(BaseModel):
     due: int
     new: int
     total: int
+    available: int  # words that can be reviewed (not paused)
+    reviewed_today: int
+    left_today: int | None  # cards the daily limit still allows; None = no limit
 
 
 class Intervals(BaseModel):
@@ -70,7 +73,6 @@ class ReviewFront(BaseModel):
 
 class ReviewNext(BaseModel):
     card: ReviewFront | None
-    next_due_at: datetime | None  # when there is no card now: the earliest later one
     summary: ReviewSummary
 
 
@@ -83,5 +85,6 @@ class ImportResult(BaseModel):
     words: int
 
 
-class LanguagePatch(BaseModel):
-    translation_language: str = Field(min_length=2, max_length=16)
+class AccountPatch(BaseModel):
+    translation_language: str | None = Field(None, min_length=2, max_length=16)
+    daily_card_limit: int | None = Field(None, ge=0, le=1000)

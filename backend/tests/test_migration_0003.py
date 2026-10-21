@@ -145,3 +145,18 @@ def test_0008_adds_the_dictionary_and_keeps_users(tmp_path, monkeypatch):
     command.downgrade(config, "0007")
     assert "dictionary_entries" not in sa.inspect(engine).get_table_names()
     command.upgrade(config, "head")
+
+
+def test_0009_adds_the_daily_card_limit_with_no_limit_for_existing_users(tmp_path, monkeypatch):
+    url = f"sqlite:///{(tmp_path / 'old.db').as_posix()}"
+    monkeypatch.setattr(settings, "database_url", url)
+    config = alembic_config()
+    command.upgrade(config, "0008")
+    engine = sa.create_engine(url)
+    with engine.begin() as c:
+        c.execute(sa.text("INSERT INTO users (id, username, display_name, is_guest, is_admin, translation_language, created_at) VALUES (7,'ann','Ann',0,1,'uk','2026-01-01')"))
+    command.upgrade(config, "head")
+    with engine.connect() as c:
+        assert tuple(c.execute(sa.text("SELECT daily_card_limit, translation_language FROM users WHERE id = 7")).one()) == (0, "uk")
+    command.downgrade(config, "0008")
+    command.upgrade(config, "head")

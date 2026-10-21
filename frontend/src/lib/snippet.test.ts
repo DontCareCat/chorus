@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { SnippetPlayer, type AudioLike } from "./snippet";
+import { fadeGain, FADE_IN, FADE_OUT, SnippetPlayer, type AudioLike } from "./snippet";
 
 class FakeAudio implements AudioLike {
   src = "";
   currentTime = 0;
+  volume = 1;
   paused = true;
   fail = false;
   handlers: Record<string, () => void> = {};
@@ -24,7 +25,7 @@ const url = (id: number) => `/api/songs/${id}/audio`;
 function setup() {
   vi.useFakeTimers();
   const audio = new FakeAudio();
-  const player = new SnippetPlayer(audio, url, 30);
+  const player = new SnippetPlayer(audio, url, 20);
   const changes: Array<string | null> = [];
   player.onChange((k) => changes.push(k));
   return { audio, player, changes };
@@ -38,10 +39,10 @@ describe("SnippetPlayer", () => {
     expect(audio.currentTime).toBe(10);
     expect(audio.paused).toBe(false);
     audio.currentTime = 11.9;
-    vi.advanceTimersByTime(30);
+    vi.advanceTimersByTime(20);
     expect(audio.paused).toBe(false);
     audio.currentTime = 12.02;
-    vi.advanceTimersByTime(30);
+    vi.advanceTimersByTime(20);
     expect(audio.paused).toBe(true);
     expect(changes).toEqual(["a", null]);
     vi.useRealTimers();
@@ -85,6 +86,40 @@ describe("SnippetPlayer", () => {
     await player.toggle("a", { songId: 1, start: 0, end: 500 });
     audio.handlers["error"]!();
     expect(player.playing).toBeNull();
+    vi.useRealTimers();
+  });
+});
+
+describe("fades", () => {
+  it("fadeGain ramps in at the start and out at the end of the line", () => {
+    expect(fadeGain(10, 10, 14)).toBe(0);
+    expect(fadeGain(10 + FADE_IN / 2, 10, 14)).toBeCloseTo(0.5);
+    expect(fadeGain(12, 10, 14)).toBe(1);
+    expect(fadeGain(14 - FADE_OUT / 2, 10, 14)).toBeCloseTo(0.5);
+    expect(fadeGain(14, 10, 14)).toBe(0);
+  });
+  it("a very short line still fades, each way within 40 % of its length", () => {
+    expect(fadeGain(10.2, 10, 10.5)).toBeCloseTo(1);
+    expect(fadeGain(10.075, 10, 10.5)).toBeCloseTo(0.5);
+    expect(fadeGain(10.4, 10, 10.5)).toBeCloseTo(0.5);
+  });
+  it("the player starts silent, rises, falls before the end and leaves the volume at 1", async () => {
+    const { audio, player } = setup();
+    await player.toggle("a", { songId: 1, start: 10, end: 14 });
+    expect(audio.volume).toBe(0);
+    audio.currentTime = 10.075;
+    vi.advanceTimersByTime(20);
+    expect(audio.volume).toBeCloseTo(0.5);
+    audio.currentTime = 12;
+    vi.advanceTimersByTime(20);
+    expect(audio.volume).toBe(1);
+    audio.currentTime = 13.85;
+    vi.advanceTimersByTime(20);
+    expect(audio.volume).toBeCloseTo(0.5);
+    audio.currentTime = 14.01;
+    vi.advanceTimersByTime(20);
+    expect(audio.paused).toBe(true);
+    expect(audio.volume).toBe(1);
     vi.useRealTimers();
   });
 });
