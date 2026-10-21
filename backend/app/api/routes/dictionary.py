@@ -51,10 +51,15 @@ def _own(session: Session, entry_id: int, user: User) -> DictionaryEntry:
 
 @router.get("", response_model=EntryList)
 def list_entries(
+    background: BackgroundTasks,
     status: str = Query("all", pattern="^(all|due|new|suspended)$"), language: str | None = None, q: str | None = None,
     limit: int = Query(100, ge=1, le=500), offset: int = Query(0, ge=0),
     session: Session = Depends(get_session), user: User = Depends(current_user),
+    factory: sessionmaker = Depends(get_session_factory), translator: Translator = Depends(get_translator),
+    wiktionary: Wiktionary = Depends(get_wiktionary),
 ):
+    if offset == 0 and session.query(DictionaryEntry.id).filter_by(user_id=user.id, enrich_status="pending").first() is not None:
+        background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)  # e.g. after an update that redoes the lookups
     query = service.filtered(session, user, status, language, q)
     total = query.count()
     rows = query.order_by(DictionaryEntry.added_at.desc(), DictionaryEntry.id.desc()).offset(offset).limit(limit).all()

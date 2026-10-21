@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from datetime import datetime, timezone
 
@@ -9,7 +10,7 @@ from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, 
 from app.db.models.types import utcnow
 from app.services.dictionary import srs
 from app.services.dictionary.lookup import (
-    LookupUnavailable, Translator, Wiktionary, article_for, cached_translation, cached_word_info,
+    LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, cached_translation, cached_word_info,
 )
 from app.services.game.nlp import base_language
 from app.services.settings import load_settings
@@ -67,25 +68,49 @@ def import_from_games(session: Session, user: User) -> tuple[int, int]:
 _enrich_lock = threading.Lock()  # one enrichment at a time: every answer starts a task, and they would all ask for the same words
 
 
+def noun_hint(entry: DictionaryEntry) -> bool | None:
+    """True when the word was sung capitalised inside a line (a German noun), False when lowercase, None when it is capitalised
+    only as the first word of a line (so it could be any word)."""
+    word = entry.surface.strip()
+    if not word or not word[0].isupper():
+        return False
+    for ex in entry.examples:
+        tokens = re.findall(r"[\w']+", ex.sentence)
+        if word in tokens[1:]:
+            return True
+    return None
+
+
+def word_translation(session: Session, translator: Translator, entry: DictionaryEntry, info: WordInfo, source: str, target: str) -> str | None:
+    """English: Wiktionary's own definition of the lemma. Otherwise the translation service, asked for the lemma (a bare word in its
+    dictionary form, capitalised only for nouns) and never trusted when it only returns punctuation or the same word back."""
+    if base_language(target) == "en" and info.gloss:
+        return info.gloss[:300]
+    word = entry.lemma or entry.surface
+    ask = word if info.is_noun or not info.found else word.lower()
+    out = cached_translation(session, translator, ask, source, target)[:300]
+    if not re.search(r"[^\W\d_]", out) or out.casefold() == ask.casefold():
+        return None
+    return out
+
+
 def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary) -> None:
     """Fill in lemma, article and translations. Anything that fails leaves the entry 'failed' so a later try can finish it."""
     failed = False
     source = entry.language
+    info = WordInfo()
     try:
-        info = cached_word_info(session, wiktionary, entry.surface, source)
-        if info.lemma and info.gender is None:  # an inflected form: the article belongs to its lemma
-            entry.lemma = info.lemma
-            lemma_info = cached_word_info(session, wiktionary, info.lemma, source)
-            entry.article = article_for(source, lemma_info.gender, info.lemma)
-        else:
-            entry.lemma = None
-            entry.article = article_for(source, info.gender, entry.surface)
+        info = cached_word_info(session, wiktionary, entry.surface, source, noun_hint(entry))
+        lemma = info.lemma if info.lemma and info.lemma.casefold() != entry.surface.casefold() else None
+        entry.lemma = lemma
+        # only a noun has an article: not the pronoun "mir", the numeral "neun" or the verb "fallen"
+        entry.article = article_for(source, info.gender, lemma or entry.surface) if info.is_noun else None
     except LookupUnavailable as e:
         log.warning("article lookup failed for %r: %s", entry.surface, e)
         failed = True
     if base_language(source) != base_language(target):
         try:
-            entry.translation = cached_translation(session, translator, entry.lemma or entry.surface, source, target)[:300]
+            entry.translation = word_translation(session, translator, entry, info, source, target)
             entry.translation_language = target
         except LookupUnavailable as e:
             log.warning("translation failed for %r: %s", entry.surface, e)

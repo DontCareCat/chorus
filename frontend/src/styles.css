@@ -719,3 +719,4 @@ button.fs-name:hover { background: var(--surface-2); }
 .review-start .hint { max-width: 46ch; margin: 0; }
 .review-start .field { margin: 0; }
 .review-start .chips { justify-content: center; }
+.about { margin: 40px 0 8px; text-align: center; }

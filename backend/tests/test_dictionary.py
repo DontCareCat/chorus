@@ -153,7 +153,7 @@ def test_an_inflected_form_gets_the_article_of_its_lemma(api, song, session, dic
     ask(api, g, q, "typing")
     e = next(e for e in entries(api)["items"] if e["surface"] == word)
     assert (e["lemma"], e["article"]) == ("Haus", "das")
-    assert "tr:de|en:Haus" in dictionary.calls  # the dictionary form is translated, not the plural
+    assert e["translation"] == "house"  # the meaning of the dictionary form (Wiktionary's definition), not of the plural
 
 
 def test_failed_lookups_can_be_repeated(api, song, session, dictionary):
@@ -493,3 +493,74 @@ def test_the_same_line_from_another_song_is_not_a_second_example(api, song, sess
     session.commit()  # an entry saved before duplicates were refused
     item = entries(api)["items"][0]
     assert len(item["examples"]) == 1
+
+
+# ---------- German forms (real pages, shortened) ----------
+FALLEN = (
+    "==German==\n===Noun===\n{{head|de|noun form|g=f-p}}\n\n# {{plural of|de|Falle}}\n\n"
+    "===Verb===\n{{de-verb|fallen<fällt#fiel,gefallen.sein>}}\n\n# to [[fall]], to [[drop]]\n#: {{ux|de|Sie fiel.|t=She fell.}}\n"
+    "# {{lb|de|military}} to [[die]], to [[fall]] {{q|in battle}}\n# to [[fall]], to [[collapse]]\n"
+)
+FALLE = "==German==\n===Noun===\n{{de-noun|f|-n}}\n\n# [[trap]]\n"
+KOMMT = "==German==\n===Verb===\n{{head|de|verb form}}\n\n# {{verb form of|de|kommen||3|s|;|2|p|;|imp|p}}\n"
+KOMMEN = "==German==\n===Verb===\n{{de-verb}}\n\n# to [[come]]\n# to [[arrive]]\n"
+NEUN = "==German==\n===Numeral===\n{{head|de|numeral}}\n\n# {{lb|de|cardinal}} [[nine]]\n"
+NEUN_NOUN = "==German==\n===Noun===\n{{de-noun|f|-en}}\n\n# the [[digit]] [[nine]]\n"
+MIR = "==German==\n===Etymology 1===\nFrom x.\n\n====Pronoun====\n{{head|de|pronoun form}}\n\n# {{lb|de|personal}} {{inflection of|de|ich||dat}}: [[me]], to me:\n"
+ICH = "==German==\n===Pronoun===\n{{head|de|pronoun}}\n\n# [[I]]\n"
+
+
+def wk(dictionary, pages, word, hint):
+    dictionary.pages.update(pages)
+    return dictionary.wiktionary().info(word, "de", hint)
+
+
+def test_a_lowercase_word_is_the_verb_not_the_noun_form_on_the_same_page(dictionary):
+    info = wk(dictionary, {"fallen": FALLEN, "Falle": FALLE}, "fallen", False)
+    assert (info.pos, info.lemma, info.gender, info.is_noun) == ("verb", None, None, False)
+    assert info.gloss.startswith("to fall, to drop")
+    # a capitalised word inside a line is the noun form
+    assert wk(dictionary, {}, "Fallen", True).lemma == "Falle"
+    # capitalised only at the start of a line: the other readings come first
+    assert wk(dictionary, {}, "Fallen", None).pos == "verb"
+
+
+def test_an_inflected_verb_gets_the_meaning_of_its_infinitive(dictionary):
+    info = wk(dictionary, {"kommt": KOMMT, "kommen": KOMMEN}, "kommt", False)
+    assert (info.lemma, info.pos, info.is_noun, info.gloss) == ("kommen", "verb", False, "to come; to arrive")
+
+
+def test_numerals_and_pronouns_have_no_article(dictionary):
+    pages = {"neun": NEUN, "Neun": NEUN_NOUN, "mir": MIR, "ich": ICH}
+    assert wk(dictionary, pages, "neun", False).pos == "num"
+    assert wk(dictionary, pages, "Neun", None).pos == "num"  # sentence start: not the digit noun
+    info = wk(dictionary, pages, "mir", False)
+    assert (info.lemma, info.pos, info.gloss, info.is_noun) == ("ich", "pron", "me, to me", False)
+
+
+def test_poetic_apostrophe_forms_are_read_as_the_full_word(dictionary):
+    info = wk(dictionary, {"gehen": GEHEN.replace("# to go", "# to [[go]]")}, "geh'n", False)
+    assert (info.lemma, info.gloss) == ("gehen", "to go")
+
+
+def test_entry_enrichment_uses_part_of_speech(api, song, session, dictionary):
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.pages[word.lower()] = NEUN
+    dictionary.pages[word.capitalize()] = NEUN_NOUN
+    ask(api, g, q, "typing")
+    e = next(e for e in entries(api)["items"] if e["surface"] == word)
+    assert e["article"] is None and e["translation"] == "nine"
+
+
+def test_junk_from_the_translation_service_is_not_kept(api, song, session, dictionary):
+    api.patch("/api/auth/me", json={"translation_language": "uk"})
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.translations[word.lower()] = "."
+    dictionary.translations[word] = "."
+    ask(api, g, q, "typing")
+    e = next(e for e in entries(api)["items"] if e["surface"] == word)
+    assert e["translation"] is None and e["enrich_status"] == "done"

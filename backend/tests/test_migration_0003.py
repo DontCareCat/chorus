@@ -160,3 +160,20 @@ def test_0009_adds_the_daily_card_limit_with_no_limit_for_existing_users(tmp_pat
         assert tuple(c.execute(sa.text("SELECT daily_card_limit, translation_language FROM users WHERE id = 7")).one()) == (0, "uk")
     command.downgrade(config, "0008")
     command.upgrade(config, "head")
+
+
+def test_0010_clears_the_outside_lookups_but_keeps_words_and_schedule(tmp_path, monkeypatch):
+    url = f"sqlite:///{(tmp_path / 'old.db').as_posix()}"
+    monkeypatch.setattr(settings, "database_url", url)
+    config = alembic_config()
+    command.upgrade(config, "0009")
+    engine = sa.create_engine(url)
+    with engine.begin() as c:
+        c.execute(sa.text("INSERT INTO users (id, username, display_name, is_guest, is_admin, translation_language, daily_card_limit, created_at) VALUES (9,'bo','Bo',0,1,'en',0,'2026-01-01')"))
+        c.execute(sa.text("INSERT INTO dictionary_entries (id, user_id, language, word, surface, lemma, article, translation, translation_language, enrich_status, suspended, interval_seconds, reps, lapses, added_at) VALUES (1,9,'de','fallen','fallen','Falle','die','pitfall','en','done',0,86400,3,0,'2026-01-01')"))
+        c.execute(sa.text("INSERT INTO dictionary_cache (cache_key, payload, created_at) VALUES ('wk:abc','{}','2026-01-01'), ('tr:abc','\"x\"','2026-01-01')"))
+    command.upgrade(config, "head")
+    with engine.connect() as c:
+        row = c.execute(sa.text("SELECT surface, lemma, article, translation, enrich_status, interval_seconds, reps FROM dictionary_entries")).one()
+        assert tuple(row) == ("fallen", None, None, None, "pending", 86400, 3)
+        assert [r[0] for r in c.execute(sa.text("SELECT cache_key FROM dictionary_cache"))] == ["tr:abc"]

@@ -16,6 +16,7 @@ const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.gener
 export function SettingsPage() {
   const { user, refresh } = useAuth();
   const loaded = useAsync(() => api.settings(), []);
+  const about = useAsync(() => api.health(), []);
   const [form, setForm] = useState<SettingsDto | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
   const [newFolder, setNewFolder] = useState("");
@@ -184,6 +185,7 @@ export function SettingsPage() {
           {user.is_admin && <UsersPanel me={user} />}
         </>
       )}
+      {about.data && <p className="hint about">{en.settings.version(about.data.version)}</p>}
     </>
   );
 }

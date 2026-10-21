@@ -276,6 +276,7 @@ export const en = {
   },
   settings: {
     title: "Settings",
+    version: (v: string) => `Chorus ${v}`,
     allowUnsynced: "Allow unsynchronized lyrics",
     allowUnsyncedHelp: "Lyrics without timestamps can be used, but the game runs in free play: the audio never waits for you.",
     autoFetch: "Look up lyrics automatically for new songs",
