@@ -377,3 +377,57 @@ def test_no_cards_are_given_once_the_daily_limit_is_reached(api, song):
     api.patch("/api/auth/me", json={"daily_card_limit": 0})  # no limit again
     assert api.get("/api/dictionary/review/summary").json()["left_today"] is None
     assert api.get("/api/dictionary/review/next").json()["card"] is not None
+
+
+# ---------- review limited to the dictionary's filters ----------
+def _session_ids(api, **scope):
+    shown = []
+    while True:
+        card = api.get("/api/dictionary/review/next", params={"exclude": ",".join(map(str, shown)), **scope}).json()["card"]
+        if card is None:
+            return shown
+        shown.append(card["id"])
+
+
+def test_a_review_only_uses_the_words_the_filters_show(api, song, session):
+    from datetime import timedelta
+    from app.db.models.types import utcnow
+
+    g = start(api, song, difficulty="expert")
+    for q in g["questions"]:
+        ask(api, g, q)
+    items = entries(api, limit=500)["items"]
+    assert len(items) >= 6
+    ids = [e["id"] for e in items]
+    due_ids = ids[:2]
+    for i in due_ids:  # two words are due, the rest are new
+        e = session.get(DictionaryEntry, i)
+        e.due_at, e.interval_seconds = utcnow() - timedelta(hours=1), 86400
+    session.commit()
+
+    assert sorted(_session_ids(api)) == sorted(ids)  # no filter: everything
+    assert sorted(_session_ids(api, status="due")) == sorted(due_ids)
+    assert sorted(_session_ids(api, status="new")) == sorted(set(ids) - set(due_ids))
+    target = items[0]["surface"]
+    by_text = _session_ids(api, q=target[:4])
+    assert by_text and set(by_text) == {e["id"] for e in entries(api, q=target[:4], limit=500)["items"]}
+    assert _session_ids(api, language="fr") == [] and _session_ids(api, q="no-such-word") == []
+
+    s = api.get("/api/dictionary/review/summary", params={"status": "due"}).json()
+    assert (s["due"], s["new"], s["available"]) == (2, 0, 2)
+    s = api.get("/api/dictionary/review/summary", params={"status": "new"}).json()
+    assert (s["due"], s["new"], s["available"]) == (0, len(ids) - 2, len(ids) - 2)
+    assert api.get("/api/dictionary/review/summary", params={"language": "de"}).json()["available"] == len(ids)
+    assert api.get("/api/dictionary/review/summary", params={"language": "fr"}).json()["available"] == 0
+
+
+def test_paused_words_are_never_reviewed_even_under_the_paused_filter(api, song):
+    g = start(api, song)
+    ask(api, g, g["questions"][0])
+    only = entries(api)["items"][0]
+    api.patch(f"/api/dictionary/{only['id']}", json={"suspended": True})
+    assert _session_ids(api) == [] and _session_ids(api, status="suspended") == []
+
+
+def test_a_bad_scope_is_refused(api):
+    assert api.get("/api/dictionary/review/next", params={"status": "nope"}).status_code == 422

@@ -27,7 +27,8 @@ export function DictionaryPage() {
   const [open, setOpen] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const snippets = useSnippets();
-  const summary = useAsync(() => api.reviewSummary(), []);
+  const summary = useAsync(() => api.reviewSummary(), []); // the counts on the chips: all words
+  const scoped = useAsync(() => api.reviewSummary({ status, language, q: debounced }), [status, language, debounced]); // what a review would use
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query), 250);
@@ -61,14 +62,15 @@ export function DictionaryPage() {
       await fn();
       list.reload();
       summary.reload();
+      scoped.reload();
     } catch (e) {
       fail(e);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list.reload, summary.reload]);
+  }, [list.reload, summary.reload, scoped.reload]);
 
   const total = summary.data?.total ?? data?.total ?? 0;
-  const available = (summary.data?.due ?? 0) + (summary.data?.new ?? 0);
+  const available = (scoped.data?.due ?? 0) + (scoped.data?.new ?? 0);
   const everything = (data?.languages ?? []).reduce((n, l) => n + l.count, 0);
 
   return (
@@ -78,7 +80,7 @@ export function DictionaryPage() {
           <h1>{en.dictionary.title}</h1>
           <p className="count">{en.dictionary.count(total)}</p>
         </div>
-        <a className="btn inverse large" href={paths.review()} aria-disabled={available === 0}>
+        <a className="btn inverse large" href={paths.review()} aria-disabled={(scoped.data?.available ?? 0) === 0}>
           {available > 0 ? en.dictionary.reviewDue(available) : en.dictionary.review}
         </a>
       </div>

@@ -70,22 +70,31 @@ def import_from_games(
     return ImportResult(added=added, words=words)
 
 
+class Scope:
+    """The Dictionary page's filters, so a review can be limited to the words that page shows."""
+
+    def __init__(self, status: str = Query("all", pattern="^(all|due|new|suspended)$"), language: str | None = Query(None, max_length=16),
+                 q: str | None = Query(None, max_length=200)):
+        self.status, self.language, self.q = status, language, q
+
+
 # review routes come before /{entry_id}
 @router.get("/review/summary", response_model=ReviewSummary)
-def review_summary(session: Session = Depends(get_session), user: User = Depends(current_user)):
-    return ReviewSummary(**service.review_summary(session, user))
+def review_summary(scope: Scope = Depends(), session: Session = Depends(get_session), user: User = Depends(current_user)):
+    return ReviewSummary(**service.review_summary(session, user, None, scope.status, scope.language, scope.q))
 
 
 @router.get("/review/next", response_model=ReviewNext)
 def review_next(
-    exclude: str = Query("", pattern=r"^(\d+(,\d+)*)?$", max_length=1000), session: Session = Depends(get_session), user: User = Depends(current_user),
+    exclude: str = Query("", pattern=r"^(\d+(,\d+)*)?$", max_length=1000), scope: Scope = Depends(), session: Session = Depends(get_session), user: User = Depends(current_user),
 ):
-    """The next card of a review session (`exclude`: ids of the cards it already showed). It is the closest-to-due
-    card even when its time has not come yet; no card means every word has been shown."""
-    entry = service.next_card(session, user, [int(x) for x in exclude.split(",") if x])
+    """The next card of a review session (`exclude`: ids of the cards it already showed; status / language / q: only the
+    words the Dictionary page's filters show). It is the closest-to-due card even when its time has not come yet;
+    no card means every word has been shown."""
+    entry = service.next_card(session, user, [int(x) for x in exclude.split(",") if x], None, scope.status, scope.language, scope.q)
     card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language,
                        intervals=Intervals(**srs.intervals(entry.interval_seconds))) if entry else None
-    return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user)))
+    return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user, None, scope.status, scope.language, scope.q)))
 
 
 @router.post("/review/{entry_id}/answer", response_model=EntryOut)

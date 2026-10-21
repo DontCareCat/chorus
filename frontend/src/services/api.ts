@@ -238,6 +238,16 @@ export interface DictListDto {
 export type DictStatus = "all" | "due" | "new" | "suspended";
 export type Rating = "again" | "hard" | "good" | "easy";
 
+/** The Dictionary page's filters: a review is limited to the words they show. */
+export interface ReviewScope {
+  status?: DictStatus;
+  language?: string;
+  q?: string;
+}
+
+const scopeQuery = (scope: ReviewScope = {}): string =>
+  new URLSearchParams({ status: scope.status ?? "all", ...(scope.language && scope.language !== "all" ? { language: scope.language } : {}), ...(scope.q ? { q: scope.q } : {}) }).toString();
+
 export interface ReviewSummaryDto {
   due: number;
   new: number;
@@ -332,8 +342,8 @@ export const api = {
   refreshWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}/refresh`, { method: "POST" }),
   getWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}`),
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
-  reviewSummary: () => request<ReviewSummaryDto>("/api/dictionary/review/summary"),
-  reviewNext: (exclude: number[] = []) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}`),
+  reviewSummary: (scope?: ReviewScope) => request<ReviewSummaryDto>(`/api/dictionary/review/summary?${scopeQuery(scope)}`),
+  reviewNext: (exclude: number[] = [], scope?: ReviewScope) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}&${scopeQuery(scope)}`),
   rate: (id: number, rating: Rating) => request<DictEntryDto>(`/api/dictionary/review/${id}/answer`, json("POST", { rating })),
   users: () => request<UserDto[]>("/api/users"),
   deleteUser: (id: number) => request<{ deleted: number }>(`/api/users/${id}`, { method: "DELETE" }),

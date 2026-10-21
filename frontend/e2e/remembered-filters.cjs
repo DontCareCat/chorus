@@ -46,6 +46,33 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await page.reload(); await page.waitForSelector(".word");
   ok((await page.getAttribute('.lang-chips .chip:has-text("German")', "aria-pressed")) === "true", "the language filter is remembered");
 
+  console.log("[the review uses only the filtered words]");
+  const matching = (await api("GET", "dictionary?status=new&language=de&q=ich&limit=500")).items.map((e) => e.surface);
+  const everyone = (await api("GET", "dictionary?limit=500")).total;
+  ok(matching.length > 0 && matching.length < everyone, `the filters show ${matching.length} of ${everyone} words`);
+  await page.goto(B + "#/dictionary"); await page.waitForSelector(".word");
+  await page.click('a:has-text("Review")'); await page.waitForSelector(".review-start");
+  const note = await page.textContent(".review-start .hint");
+  ok(/New/.test(note) && /German/.test(note) && /ich/.test(note), "the review says which filters it uses: " + note.trim().slice(0, 90));
+  await page.click('button:has-text("Start")'); await page.waitForSelector(".review-word");
+  const seen = [];
+  for (let i = 0; i < matching.length + 3; i++) {
+    seen.push(await page.textContent(".review-word"));
+    await page.keyboard.press("3"); await page.waitForSelector(".review-back");
+    await page.keyboard.press("Enter");
+    if (await page.$(".review-start")) break;
+    await page.waitForSelector(".review-card:not(.review-back) .rate, .review-start");
+    if (await page.$(".review-start")) break;
+  }
+  ok(seen.length === matching.length && seen.every((w) => matching.includes(w)), `exactly the ${matching.length} filtered words were reviewed: ${seen.join(", ")}`);
+  await page.waitForSelector(".review-start");
+  ok(/Session complete/.test(await page.textContent(".review-start")), "the session ends when the filtered words are done");
+  await page.click('button:has-text("Review all words")');
+  ok(!(await page.$(".review-start .hint button:has-text('Review all words')")), "'Review all words' drops the filter note");
+  ok((await page.inputValue('input[type="search"]').catch(() => "x")) !== "ich", "and the dictionary filters are reset");
+  await page.goto(B + "#/dictionary"); await page.waitForSelector(".word");
+  ok((await page.inputValue('input[type="search"]')) === "", "the dictionary page shows no filter any more");
+
   console.log("[scores and review]");
   await page.goto(B + "#/scores"); await page.waitForSelector("h1");
   await page.click('.segmented button:has-text("Type")');

@@ -3,20 +3,39 @@ import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
 import { formatInterval } from "../lib/interval";
-import { isOneOf, usePref } from "../lib/prefs";
+import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { isOneOf, isString, readPref, usePref, writePref } from "../lib/prefs";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
-import type { DictEntryDto, Rating, ReviewNextDto, ReviewSummaryDto } from "../services/api";
+import type { DictEntryDto, DictStatus, Rating, ReviewNextDto, ReviewScope, ReviewSummaryDto } from "../services/api";
 import { headword } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
 const SIZES = [20, 40, 60] as const;
+
+/** The filters the Dictionary page has on (remembered in cookies): the review uses only the words they show. */
+const dictionaryScope = (): ReviewScope => ({
+  status: readPref<DictStatus>("dict_status", "all", isOneOf("all", "due", "new", "suspended")),
+  language: readPref("dict_language", "all", isString),
+  q: readPref("dict_query", "", isString),
+});
+
+const describeScope = (scope: ReviewScope): string | null => {
+  const parts = [
+    scope.status && scope.status !== "all" ? en.dictionary.filters[scope.status] : null,
+    scope.language && scope.language !== "all" ? (LANGUAGES.some((l) => l.code === scope.language) ? languageName(scope.language) : scope.language) : null,
+    scope.q ? `“${scope.q}”` : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+};
 
 /**
  * Spaced review in sessions of 20, 40 or 60 words. A session always has its words, whether or not their time has come:
  * the ones that are due first, then new words, then the ones due soonest. Each word is shown once per session.
  */
 export function ReviewPage() {
+  const [scope, setScope] = useState<ReviewScope>(dictionaryScope);
+  const scopeText = describeScope(scope);
   const [summary, setSummary] = useState<ReviewSummaryDto | null>(null);
   const [size, setSize] = usePref<number>("review_size", 20, isOneOf(...SIZES));
   const [session, setSession] = useState<{ target: number; shown: number[] } | null>(null);
@@ -29,12 +48,12 @@ export function ReviewPage() {
   const busyRef = useRef(false);
 
   const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : en.errors.generic);
-  const loadSummary = useCallback(() => { api.reviewSummary().then(setSummary, fail); }, []);
+  const loadSummary = useCallback(() => { api.reviewSummary(scope).then(setSummary, fail); }, [scope]);
   useEffect(loadSummary, [loadSummary]);
 
   const fetchNext = useCallback(async (shown: number[]) => {
     try {
-      const r = await api.reviewNext(shown);
+      const r = await api.reviewNext(shown, scope);
       setNext(r);
       setBack(null);
       setError(null);
@@ -43,7 +62,7 @@ export function ReviewPage() {
       fail(e);
       return null;
     }
-  }, []);
+  }, [scope]);
 
   const start = useCallback(async () => {
     if (!summary) return;
@@ -136,10 +155,17 @@ export function ReviewPage() {
               <p>{en.dictionary.sessionDoneHelp(rated)}</p>
             </div>
           )}
+          {scopeText && (
+            <p className="hint">
+              {en.dictionary.scopeNote(scopeText)}{" "}
+              <button type="button" className="btn quiet small" onClick={() => { for (const k of ["dict_status", "dict_language", "dict_query"]) writePref(k, k === "dict_status" ? "all" : k === "dict_language" ? "all" : ""); setScope({ status: "all", language: "all", q: "" }); }}>{en.dictionary.reviewAll}</button>
+            </p>
+          )}
           {summary.left_today === 0 ? (
             <div className="review-done"><h1>{en.dictionary.limitReached(summary.reviewed_today)}</h1><p>{en.dictionary.limitReachedHelp}</p></div>
           ) : summary.available === 0 ? (
-            <div className="review-done"><h1>{en.dictionary.nothingDue}</h1><p>{en.dictionary.nothingDueHelp}</p></div>
+            scopeText ? <div className="review-done"><h1>{en.dictionary.scopeEmpty}</h1><p>{en.dictionary.scopeEmptyHelp}</p></div>
+              : <div className="review-done"><h1>{en.dictionary.nothingDue}</h1><p>{en.dictionary.nothingDueHelp}</p></div>
           ) : (
             <>
               {!done && <h1>{en.dictionary.sessionTitle}</h1>}

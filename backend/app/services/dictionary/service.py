@@ -176,27 +176,35 @@ def left_today(session: Session, user: User, now: datetime) -> int | None:
     return max(0, user.daily_card_limit - reviewed_today(session, user, now))
 
 
-def review_summary(session: Session, user: User, now: datetime | None = None) -> dict[str, int]:
+def review_summary(
+    session: Session, user: User, now: datetime | None = None, status: str = "all", language: str | None = None, text: str | None = None,
+) -> dict[str, int]:
+    """Counts for the words the review would use: all of the user's words, or only those the Dictionary page's filters show."""
     now = now or utcnow()
+    scope = filtered(session, user, status, language, text, now=now)
     return {
-        "due": filtered(session, user, "due", now=now).count(),
-        "new": filtered(session, user, "new", now=now).count(),  # the same words the New filter lists
-        "total": session.query(DictionaryEntry).filter_by(user_id=user.id).count(),
-        "available": session.query(DictionaryEntry).filter_by(user_id=user.id, suspended=False).count(),
+        "due": filtered(session, user, "due", language, text, now=now).count() if status in ("all", "due") else 0,
+        "new": filtered(session, user, "new", language, text, now=now).count() if status in ("all", "new") else 0,  # the same words the New filter lists
+        "total": scope.count(),
+        "available": scope.filter(DictionaryEntry.suspended.is_(False)).count(),
         "reviewed_today": reviewed_today(session, user, now),
         "left_today": left_today(session, user, now),
     }
 
 
-def next_card(session: Session, user: User, exclude: list[int] | None = None, now: datetime | None = None) -> DictionaryEntry | None:
+def next_card(
+    session: Session, user: User, exclude: list[int] | None = None, now: datetime | None = None,
+    status: str = "all", language: str | None = None, text: str | None = None,
+) -> DictionaryEntry | None:
     """The next card of a review session. A session always has cards, whether or not their time has come:
     overdue cards first (longest overdue first), then new words (oldest first), then the ones due soonest.
-    `exclude` are the cards this session already showed. None when every card was shown or the daily limit is reached."""
+    `exclude` are the cards this session already showed; status / language / text narrow it to the words the
+    Dictionary page's filters show. None when every card was shown or the daily limit is reached."""
     now = now or utcnow()
     if left_today(session, user, now) == 0:  # the daily limit is used up
         return None
     group = case((DictionaryEntry.due_at.is_(None), 1), (DictionaryEntry.due_at <= now, 0), else_=2)
-    q = session.query(DictionaryEntry).filter(DictionaryEntry.user_id == user.id, DictionaryEntry.suspended.is_(False))
+    q = filtered(session, user, status, language, text, now=now).filter(DictionaryEntry.suspended.is_(False))
     if exclude:
         q = q.filter(DictionaryEntry.id.not_in(exclude))
     return q.order_by(group, DictionaryEntry.due_at, DictionaryEntry.added_at, DictionaryEntry.id).first()
