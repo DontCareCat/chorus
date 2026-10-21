@@ -25,6 +25,7 @@ def session() -> Iterator[Session]:
     with sessionmaker(bind=engine, expire_on_commit=False)() as s:
         yield s
     Base.metadata.drop_all(engine)
+    engine.dispose()  # a MySQL server runs out of connections otherwise
 
 
 # ---------- API-level fixtures ----------
@@ -35,10 +36,11 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from app.api.deps import get_cover_client, get_lrclib_client, get_session_factory
+from app.api.deps import get_cover_client, get_lrclib_client, get_session_factory, get_translator, get_wiktionary
 from app.core.config import settings as env
 from app.db.database import get_session
 from app.main import app
+from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.library.covers import CoverClient
 from app.services.lyrics.lrclib import LrclibClient
 
@@ -120,6 +122,47 @@ class FakeCovers:
         return CoverClient(mb, caa, retries=3, backoff=0, sleep=self.sleeps.append, min_gap=0)
 
 
+class FakeDictionary:
+    """MyMemory-style translation service + Wiktionary behind httpx.MockTransport. Default: every text is 'translated'
+    to "<text> [de>en]", no Wiktionary page exists, no network."""
+
+    def __init__(self):
+        self.translations: dict[str, str] = {}  # text -> translation
+        self.pages: dict[str, str] = {}  # Wiktionary title -> wikitext
+        self.status: int | None = None  # force an HTTP status on the translation service
+        self.quota = False  # answer like MyMemory does when the daily quota is used up
+        self.wikt_status: int | None = None
+        self.calls: list[str] = []
+        self.sleeps: list[float] = []
+
+    def tr_handler(self, request: httpx.Request) -> httpx.Response:
+        text, pair = request.url.params["q"], request.url.params["langpair"]
+        self.calls.append(f"tr:{pair}:{text}")
+        if self.status:
+            return httpx.Response(self.status)
+        if self.quota:
+            return httpx.Response(200, json={"responseData": {"translatedText": "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS FOR TODAY"}, "responseStatus": 429})
+        src, dst = pair.split("|")
+        return httpx.Response(200, json={"responseData": {"translatedText": self.translations.get(text, f"{text} [{src}>{dst}]")}, "responseStatus": 200})
+
+    def wk_handler(self, request: httpx.Request) -> httpx.Response:
+        title = request.url.params["page"]
+        self.calls.append(f"wk:{title}")
+        if self.wikt_status:
+            return httpx.Response(self.wikt_status)
+        if title in self.pages:
+            return httpx.Response(200, json={"parse": {"title": title, "wikitext": self.pages[title]}})
+        return httpx.Response(200, json={"error": {"code": "missingtitle"}})
+
+    def translator(self) -> Translator:
+        http = httpx.Client(transport=httpx.MockTransport(self.tr_handler), base_url="https://tr.test")
+        return Translator(http, retries=3, backoff=0, sleep=self.sleeps.append, min_gap=0)
+
+    def wiktionary(self) -> Wiktionary:
+        http = httpx.Client(transport=httpx.MockTransport(self.wk_handler), base_url="https://wk.test")
+        return Wiktionary(http, retries=3, backoff=0, sleep=self.sleeps.append, min_gap=0)
+
+
 def release(mbid, title="Album", artist="Rammstein", score=100, date="2001-01-01"):
     return {"id": mbid, "title": title, "score": score, "date": date, "artist-credit": [{"name": artist, "joinphrase": ""}]}
 
@@ -130,12 +173,17 @@ def covers() -> FakeCovers:
 
 
 @pytest.fixture
+def dictionary() -> FakeDictionary:
+    return FakeDictionary()
+
+
+@pytest.fixture
 def lrclib() -> FakeLrclib:
     return FakeLrclib()
 
 
 @pytest.fixture
-def api(session, lrclib, covers, tmp_path, monkeypatch) -> Iterator[TestClient]:
+def api(session, lrclib, covers, dictionary, tmp_path, monkeypatch) -> Iterator[TestClient]:
     monkeypatch.setattr(env, "media_dir", str(tmp_path / "media"))
     monkeypatch.setattr(env, "library_dirs", "")
     monkeypatch.setattr(env, "covers_dir", str(tmp_path / "covers"))
@@ -150,6 +198,9 @@ def api(session, lrclib, covers, tmp_path, monkeypatch) -> Iterator[TestClient]:
     app.dependency_overrides[get_lrclib_client] = lambda: client
     cover_client = covers.client()
     app.dependency_overrides[get_cover_client] = lambda: cover_client
+    translator, wiktionary = dictionary.translator(), dictionary.wiktionary()
+    app.dependency_overrides[get_translator] = lambda: translator
+    app.dependency_overrides[get_wiktionary] = lambda: wiktionary
     with TestClient(app, client=("127.0.0.1", 50000)) as c:  # this machine: path imports are allowed
         yield c
     app.dependency_overrides.clear()

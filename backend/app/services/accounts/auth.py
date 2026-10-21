@@ -15,7 +15,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import Game, User, UserSession
+from app.db.models import DictionaryEntry, Game, User, UserSession
 from app.db.models.types import utcnow
 from app.db.models.user import GUEST_USERNAME
 
@@ -136,6 +136,8 @@ def end_all_sessions(session: Session, user_id: int, keep_token: str | None = No
 def delete_user(session: Session, user: User) -> None:
     for game in session.query(Game).filter_by(user_id=user.id).all():
         session.delete(game)  # answers go with it
+    for entry in session.query(DictionaryEntry).filter_by(user_id=user.id).all():
+        session.delete(entry)  # its examples go with it
     session.query(UserSession).filter_by(user_id=user.id).delete()
     session.delete(user)
     session.commit()

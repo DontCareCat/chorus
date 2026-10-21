@@ -6,6 +6,8 @@ export type Route =
   | { name: "game"; publicId: string }
   | { name: "settings" }
   | { name: "scores" }
+  | { name: "dictionary" }
+  | { name: "review" }
   | { name: "login"; signUp: boolean }
   | { name: "notfound" };
 
@@ -14,6 +16,8 @@ export function parseRoute(hash: string): Route {
   if (path === "/") return { name: "library" };
   if (path === "/settings") return { name: "settings" };
   if (path === "/scores") return { name: "scores" };
+  if (path === "/dictionary") return { name: "dictionary" };
+  if (path === "/dictionary/review") return { name: "review" };
   if (path === "/login") return { name: "login", signUp: false };
   if (path === "/register") return { name: "login", signUp: true };
   const song = /^\/songs\/(\d+)$/.exec(path);
@@ -27,6 +31,8 @@ export const paths = {
   library: () => "#/",
   settings: () => "#/settings",
   scores: () => "#/scores",
+  dictionary: () => "#/dictionary",
+  review: () => "#/dictionary/review",
   login: () => "#/login",
   register: () => "#/register",
   song: (id: number) => `#/songs/${id}`,

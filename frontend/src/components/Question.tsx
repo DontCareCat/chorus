@@ -99,7 +99,7 @@ export const Question = memo(function Question({ question: q, siblings, results,
 function TypedAnswer({ result, state, reveal, onSubmit }: { result: QuestionResult | undefined; state: string; reveal: string; onSubmit: (text: string) => void }) {
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { if (!result) input.current?.focus(); }, [result]);
+  useEffect(() => { if (!result) input.current?.focus({ preventScroll: true }); }, [result]); // (the browser must not scroll the page to the field: the screen is fitted instead)
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!result && text.trim()) onSubmit(text.trim());

@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
-import { useGameLock, useLayout } from "./hooks/useLayout";
+import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
+import { DictionaryPage } from "./pages/DictionaryPage";
 import { LoginPage } from "./pages/LoginPage";
+import { ReviewPage } from "./pages/ReviewPage";
 import { ScoresPage } from "./pages/ScoresPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SongPage } from "./pages/SongPage";
+import { api } from "./services/api";
 import { paths, useRoute } from "./router";
 
 export function App() {
@@ -26,12 +29,25 @@ export function App() {
   const phone = layout === "phone";
   const isGame = route.name === "game";
   useGameLock(isGame);
+  useKeyboardFit(isGame);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cards, setCards] = useState(0);
+  const signedIn = auth.user !== null;
+  // how many cards are waiting (the badge on "Dictionary"); looked up again whenever the page changes
+  useEffect(() => {
+    if (!signedIn || route.name === "login") return;
+    let live = true;
+    api.reviewSummary().then((s) => live && setCards(s.due + s.new), () => undefined);
+    return () => { live = false; };
+  }, [signedIn, route.name]);
   useEffect(() => setMenuOpen(false), [route.name]);
 
   const nav = (
     <nav aria-label="Main">
       <a href={paths.library()} aria-current={route.name === "library" || route.name === "song" ? "page" : undefined}>{en.nav.library}</a>
+      <a href={paths.dictionary()} aria-current={route.name === "dictionary" || route.name === "review" ? "page" : undefined}>
+        {en.nav.dictionary}{cards > 0 && <small className="nav-badge" aria-label={`${cards} cards to review`}>{cards}</small>}
+      </a>
       <a href={paths.scores()} aria-current={route.name === "scores" ? "page" : undefined}>{en.nav.scores}</a>
       <a href={paths.settings()} aria-current={route.name === "settings" ? "page" : undefined}>{en.nav.settings}</a>
     </nav>
@@ -94,6 +110,8 @@ export function App() {
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "game" && <GamePage publicId={route.publicId} key={route.publicId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "settings" && <SettingsPage />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "scores" && <ScoresPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "dictionary" && <DictionaryPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "review" && <ReviewPage />}
         {!auth.loading && route.name === "notfound" && <p className="empty">Page not found. <a href={paths.library()}>{en.nav.library}</a></p>}
       </main>
     </div>

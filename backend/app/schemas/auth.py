@@ -9,6 +9,7 @@ class UserOut(BaseModel):
     display_name: str
     is_guest: bool
     is_admin: bool
+    translation_language: str = "en"
 
 
 class AuthState(BaseModel):

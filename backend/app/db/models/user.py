@@ -18,6 +18,7 @@ class User(Base):
     password_hash: Mapped[str | None] = mapped_column(String(255), default=None)  # None for the guest
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    translation_language: Mapped[str] = mapped_column(String(16), default="en", server_default="en")  # what the dictionary translates into
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 

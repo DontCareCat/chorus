@@ -114,6 +114,7 @@ export interface SettingsDto {
   auto_detect_language: boolean;
   default_language: string;
   library_dirs: string[];
+  translation_enabled: boolean;
   allow_guest: boolean;
   allow_registration: boolean;
 }
@@ -199,12 +200,63 @@ export interface GlobalScoreDto {
   me: boolean;
 }
 
+export interface DictExampleDto {
+  id: number;
+  song_id: number;
+  song_title: string;
+  sentence: string;
+  translation: string | null;
+  audio_start: number | null;
+  audio_end: number | null;
+  playable: boolean;
+}
+
+export interface DictEntryDto {
+  id: number;
+  language: string;
+  surface: string;
+  lemma: string | null;
+  article: string | null;
+  translation: string | null;
+  translation_language: string | null;
+  enrich_status: "pending" | "done" | "failed";
+  suspended: boolean;
+  added_at: string;
+  due_at: string | null;
+  interval_seconds: number;
+  reps: number;
+  lapses: number;
+  examples: DictExampleDto[];
+}
+
+export interface DictListDto {
+  total: number;
+  items: DictEntryDto[];
+  languages: { code: string; count: number }[];
+}
+
+export type DictStatus = "all" | "due" | "new" | "suspended";
+export type Rating = "again" | "hard" | "good" | "easy";
+
+export interface ReviewSummaryDto {
+  due: number;
+  new: number;
+  total: number;
+}
+
+export interface ReviewNextDto {
+  card: { id: number; word: string; language: string; intervals: Record<Rating, number> } | null;
+  next_due_at: string | null;
+  summary: ReviewSummaryDto;
+}
+
 export interface UserDto {
   id: number;
   username: string;
   display_name: string;
   is_guest: boolean;
   is_admin: boolean;
+  translation_language: string;
 }
 
 export interface AuthStateDto {
@@ -269,6 +321,17 @@ export const api = {
   logout: () => request<AuthStateDto>("/api/auth/logout", { method: "POST" }),
   changePassword: (current: string, next: string) =>
     request<{ ok: boolean }>("/api/auth/password", json("POST", { current_password: current, new_password: next })),
+  setTranslationLanguage: (code: string) => request<AuthStateDto>("/api/auth/me", json("PATCH", { translation_language: code })),
+  dictionary: (opts: { status?: DictStatus; language?: string; q?: string; limit?: number; offset?: number } = {}) =>
+    request<DictListDto>(`/api/dictionary?${new URLSearchParams({ status: opts.status ?? "all", ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}), limit: String(opts.limit ?? 100), offset: String(opts.offset ?? 0) })}`),
+  setSuspended: (id: number, suspended: boolean) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", { suspended })),
+  deleteWord: (id: number) => request<{ deleted: number }>(`/api/dictionary/${id}`, { method: "DELETE" }),
+  refreshWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}/refresh`, { method: "POST" }),
+  getWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}`),
+  importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
+  reviewSummary: () => request<ReviewSummaryDto>("/api/dictionary/review/summary"),
+  reviewNext: () => request<ReviewNextDto>("/api/dictionary/review/next"),
+  rate: (id: number, rating: Rating) => request<DictEntryDto>(`/api/dictionary/review/${id}/answer`, json("POST", { rating })),
   users: () => request<UserDto[]>("/api/users"),
   deleteUser: (id: number) => request<{ deleted: number }>(`/api/users/${id}`, { method: "DELETE" }),
 };

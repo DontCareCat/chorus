@@ -15,6 +15,7 @@ class RuntimeSettings(BaseModel):
     library_dirs: list[str] = Field(default_factory=list)
     auto_detect_language: bool = True  # set a new song's language from its lyrics
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)
+    translation_enabled: bool = True  # dictionary: look up translations and articles online (the words and sentences are sent to the translation service and Wiktionary)
     allow_guest: bool = True  # administrator only: may people use Chorus without signing in
     allow_registration: bool = True  # administrator only: may new accounts be created
 

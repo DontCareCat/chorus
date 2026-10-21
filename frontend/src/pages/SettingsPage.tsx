@@ -14,7 +14,7 @@ type Notice = { kind: "ok" | "error"; text: string } | null;
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.generic);
 
 export function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const loaded = useAsync(() => api.settings(), []);
   const [form, setForm] = useState<SettingsDto | null>(null);
   const [folders, setFolders] = useState<string[]>([]);
@@ -90,6 +90,19 @@ export function SettingsPage() {
             </label>
           </div>
           <button type="button" className="btn quiet danger" onClick={() => void clear()} style={{ padding: 0 }}>{en.settings.clearCache}</button>
+        </section>
+
+        <section className="panel">
+          <h2>{en.settings.dictionaryPanel}</h2>
+          <label className="field">
+            <span>{en.settings.translateInto}</span>
+            <LanguageSelect value={user?.translation_language ?? "en"} onChange={(code) => { void api.setTranslationLanguage(code).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.translationSaved }), (e) => setNotice({ kind: "error", text: msg(e) })); }} />
+            <small>{en.settings.translateIntoHelp}</small>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />
+            <span><strong>{en.settings.translationEnabled}</strong><small>{en.settings.translationEnabledHelp}</small></span>
+          </label>
         </section>
 
         <section className="panel">
