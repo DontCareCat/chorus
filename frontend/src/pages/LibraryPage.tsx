@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { findDuplicates, type DuplicateReason } from "../lib/duplicates";
 import { inLanguage, languageCounts } from "../lib/languages";
 import { buildMatcher } from "../lib/search";
 import { noAutofill } from "../lib/noAutofill";
@@ -19,7 +20,7 @@ const PERCENT: Record<GameMode, Record<string, number>> = {
 };
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.generic);
 const AUDIO_RE = /\.(mp3|m4a|flac|ogg|opus|wav)$/i;
-type Filter = "all" | "ready" | "missing";
+type Filter = "all" | "ready" | "missing" | "duplicates";
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 export function LibraryPage() {
@@ -106,12 +107,19 @@ export function LibraryPage() {
 
   const all = songs.data ?? [];
   const isReady = (s: SongDto) => s.lyrics_status === "found" && s.available;
-  const counts = { all: all.length, ready: all.filter(isReady).length, missing: all.filter((s) => !isReady(s)).length };
+  const duplicates = useMemo(() => findDuplicates(all), [all]);
+  const dupReasons = useMemo(() => new Map(duplicates.flatMap((g) => g.ids.map((id) => [id, g.reasons] as const))), [duplicates]);
+  const counts = { all: all.length, ready: all.filter(isReady).length, missing: all.filter((s) => !isReady(s)).length, duplicates: dupReasons.size };
   const matcher = useMemo(() => buildMatcher(query, regex), [query, regex]);
-  const shown = useMemo(
-    () => all.filter((s) => (filter === "all" || (filter === "ready") === isReady(s)) && inLanguage(s, language) && matcher.test(s)),
-    [all, filter, language, matcher],
-  );
+  const shown = useMemo(() => {
+    const keep = (s: SongDto) =>
+      (filter === "all" ? true : filter === "duplicates" ? dupReasons.has(s.id) : (filter === "ready") === isReady(s)) && inLanguage(s, language) && matcher.test(s);
+    if (filter !== "duplicates") return all.filter(keep);
+    const byId = new Map(all.map((s) => [s.id, s]));
+    return duplicates.flatMap((g) => g.ids.map((id) => byId.get(id)!)).filter(keep); // a group's songs sit together
+  }, [all, filter, language, matcher, duplicates, dupReasons]);
+  // the last duplicate was removed: do not leave the list on an empty filter
+  useEffect(() => { if (filter === "duplicates" && counts.duplicates === 0) setFilter("all"); }, [filter, counts.duplicates]);
 
   const languages = useMemo(() => languageCounts(all), [all]);
   // a language that no song has any more (the last one was removed or changed) must not keep an empty list on screen
@@ -210,7 +218,7 @@ export function LibraryPage() {
 
       <div className="toolbar">
         <div className="chips" role="group" aria-label="Filter">
-          {(["all", "ready", "missing"] as const).map((f) => (
+          {(["all", "ready", "missing", "duplicates"] as const).filter((f) => f !== "duplicates" || counts.duplicates > 0).map((f) => (
             <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
               {en.library.filters[f]}<small>{counts[f]}</small>
             </button>
@@ -239,7 +247,7 @@ export function LibraryPage() {
       <ul className="songs">
         {shown.map((s) => (
           <SongRow
-            key={s.id} song={s} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
+            key={s.id} song={s} duplicate={dupReasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
             onToggle={() => setOpen(open === s.id ? null : s.id)} onRemove={() => void remove(s)}
           />
         ))}
@@ -248,7 +256,7 @@ export function LibraryPage() {
   );
 }
 
-function SongRow({ song: s, open, games, onToggle, onRemove }: { song: SongDto; open: boolean; games: GameSummaryDto[]; onToggle: () => void; onRemove: () => void }) {
+function SongRow({ song: s, duplicate, open, games, onToggle, onRemove }: { song: SongDto; duplicate?: DuplicateReason[]; open: boolean; games: GameSummaryDto[]; onToggle: () => void; onRemove: () => void }) {
   const ready = s.lyrics_status === "found" && s.available;
   const label = s.available ? en.lyricsStatus[s.lyrics_status] : en.library.fileMissing;
   return (
@@ -256,11 +264,12 @@ function SongRow({ song: s, open, games, onToggle, onRemove }: { song: SongDto; 
       <div className="song-main">
         <Cover songId={s.id} title={s.title} hasCover={s.has_cover} />
         <div className="song-text">
-          <div className="song-title">{s.title}</div>
+          <div className="song-title" title={s.title}>{s.title}</div>
           <div className="song-meta">
-            <span>{s.artist}</span>
+            <span title={s.artist}>{s.artist}</span>
             <span className="lang">{s.language}</span>
             <span>{mmss(s.duration)}</span>
+            {duplicate && <span className="dup-tag" title={en.library.duplicateHint}>{duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}</span>}
           </div>
         </div>
         <div className="status">

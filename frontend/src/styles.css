@@ -219,9 +219,10 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .song { border-top: 1px solid var(--line); }
 .song-main { display: flex; align-items: center; gap: 20px; padding: 16px 8px; flex-wrap: wrap; border-radius: 14px; }
 .song-main:hover { background: var(--surface-2); }
-.song-text { flex: 1; min-width: 200px; }
-.song-title { font-weight: 700; font-size: 21px; letter-spacing: -0.02em; line-height: 1.2; }
-.song-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--text-2); font-size: 15px; flex-wrap: wrap; }
+.song-text { flex: 1 1 220px; min-width: 0; }
+.song-title { font-weight: 700; font-size: 21px; letter-spacing: -0.02em; line-height: 1.2; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; } /* a very long name takes two lines at most; the full name is in the tooltip */
+.song-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--text-2); font-size: 15px; flex-wrap: wrap; min-width: 0; }
+.song-meta > span:first-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lang { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 6px; border-radius: 5px; border: 1px solid var(--line-strong); }
 .status { display: flex; align-items: center; gap: 8px; min-width: 190px; font-size: 15px; color: var(--text-2); }
 .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--text-3); box-shadow: 0 0 0 4px color-mix(in oklch, var(--text-3) 22%, transparent); }
@@ -632,5 +633,6 @@ button.fs-name:hover { background: var(--surface-2); }
 .regex-toggle { height: 38px; padding: 0 12px; font-family: var(--font); font-weight: 700; }
 .search-box input[aria-invalid="true"] { border-color: var(--wrong); }
 
+.dup-tag { font-size: 12px; font-weight: 600; padding: 0 6px; border-radius: 5px; border: 1px solid var(--accent); color: var(--text); }
 .lang-chips { margin: -8px 0 16px; }
 [data-layout="phone"] .lang-chips { margin: 0 0 10px; }
