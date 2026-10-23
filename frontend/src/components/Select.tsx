@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { swallowNextClick } from "../lib/swallow-click";
 import { Icon } from "./Icon";
 
 export interface SelectOption<V extends string | number> {
@@ -53,7 +54,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
     if (!open) return;
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!list.current?.contains(t) && !button.current?.contains(t)) close(false);
+      if (!list.current?.contains(t) && !button.current?.contains(t)) { swallowNextClick(); close(false); }
     };
     const scroll = (e: Event) => { if (!list.current?.contains(e.target as Node)) close(false); };
     document.addEventListener("pointerdown", down, true);

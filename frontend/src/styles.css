@@ -101,7 +101,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 
 .shell { min-height: 100vh; min-height: 100dvh; } /* dvh: on phones plain 100vh is the height with the browser bars hidden, so every page scrolled by the bars' height even when empty */
 /* Rows with a hover / selected background bleed into the page gutter by --row-pad, so their text keeps the gutter's edge and never touches the rectangle's edge (design guide section 14). */
-:root { --row-pad: 14px; --gap-actions: 8px; --cover-row: 88px; --row-gap: 20px; --pick-col: 28px; } /* --gap-actions: the one gap between neighbouring rounded buttons (guide section 15) */
+:root { --link-line: var(--text); --row-pad: 14px; --gap-actions: 8px; --cover-row: 88px; --row-gap: 20px; --pick-col: 28px; } /* --gap-actions: the one gap between neighbouring rounded buttons (guide section 15) */
 [data-layout="phone"] { --row-pad: 12px; }
 .topbar, main { max-width: 1120px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
 .topbar { position: relative; padding-top: 20px; padding-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
@@ -801,10 +801,11 @@ html.dialog-open { overflow: hidden; }
 
 /* top menu links on PCs and tablets: a line under the text fades in on hover and focus */
 .topbar > nav a { position: relative; }
-.topbar > nav a::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 1px; height: 2px; border-radius: 1px; background: currentColor; opacity: 0; transition: opacity 0.2s ease; }
+.topbar > nav a::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 1px; height: 2px; border-radius: 1px; background: var(--link-line); opacity: 0; transition: opacity 0.2s ease; }
+.topbar > nav a[aria-current="page"]::after { display: none; } /* the current page never shows the hover line */
 .topbar > nav a:hover, .topbar > nav a:focus-visible { color: var(--text); }
 .topbar > nav a[aria-current="page"]:hover { color: var(--on-fill); }
-.topbar > nav a:hover::after, .topbar > nav a:focus-visible::after { opacity: 1; }
+.topbar > nav a:not([aria-current="page"]):hover::after, .topbar > nav a:not([aria-current="page"]):focus-visible::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .topbar > nav a::after { transition: none; } }
 
 /* a ticked checkbox keeps full contrast (these rules must out-rank the "others are dimmed" rule above) */
@@ -828,3 +829,7 @@ html.dialog-open { overflow: hidden; }
 .select-sheet .grab { display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--line-strong); margin: 4px auto 8px; }
 .select-sheet .select-list { position: static; max-height: 62dvh; border: none; box-shadow: none; padding: 0 0 8px; background: transparent; }
 .select-sheet .select-list li { min-height: 52px; padding: 0 20px; border-radius: 0; font-size: 17px; }
+
+/* hover line under menu links: dark on the light theme, highlighter yellow on the dark theme */
+[data-theme="dark"] { --link-line: var(--fill); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme]) { --link-line: var(--fill); } }

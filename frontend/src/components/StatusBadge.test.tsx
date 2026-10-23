@@ -34,6 +34,7 @@ describe("StatusBadge", () => {
     fireEvent.click(screen.getByRole("button", { name: /Choose the right lyrics/ }));
     expect(document.querySelector(".status-bubble")).not.toBeNull();
     fireEvent.pointerDown(document.body);
+    fireEvent.click(document.body); // the click that ends the tap is swallowed
     expect(document.querySelector(".status-bubble")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Choose the right lyrics/ }));
     fireEvent.click(screen.getByRole("button", { name: "Choose lyrics" }));

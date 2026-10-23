@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import type { SongStatus } from "../lib/lyrics-status";
+import { swallowNextClick } from "../lib/swallow-click";
 import { paths } from "../router";
 import type { SongDto } from "../services/api";
 import { Icon } from "./Icon";
@@ -37,7 +38,7 @@ export function SongMenu({ song, status, phone, anchor, onPick, onClose }: Props
   useEffect(() => {
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!box.current?.contains(t) && !anchor?.contains(t)) onClose();
+      if (!box.current?.contains(t) && !anchor?.contains(t)) { swallowNextClick(); onClose(); }
     };
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("pointerdown", down, true);

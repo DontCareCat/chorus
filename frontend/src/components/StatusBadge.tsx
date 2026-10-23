@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
+import { swallowNextClick } from "../lib/swallow-click";
 import type { SongStatus } from "../lib/lyrics-status";
 import { Icon } from "./Icon";
 
@@ -30,7 +31,7 @@ export function StatusBadge({ status, phone, onFix }: Props) {
     const close = () => setOpen(false);
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!bubble.current?.contains(t) && !icon.current?.contains(t)) close();
+      if (!bubble.current?.contains(t) && !icon.current?.contains(t)) { swallowNextClick(); close(); }
     };
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
     document.addEventListener("pointerdown", down, true);

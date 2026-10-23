@@ -19,6 +19,7 @@ import { useLayout } from "../hooks/useLayout";
 import { useLongPress } from "../hooks/useLongPress";
 import { useSelection } from "../hooks/useSelection";
 import { songStatus } from "../lib/lyrics-status";
+import { scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
@@ -130,6 +131,26 @@ export function LibraryPage() {
       return en.library.removedMany(r.hidden + r.deleted);
     });
   };
+  // phones: opening a song's play options brings them into view (the whole panel when it fits, else the top of the row first)
+  useEffect(() => {
+    if (!phone || open === null) return;
+    const bring = () => {
+      const li = document.querySelector<HTMLElement>(`li.song[data-song-id="${open}"]`);
+      const main = li?.querySelector(".song-main");
+      const panel = li?.querySelector(".start-panel");
+      if (!main || !panel) return;
+      const vv = window.visualViewport;
+      const bar = document.querySelector(".select-bar")?.getBoundingClientRect();
+      const dy = scrollTarget({
+        itemTop: main.getBoundingClientRect().top, panelBottom: panel.getBoundingClientRect().bottom,
+        viewTop: Math.max(vv?.offsetTop ?? 0, bar ? bar.bottom : 0), viewBottom: (vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight),
+      });
+      if (dy !== 0) window.scrollBy({ top: dy, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    const first = requestAnimationFrame(bring);
+    const later = setTimeout(bring, 350); // the history and scores arrive after the panel opens and change its height
+    return () => { cancelAnimationFrame(first); clearTimeout(later); };
+  }, [phone, open]);
   const closeMenu = useCallback(() => setMenu(null), []);
   const closeTool = useCallback(() => setTool(null), []);
 
@@ -369,7 +390,7 @@ function SongRow({ song: s, phone, selectionActive, picked, onPick, onLongPress,
     else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
   };
   return (
-    <li className="song">
+    <li className="song" data-song-id={s.id}>
       <div className="song-main" data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone ? press.handlers : {})}>
         <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} />
         <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
