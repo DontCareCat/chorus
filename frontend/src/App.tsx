@@ -8,6 +8,8 @@ import { swallowNextClick } from "./lib/swallow-click";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
+import { PlaylistPage } from "./pages/PlaylistPage";
+import { PlaylistsPage } from "./pages/PlaylistsPage";
 import { DictionaryPage } from "./pages/DictionaryPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ReviewPage } from "./pages/ReviewPage";
@@ -64,7 +66,7 @@ export function App() {
 
   const nav = (
     <nav aria-label="Main" className="thumbs" ref={navThumb}>
-      <a href={paths.library()} aria-current={route.name === "library" || route.name === "song" ? "page" : undefined}>{en.nav.library}</a>
+      <a href={paths.library()} aria-current={route.name === "library" || route.name === "song" || route.name === "playlists" || route.name === "playlist" ? "page" : undefined}>{en.nav.library}</a>
       <a href={paths.dictionary()} aria-current={route.name === "dictionary" || route.name === "review" ? "page" : undefined}>
         {en.nav.dictionary}{cards > 0 && <small className="nav-badge" aria-label={`${cards} cards to review`}>{cards}</small>}
       </a>
@@ -126,6 +128,8 @@ export function App() {
         )}
         {!auth.loading && auth.unreachable === null && route.name === "login" && <LoginPage signUp={route.name === "login" && route.signUp} key={route.name === "login" && route.signUp ? "up" : "in"} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "library" && <LibraryPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "playlists" && <PlaylistsPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "playlist" && <PlaylistPage playlistId={route.playlistId} key={route.playlistId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "song" && <SongPage songId={route.songId} key={route.songId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "game" && <GamePage publicId={route.publicId} key={route.publicId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "settings" && <SettingsPage />}

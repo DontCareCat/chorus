@@ -1,44 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
-import { CoverPicker } from "../components/CoverPicker";
-import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
-import { SongMenu, type SongAction } from "../components/SongMenu";
-import { Details, Finder } from "../components/SongTools";
+import { AddToPlaylist } from "../components/AddToPlaylist";
+import { LibraryTabs } from "../components/LibraryTabs";
+import { SongList } from "../components/SongList";
 import { SortControl } from "../components/SortControl";
-import { StatusBadge } from "../components/StatusBadge";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
-import { extraCopies, findDuplicates, type DuplicateReason } from "../lib/duplicates";
+import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
 import { facetCounts, visibleSongs } from "../lib/library-facets";
 import { buildMatcher } from "../lib/search";
-import { SORT_KEYS, sortSongs, sortValue } from "../lib/library-sort";
+import { SORT_KEYS, sortSongs } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
 import { useLayout } from "../hooks/useLayout";
-import { useLongPress } from "../hooks/useLongPress";
 import { useSelection } from "../hooks/useSelection";
 import { useThumb } from "../hooks/useThumb";
-import { songStatus } from "../lib/lyrics-status";
-import { scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
-import type { GameSummaryDto, SongDto, SongScoreDto } from "../services/api";
-import type { GameMode } from "../types/game";
+import type { SongDto } from "../services/api";
 
-const DIFFICULTIES = ["easy", "medium", "hard", "expert"] as const;
-const PERCENT: Record<GameMode, Record<string, number>> = {
-  choice: { easy: 10, medium: 30, hard: 60, expert: 80 },
-  typing: { easy: 10, medium: 25, hard: 40, expert: 60 }, // typing a word takes longer: fewer words per level
-};
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.generic);
 const AUDIO_RE = /\.(mp3|m4a|flac|ogg|opus|wav)$/i;
 type Filter = "all" | "ready" | "missing" | "duplicates";
-const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 
 export function LibraryPage() {
   const songs = useAsync(() => api.songs(), []);
@@ -50,7 +38,6 @@ export function LibraryPage() {
   const [path, setPath] = useState("");
   const [recursive, setRecursive] = useState(true);
   const [copyFiles, setCopyFiles] = useState(false);
-  const [open, setOpen] = useState<number | null>(null);
   const [filter, setFilter] = usePref<Filter>("lib_status", "all", isOneOf("all", "ready", "missing", "duplicates"));
   const [query, setQuery] = usePref("lib_query", "", isString);
   const [regex, setRegex] = usePref("lib_regex", false, isBool);
@@ -59,12 +46,11 @@ export function LibraryPage() {
   const [sortDir, setSortDir] = usePref("lib_sort_dir", "default" as SortChoice["dir"], isOneOf("default", "reverse"));
   const sort: SortChoice = { key: sortKey, dir: sortDir };
   const [browsing, setBrowsing] = useState(false);
+  const [playlistFor, setPlaylistFor] = useState<number[] | null>(null);
   const selection = useSelection();
   const statusThumb = useThumb();
   const langThumb = useThumb();
   const phone = useLayout() === "phone";
-  const [menu, setMenu] = useState<{ id: number; anchor: HTMLElement } | null>(null);
-  const [tool, setTool] = useState<{ kind: "lyrics" | "cover" | "language" | "metadata"; id: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -140,28 +126,6 @@ export function LibraryPage() {
       return en.library.removedMany(r.hidden + r.deleted);
     });
   };
-  // phones: opening a song's play options brings them into view (the whole panel when it fits, else the top of the row first)
-  useEffect(() => {
-    if (!phone || open === null) return;
-    const bring = () => {
-      const li = document.querySelector<HTMLElement>(`li.song[data-song-id="${open}"]`);
-      const main = li?.querySelector(".song-main");
-      const panel = li?.querySelector(".start-panel");
-      if (!main || !panel) return;
-      const vv = window.visualViewport;
-      const bar = document.querySelector(".select-bar")?.getBoundingClientRect();
-      const dy = scrollTarget({
-        itemTop: main.getBoundingClientRect().top, panelBottom: panel.getBoundingClientRect().bottom,
-        viewTop: Math.max(vv?.offsetTop ?? 0, bar ? bar.bottom : 0), viewBottom: (vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight),
-      });
-      if (dy !== 0) window.scrollBy({ top: dy, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    };
-    const first = requestAnimationFrame(bring);
-    const later = setTimeout(bring, 350); // the history and scores arrive after the panel opens and change its height
-    return () => { cancelAnimationFrame(first); clearTimeout(later); };
-  }, [phone, open]);
-  const closeMenu = useCallback(() => setMenu(null), []);
-  const closeTool = useCallback(() => setTool(null), []);
 
   const all = songs.data ?? [];
   const duplicates = useMemo(() => findDuplicates(all), [all]);
@@ -178,10 +142,10 @@ export function LibraryPage() {
   useEffect(() => selection.keepOnly(new Set(shown.map((x) => x.id))), [shown, selection.keepOnly]);
   useEffect(() => {
     if (!selection.active) return;
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !tool && !menu) selection.clear(); };
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.querySelector(".song-menu, .sheet, .dialog")) selection.clear(); };
     document.addEventListener("keydown", key);
     return () => document.removeEventListener("keydown", key);
-  }, [selection, tool, menu]);
+  }, [selection]);
   // lyrics are looked up in the background: while any song is still searching, look at the list again every few seconds
   const reload = useRef(songs.reload);
   reload.current = songs.reload;
@@ -208,6 +172,7 @@ export function LibraryPage() {
       <section className="page-head">
         <div>
           <h1>{en.library.title}</h1>
+          <LibraryTabs current="songs" />
           <div className="count">{en.library.count(all.length)}</div>
         </div>
         <div className="page-actions">
@@ -328,186 +293,23 @@ export function LibraryPage() {
             onChange={() => (selection.picked.size === shown.length ? selection.clear() : selection.selectAll(shown.map((x) => x.id)))}
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
+          <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])}>{en.playlists.addTo}</button>
           <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
       )}
-      <ul className="songs" key={`${filter}|${language}|${sortKey}|${sortDir}`} data-selecting={selection.active}>
-        {shown.map((s) => {
-          const keeper = copies.keeper.get(s.id);
-          return (
-            <SongRow
-              key={s.id} song={s} phone={phone} sortKey={filter === "duplicates" ? null : sortKey} selectionActive={selection.active} picked={selection.has(s.id)} onPick={() => selection.toggle(s.id)} onLongPress={() => selection.add(s.id)}
-              copyOf={keeper !== undefined ? all.find((x) => x.id === keeper)?.title : undefined} duplicate={copies.reasons.get(s.id)}
-              open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)} menuOpen={menu?.id === s.id}
-              onToggle={() => setOpen(open === s.id ? null : s.id)} onMenu={(anchor) => setMenu(menu?.id === s.id ? null : { id: s.id, anchor })}
-              onFix={() => { const st = songStatus(s); if (st.fix === "lyrics") setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") void remove(s); }}
-            />
-          );
-        })}
-      </ul>
-      {menu && (() => {
-        const s = all.find((x) => x.id === menu.id);
-        return s ? (
-          <SongMenu
-            song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu}
-            onPick={(a: SongAction) => { if (a === "remove") void remove(s); else setTool({ kind: a, id: s.id }); }}
-          />
-        ) : null;
-      })()}
-      {tool && (() => {
-        const s = all.find((x) => x.id === tool.id);
-        if (!s) return null;
-        return (
-          <Dialog title={en.songMenu.titles[tool.kind] ?? ""} subtitle={`${s.title} · ${s.artist}`} onClose={closeTool}>
-            {tool.kind === "lyrics" && <Finder bare song={s} hasLyrics={s.lyrics_status === "found"} onAttached={songs.reload} />}
-            {tool.kind === "cover" && <CoverPicker bare song={s} onChanged={songs.reload} />}
-            {tool.kind === "language" && <Details bare part="language" song={s} onSaved={songs.reload} />}
-            {tool.kind === "metadata" && <Details bare part="metadata" song={s} onSaved={songs.reload} />}
-          </Dialog>
-        );
-      })()}
-    </>
-  );
-}
-
-interface RowProps {
-  song: SongDto;
-  sortKey: SortChoice["key"] | null;
-  phone: boolean;
-  selectionActive: boolean;
-  picked: boolean;
-  onPick: () => void;
-  onLongPress: () => void;
-  duplicate?: DuplicateReason[];
-  copyOf?: string;
-  open: boolean;
-  games: GameSummaryDto[];
-  menuOpen: boolean;
-  onToggle: () => void;
-  onMenu: (anchor: HTMLElement) => void;
-  onFix: () => void;
-}
-
-function SongRow({ song: s, sortKey, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
-  const ready = s.lyrics_status === "found" && s.available;
-  const status = songStatus(s);
-  const press = useLongPress({ onLongPress });
-  const dots = useRef<HTMLButtonElement>(null);
-  const rowClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button, a, input, label")) return;
-    if (press.consumeClick()) return;
-    if (selectionActive) onPick();
-    else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
-  };
-  return (
-    <li className="song" data-song-id={s.id}>
-      <div className="song-main" data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone ? press.handlers : {})}>
-        <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} />
-        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
-        <div className="song-text">
-          <div className="song-title" title={s.title}>{s.title}</div>
-          <div className="song-meta">
-            <span title={s.artist}>{s.artist}</span>
-            <span className="lang">{s.language}</span>
-            <span>{mmss(s.duration)}</span>
-            {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
-            {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
-          </div>
-        </div>
-        <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={onFix} /></div>
-        {!phone && <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
-        <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && onMenu(dots.current)}><Icon name="more" /></button>
-      </div>
-      {open && <StartPanel song={s} games={games} />}
-    </li>
-  );
-}
-
-function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] }) {
-  const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("medium");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<GameMode>("choice");
-  const modeThumb = useThumb();
-  const levelThumb = useThumb();
-  const board = useAsync(() => api.songScores(song.id, mode), [song.id, mode]);
-
-  const start = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const g = await api.createGame(song.id, difficulty, mode);
-      location.hash = paths.game(g.public_id);
-    } catch (e) {
-      setError(msg(e));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="start-panel">
-      <div>
-        <div className="label">{en.library.modeLabel}</div>
-        <div className="segmented mode-switch thumbs" role="group" aria-label={en.library.modeLabel} ref={modeThumb}>
-          {(["choice", "typing"] as const).map((m) => (
-            <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
-              <b>{en.library.modes[m].name}</b>
-              <small>{en.library.modes[m].help}</small>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="label">{en.library.difficultyLabel}</div>
-        <div className="segmented thumbs" role="group" aria-label={en.library.difficultyLabel} ref={levelThumb}>
-          {DIFFICULTIES.map((d) => (
-            <button key={d} type="button" aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
-              <b>{en.library.difficulty[d]}</b>
-              <small>{PERCENT[mode][d]}% of words</small>
-            </button>
-          ))}
-        </div>
-      </div>
-      <button type="button" className="btn large" onClick={() => void start()} disabled={busy}>{en.library.startGame}</button>
-      <div className="history">
-        <History games={games.filter((g) => g.mode === mode)} board={board.data ?? []} />
-        {error && <p className="notice error">{error}</p>}
-      </div>
-    </div>
-  );
-}
-
-function History({ games, board }: { games: GameSummaryDto[]; board: SongScoreDto[] }) {
-  const mine = board.find((r) => r.me);
-  const top = (
-    <>
-      {mine && <div>{en.scores.rank(mine.rank, board.length)}</div>}
-      {board.length > 0 && (
-        <ol className="mini-board" aria-label={en.scores.top}>
-          {board.slice(0, 3).map((r) => <li key={r.rank} data-me={r.me}><span>{r.rank}.</span><span>{r.display_name}</span><span>{r.points}</span></li>)}
-        </ol>
+      <SongList
+        songs={shown} games={games.data ?? []} phone={phone} sortKey={filter === "duplicates" ? null : sortKey} listKey={`${filter}|${language}|${sortKey}|${sortDir}`}
+        selection={selection} reload={songs.reload} onRemove={(s) => void remove(s)}
+        extras={() => [{ id: "playlist", icon: "playlistAdd", label: en.playlists.addTo }]} onExtra={(id, s) => { if (id === "playlist") setPlaylistFor([s.id]); }}
+        duplicate={(s) => { const r = copies.reasons.get(s.id); const k = copies.keeper.get(s.id); return r ? { reasons: r, copyOf: k !== undefined ? all.find((x) => x.id === k)?.title : undefined } : undefined; }}
+      />
+      {playlistFor && (
+        <AddToPlaylist
+          songIds={playlistFor} subtitle={playlistFor.length === 1 ? (() => { const s = all.find((x) => x.id === playlistFor[0]); return s ? `${s.title} · ${s.artist}` : undefined; })() : undefined}
+          onClose={() => setPlaylistFor(null)}
+        />
       )}
     </>
   );
-  if (games.length === 0) return <>{en.library.history.none}{top}</>;
-  const diff = (g: GameSummaryDto) => en.library.difficulty[g.difficulty] ?? g.difficulty;
-  const open = games.find((g) => !g.finished_at);
-  const last = games.find((g) => g.finished_at);
-  const best = Math.max(...games.map((g) => g.score));
-  return (
-    <>
-      {open && <div><a href={paths.game(open.public_id)}>{en.library.history.inProgress(diff(open), open.answered, open.total)}</a></div>}
-      {last && <div>{en.library.history.last(diff(last), last.score, last.correct_count, last.total)}</div>}
-      <div>{en.library.history.best(best)}</div>
-      {top}
-    </>
-  );
-}
-
-/** The value the list is sorted by, at the end of the meta line (empty values say "never played"). */
-function SortedBy({ sortKey, song }: { sortKey: SortChoice["key"]; song: SongDto }) {
-  const v = sortValue(sortKey, song);
-  const text = v === null ? en.library.sort.never : en.library.sort[v.kind](v.value as never);
-  return <span className="sorted-by" data-empty={v === null}>{text}</span>;
 }

@@ -11,6 +11,9 @@ import type { IconName } from "./Icon";
 
 export type SongAction = "lyrics" | "cover" | "language" | "metadata" | "remove";
 
+/** An item a page adds to the menu (add to queue, add to a playlist ...). */
+export interface MenuExtra { id: string; icon: IconName; label: string; danger?: boolean }
+
 interface Props {
   song: SongDto;
   status: SongStatus;
@@ -18,13 +21,15 @@ interface Props {
   /** the ⋮ button the menu belongs to (the menu opens under it) */
   anchor: HTMLElement | null;
   onPick: (a: SongAction) => void;
+  extras?: MenuExtra[];
+  onExtra?: (id: string) => void;
   onClose: () => void;
 }
 
 const WIDTH = 296;
 
 /** The ⋮ menu of a song: a popover under the button on a PC, a bottom sheet on a phone. Closes on a tap outside, a scroll or Esc. */
-export function SongMenu({ song, status, phone, anchor, onPick, onClose }: Props) {
+export function SongMenu({ song, status, phone, anchor, onPick, extras, onExtra, onClose }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const sheet = useRef<SheetApi>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
@@ -77,6 +82,12 @@ export function SongMenu({ song, status, phone, anchor, onPick, onClose }: Props
       {item("language", t.language, "language")}
       {item("edit", t.metadata, "metadata")}
       <a role="menuitem" className="mi" href={paths.song(song.id)} onClick={() => { if (phone) sheet.current?.close(); else onClose(); }}><Icon name="clock" /><span>{t.timing}</span></a>
+      {extras && extras.length > 0 && <hr />}
+      {extras?.map((x) => (
+        <button key={x.id} type="button" role="menuitem" className={`mi${x.danger ? " danger" : ""}`} onClick={() => { onExtra?.(x.id); if (phone) sheet.current?.close(); else onClose(); }}>
+          <Icon name={x.icon} /><span>{x.label}</span>
+        </button>
+      ))}
       <hr />
       {item("trash", t.remove, "remove", warn(status.fix === "file"), "danger")}
     </>

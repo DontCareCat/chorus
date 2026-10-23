@@ -300,6 +300,26 @@ export interface AuthStateDto {
   first_account: boolean;
 }
 
+export interface PlaylistDto {
+  id: number;
+  name: string;
+  song_count: number;
+  duration: number;
+  covers: { id: number; title: string; has_cover: boolean | null }[];
+  song_ids: number[];
+  updated_at: string;
+}
+
+export interface PlaylistSongDto extends SongDto { removed: boolean }
+
+export interface PlaylistDetailDto {
+  id: number;
+  name: string;
+  song_count: number;
+  duration: number;
+  songs: PlaylistSongDto[];
+}
+
 /** What the player gave: a chosen option (multiple choice) or the typed word (typing mode). */
 export type Answer = { optionId: number } | { text: string };
 
@@ -318,6 +338,14 @@ export const api = {
   health: () => request<{ status: string; app: string; version: string }>("/api/health"),
   deleteSongs: (ids: number[]) =>
     request<{ hidden: number; deleted: number; missing: number }>("/api/songs/bulk-delete", json("POST", { ids })),
+  playlists: () => request<PlaylistDto[]>("/api/playlists"),
+  playlist: (id: number) => request<PlaylistDetailDto>(`/api/playlists/${id}`),
+  createPlaylist: (name: string) => request<PlaylistDto>("/api/playlists", json("POST", { name })),
+  renamePlaylist: (id: number, name: string) => request<PlaylistDto>(`/api/playlists/${id}`, json("PATCH", { name })),
+  deletePlaylist: (id: number) => request<null>(`/api/playlists/${id}`, { method: "DELETE" }),
+  addToPlaylist: (id: number, songIds: number[]) => request<PlaylistDto>(`/api/playlists/${id}/songs`, json("POST", { song_ids: songIds })),
+  removeFromPlaylist: (id: number, songId: number) => request<PlaylistDto>(`/api/playlists/${id}/songs/${songId}`, { method: "DELETE" }),
+  reorderPlaylist: (id: number, songIds: number[]) => request<PlaylistDto>(`/api/playlists/${id}/order`, json("PUT", { song_ids: songIds })),
   deleteSong: (id: number) => request<{ result: "hidden" | "deleted" }>(`/api/songs/${id}`, { method: "DELETE" }),
   coverUrl: (songId: number, version?: string | number) => `/api/songs/${songId}/cover${version === undefined ? "" : `?v=${version}`}`,
   coverAuto: (songId: number) => request<{ status: string }>(`/api/songs/${songId}/cover/auto`, { method: "POST" }),
