@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Cover } from "./Cover";
 import { Icon } from "./Icon";
-import { QueuePanel } from "./QueuePanel";
+import { QueueDialog } from "./QueueDialog";
 import { useAsync } from "../hooks/useAsync";
 import { useExitTransition } from "../hooks/useExitTransition";
 import { useQueue } from "../hooks/useQueue";
+import { useQueueActions } from "../hooks/useQueueActions";
 import { en } from "../i18n/en";
-import { progressiveLevel } from "../lib/progressive";
 import * as Q from "../lib/queue";
-import { paths } from "../router";
-import { api, ApiError } from "../services/api";
+import { api } from "../services/api";
 
 /** The play queue's bar (guide section 20): what comes next and the icon buttons that run it. Docked under the top bar; on touch screens above the bottom edge. */
 export function QueueBar({ phone }: { phone: boolean }) {
   const store = useQueue();
+  const actions = useQueueActions();
   const q = store.queue;
   const active = q.items.length > 0;
   const bar = useExitTransition(active, 220);
   const songs = useAsync(() => (active ? api.songs() : Promise.resolve([])), [active]);
   const [listOpen, setListOpen] = useState(false);
-  const [games, setGames] = useState<Awaited<ReturnType<typeof api.myGames>>>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const byId = useMemo(() => new Map((songs.data ?? []).map((s) => [s.id, s])), [songs.data]);
@@ -27,24 +26,15 @@ export function QueueBar({ phone }: { phone: boolean }) {
   const nextSong = next ? byId.get(next.songId) : undefined;
   const done = Q.finished(q);
   useEffect(() => { if (next && songs.data && !nextSong) songs.reload(); }, [next?.songId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (active && listOpen) api.myGames().then(setGames, () => undefined); }, [active, listOpen]);
+  useEffect(() => { const close = () => setListOpen(false); window.addEventListener("hashchange", close); return () => window.removeEventListener("hashchange", close); }, []);
   useEffect(() => { setError(null); }, [q.cursor]);
   useEffect(() => { if (!active) setListOpen(false); }, [active]);
 
   const play = async () => {
-    if (!next) return;
     setBusy(true);
     setError(null);
-    try {
-      const level = next.difficulty === "progressive" ? progressiveLevel(await api.myGames(), next.songId, next.mode) : next.difficulty;
-      const g = await api.createGame(next.songId, level, next.mode);
-      store.advance(); // this one is under way: the bar offers the one after it when the player comes back
-      location.hash = paths.game(g.public_id);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : en.errors.generic);
-    } finally {
-      setBusy(false);
-    }
+    setError(await actions.playNext());
+    setBusy(false);
   };
 
   if (!bar.mounted) return null;
@@ -70,7 +60,7 @@ export function QueueBar({ phone }: { phone: boolean }) {
           <button type="button" className="ib" aria-label={done ? en.queue.close : en.queue.stop} title={done ? en.queue.close : en.queue.stop} onClick={store.clear}><Icon name={done ? "close" : "stop"} /></button>
         </div>
       </div>
-      {listOpen && <QueuePanel songs={songs.data ?? []} games={games} phone={phone} onClose={() => setListOpen(false)} />}
+      {listOpen && <QueueDialog phone={phone} onClose={() => setListOpen(false)} />}
     </>
   );
 }

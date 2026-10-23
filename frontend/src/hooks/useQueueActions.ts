@@ -1,8 +1,10 @@
 import { useCallback } from "react";
 import { announce, useQueue } from "./useQueue";
 import { en } from "../i18n/en";
+import { progressiveLevel } from "../lib/progressive";
 import * as Q from "../lib/queue";
-import { api } from "../services/api";
+import { paths } from "../router";
+import { api, ApiError } from "../services/api";
 import type { QueueLevel } from "../lib/queue";
 import type { SongDto } from "../services/api";
 
@@ -26,5 +28,19 @@ export function useQueueActions() {
     store.start(usable.map((s) => s.id), { difficulty: await level(), mode: "choice" }, shuffle);
     if (usable.length < songs.length) announce(en.queue.skippedNote(songs.length - usable.length));
   }, [store]);
-  return { add, play };
+  /** Start the next song of the queue with its own difficulty and mode, move the queue on, and open the game. Returns the error text when it cannot. */
+  const playNext = useCallback(async (): Promise<string | null> => {
+    const next = Q.next(store.snapshot());
+    if (!next) return null;
+    try {
+      const lvl = next.difficulty === "progressive" ? progressiveLevel(await api.myGames(), next.songId, next.mode) : next.difficulty;
+      const g = await api.createGame(next.songId, lvl, next.mode);
+      store.set(Q.withPlaying(Q.advance(store.snapshot()), g.public_id));
+      location.hash = paths.game(g.public_id);
+      return null;
+    } catch (e) {
+      return e instanceof ApiError ? e.message : en.errors.generic;
+    }
+  }, [store]);
+  return { add, play, playNext };
 }

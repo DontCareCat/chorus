@@ -14,17 +14,19 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   const api = async (m, p, d) => (await page.request.fetch(B + "api/" + p, { method: m, ...(d ? { data: d } : {}) })).json();
   const up = async (name, secs, seed) => (await (await page.request.post(B + "api/songs", { multipart: { file: { name, mimeType: "audio/wav", buffer: wav(secs, seed) } } })).json());
-  const a = await up("Zed - Zebra.wav", 25, 3), b = await up("Amy - Apfel.wav", 25, 5), c = await up("Max - Mond.wav", 25, 7);
+  const stamp = Date.now() % 100000;
+  const a = await up(`Zed - Zebra ${stamp}.wav`, 25, 3 + stamp * 7), b = await up(`Amy - Apfel ${stamp}.wav`, 25, 5 + stamp * 7), c = await up(`Max - Mond ${stamp}.wav`, 25, 11 + stamp * 7);
   for (const s of [a, b]) await page.request.post(B + `api/songs/${s.id}/lyrics/upload`, { multipart: { file: { name: "l.lrc", mimeType: "text/plain", buffer: Buffer.from(lrc) } } });
   const play = async (s, right) => {
     const g = await api("POST", "games", { song_id: s.id, difficulty: "easy", mode: "typing" });
     for (const [i, q] of g.questions.entries()) await api("POST", `games/${g.public_id}/answers`, { question_id: q.id, text: i < right ? q.answer ?? "x" : "zzz" });
   };
   await play(a, 0); await play(b, 0); await play(b, 0); // a: 1 play, b: 2 plays, c: never
-  const rows = async () => page.$$eval(".song .song-title", (e) => e.map((x) => x.textContent.trim()));
+  const rows = async () => page.$$eval(".song .song-title", (e) => e.map((x) => x.textContent.trim().replace(/ \d+$/, "")));
   const pick = async (text) => { await page.locator(".sort-control .select-btn").click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); };
 
   await page.goto(B); await page.waitForSelector(".song");
+  await page.fill('input[type="search"]', String(stamp)); await page.waitForFunction(() => document.querySelectorAll(".song").length === 3);
   console.log("  order by name:", (await rows()).join(", "));
   ok(JSON.stringify(await rows()) === JSON.stringify(["Apfel", "Mond", "Zebra"]), "name A to Z is the default");
   await page.click(".sort-dir");

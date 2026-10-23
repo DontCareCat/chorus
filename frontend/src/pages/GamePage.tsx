@@ -4,7 +4,11 @@ import { LyricWindow } from "../components/LyricWindow";
 import { Question } from "../components/Question";
 import { Runway } from "../components/Runway";
 import { ScorePanel } from "../components/ScorePanel";
+import { QueueDialog } from "../components/QueueDialog";
+import { QueueNext } from "../components/QueueNext";
 import { Transport } from "../components/Transport";
+import { useQueue } from "../hooks/useQueue";
+import * as Q from "../lib/queue";
 import { buildWindowLines, currentLineIndex, timecode } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
@@ -39,6 +43,8 @@ function GameScreen({ game }: { game: GameDto }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [engine, setEngine] = useState<GameEngine | null>(null);
   const [wantPlay, setWantPlay] = useState(false);
+  const queueStore = useQueue();
+  const [queueOpen, setQueueOpen] = useState(false);
   const [manualFocus, setManualFocus] = useState<number | null>(null);
   const [, setFrame] = useState(0);
   const [lastAnswered, setLastAnswered] = useState<number | null>(null);
@@ -241,10 +247,16 @@ function GameScreen({ game }: { game: GameDto }) {
   ) : (
     <p className="notice">{en.game.notFound}</p>
   );
+  // a game the queue started carries on with the next song once the music has stopped (a countdown the player can cancel)
+  const running = ["PLAYING", "FADING_IN", "FADING_OUT", "SEEKING"].includes(playback.state.name);
+  const queueNext = g.finished && queueStore.queue.playing === game.public_id && Q.next(queueStore.queue) !== null && !running;
   const finished = g.finished && (
-    <p className="notice ok finish">
-      {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
-    </p>
+    <>
+      <p className="notice ok finish">
+        {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
+      </p>
+      {queueNext && <QueueNext />}
+    </>
   );
   const lyricWindow = (
     <div className="game-side">
@@ -318,8 +330,10 @@ function GameScreen({ game }: { game: GameDto }) {
         onStop={stop}
         onBack={back5}
         onSeek={seekTo}
+        queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
+      {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} />}
     </div>
   );
 }

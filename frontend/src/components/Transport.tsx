@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { volumeIcon } from "../game/volume";
 import { Icon } from "./Icon";
 import { en } from "../i18n/en";
@@ -17,6 +18,8 @@ interface Props {
   /** Resolves when the seek is done, so the thumb can show the real position again. */
   onSeek: (time: number) => Promise<unknown>;
   /** The player's volume (shown on desktop only; phones have hardware volume keys). */
+  /** the play queue: how many songs wait, and open its list */
+  queue?: { count: number; onOpen: () => void };
   volume: { level: number; muted: boolean; set: (v: number) => void; toggleMute: () => void; step: (d: 1 | -1) => void };
 }
 
@@ -25,7 +28,7 @@ const mmss = (s: number) => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onStop, onBack, onSeek, volume }: Props) {
+export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onStop, onBack, onSeek, volume, queue }: Props) {
   const running = state === "PLAYING" || state === "FADING_IN" || state === "FADING_OUT";
   // While the thumb is being dragged it shows the drag position; the seek happens when it is released.
   const [dragging, setDragging] = useState<number | null>(null);
@@ -83,6 +86,7 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
           max={Math.max(duration, 1)}
           step={1}
           value={dragging ?? Math.min(time, Math.max(duration, 1))}
+          style={{ "--p": `${(100 * (dragging ?? Math.min(time, Math.max(duration, 1)))) / Math.max(duration, 1)}%` } as CSSProperties}
           disabled={!engineReady || duration <= 0}
           aria-label={en.game.position}
           aria-valuetext={`${mmss(dragging ?? time)} of ${mmss(duration)}`}
@@ -109,11 +113,18 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
             max={1}
             step={0.01}
             value={shown}
+            style={{ "--p": `${shown * 100}%` } as CSSProperties}
             aria-label={en.game.volume}
             aria-valuetext={`${Math.round(shown * 100)}%`}
             onChange={(e) => volume.set(Number(e.target.value))}
           />
         </div>
+        {queue && (
+          <button type="button" className="icon-btn queue-btn" onClick={queue.onOpen} aria-label={en.queue.openList} title={en.queue.openList}>
+            <Icon name="queue" />
+            {queue.count > 0 && <small className="queue-count" aria-hidden="true">{queue.count}</small>}
+          </button>
+        )}
         <span className="transport-time" aria-hidden="true">{mmss(dragging ?? time)} / {mmss(duration)}</span>
       </div>
     </div>

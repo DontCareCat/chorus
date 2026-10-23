@@ -707,3 +707,22 @@ describe("rewind", () => {
     expect([f.c.state.name, f.engine.time]).toEqual(["PLAYING", 25]);
   });
 });
+
+describe("play at the end of the song", () => {
+  it("starts from the top instead of replaying the last instant", async () => {
+    const g = rig([], { gating: false });
+    g.engine.duration = 20;
+    await g.engine.seek(20);
+    g.c.play();
+    await flush();
+    expect(g.engine.getCurrentTime()).toBeLessThan(1);
+    expect(g.c.state.name).toBe("PLAYING");
+  });
+  it("plays on from where it is when it is not at the end", async () => {
+    const g = rig([], { gating: false });
+    g.engine.duration = 20;
+    await g.engine.seek(12);
+    g.c.play();
+    expect(g.engine.getCurrentTime()).toBe(12);
+  });
+});

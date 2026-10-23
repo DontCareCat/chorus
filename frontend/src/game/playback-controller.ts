@@ -43,6 +43,18 @@ export class PlaybackController {
   }
 
   play(): void {
+    const e = this.o.engine;
+    const end = e.getDuration();
+    // The song has run out (or was dragged to its end): play from the top. Browsers restart an ended <audio> themselves, but not
+    // every one does so through a Web Audio source, and a position a hair before the end would just end again at once.
+    if (Number.isFinite(end) && end > 0 && e.getCurrentTime() >= end - 0.25) {
+      const epoch = this.epoch;
+      e.seek(0).then(
+        () => { if (epoch === this.epoch) this.dispatch({ type: "PLAY" }); },
+        (err: unknown) => { if (epoch === this.epoch) this.dispatch({ type: "ERROR", message: `seek_failed: ${String(err)}` }); },
+      );
+      return;
+    }
     this.dispatch({ type: "PLAY" });
   }
 
