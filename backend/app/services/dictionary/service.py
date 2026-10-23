@@ -129,9 +129,40 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
     session.commit()
 
 
+_running: dict[int, bool] = {}  # users with an enrichment task going -> "more entries arrived while it ran"
+_running_lock = threading.Lock()
+
+
 def enrich_pending(factory: sessionmaker, translator: Translator, wiktionary: Wiktionary, user_id: int, entry_id: int | None = None) -> None:
     """Background task: finish the user's pending entries (or one entry). Opens its own session and never raises.
-    Tasks started by later answers wait their turn and then find nothing left to do."""
+
+    Every answer starts one of these. Answering a whole song quickly means dozens at once, and each would sit in a worker thread waiting for
+    its turn at the (slow, spaced out) lookup services; with all the threads taken the rest of the server stood still. So only one task per user
+    works at a time; the others just note that there is more to do and return, and the running one goes round again before it ends.
+    """
+    if entry_id is not None:  # "look up again" for one entry: a single, rare request
+        _enrich_once(factory, translator, wiktionary, user_id, entry_id)
+        return
+    with _running_lock:
+        if user_id in _running:
+            _running[user_id] = True
+            return
+        _running[user_id] = False
+    try:
+        while True:
+            _enrich_once(factory, translator, wiktionary, user_id, None)
+            with _running_lock:
+                if not _running[user_id]:
+                    del _running[user_id]
+                    return
+                _running[user_id] = False
+    except BaseException:
+        with _running_lock:
+            _running.pop(user_id, None)
+        raise
+
+
+def _enrich_once(factory: sessionmaker, translator: Translator, wiktionary: Wiktionary, user_id: int, entry_id: int | None) -> None:
     try:
         with _enrich_lock, factory() as session:
             if not load_settings(session).translation_enabled:

@@ -258,7 +258,11 @@ function GameScreen({ game }: { game: GameDto }) {
   // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
   // and, when tapped, holds the window on that line until the audio gets there or the question changes.
   const [pinned, setPinned] = useState(false);
-  useEffect(() => setPinned(false), [focusedQ?.id]);
+  const pinnedRef = useRef(pinned);
+  pinnedRef.current = pinned;
+  // Only when it is pinned: a setState that changes nothing still schedules a render, and one such effect per answer, with the answers
+  // coming fast, adds up to "Maximum update depth exceeded" (React counts them until a commit comes along with none).
+  useEffect(() => { if (pinnedRef.current) setPinned(false); }, [focusedQ?.id]);
   useEffect(() => {
     if (pinned && focusedLine >= 0 && currentLine >= focusedLine) setPinned(false);
   }, [pinned, currentLine, focusedLine]);

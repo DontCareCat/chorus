@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, clampShift, currentLineIndex, timecode } from "./lyric-window";
+import { buildWindowLines, centerOffset, clampShift, currentLineIndex, reuseLines, timecode } from "./lyric-window";
+import type { WindowLine } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
 
@@ -101,5 +102,27 @@ describe("helpers", () => {
   });
   it("formats timecodes", () => {
     expect([null, 0, 59.9, 61, 3599].map(timecode)).toEqual(["", "0:00", "0:59", "1:01", "59:59"]);
+  });
+});
+
+describe("reuseLines", () => {
+  const line = (id: number, word: string): WindowLine => ({ lineId: id, startTime: id, targetId: id, status: "open", parts: [{ kind: "text", text: "a " }, { kind: "blank", index: 0, focused: false }, { kind: "word", index: 1, word, state: "correct", focused: false }] });
+  it("keeps the previous object for every line that did not change", () => {
+    const prev = [line(1, "x"), line(2, "y"), line(3, "z")];
+    const next = [line(1, "x"), line(2, "CHANGED"), line(3, "z")];
+    const merged = reuseLines(prev, next);
+    expect(merged[0]).toBe(prev[0]);
+    expect(merged[1]).toBe(next[1]);
+    expect(merged[2]).toBe(prev[2]);
+    expect(merged).not.toBe(prev);
+  });
+  it("hands back the previous array when nothing changed", () => {
+    const prev = [line(1, "x"), line(2, "y")];
+    expect(reuseLines(prev, [line(1, "x"), line(2, "y")])).toBe(prev);
+  });
+  it("starts with whatever it gets, and follows a change in length", () => {
+    const first = [line(1, "x")];
+    expect(reuseLines(null, first)).toBe(first);
+    expect(reuseLines(first, [line(1, "x"), line(2, "y")])).toHaveLength(2);
   });
 });

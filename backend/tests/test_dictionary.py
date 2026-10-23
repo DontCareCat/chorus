@@ -587,3 +587,36 @@ def test_counters_follow_the_other_filters(api, song, session):
     # another language chosen: status counters are 0, the language chips still list de
     fr = entries(api, language="fr")
     assert fr["status_counts"]["all"] == 0 and [x["code"] for x in fr["languages"]] == ["de"]
+
+
+def test_many_quick_answers_start_one_enrichment_not_one_per_answer(monkeypatch):
+    """Every answer starts a background task; they must not all pile up in worker threads (that froze the whole server)."""
+    import threading
+
+    from app.services.dictionary import service
+
+    entered, release, calls = threading.Event(), threading.Event(), []
+
+    def slow_once(factory, translator, wiktionary, user_id, entry_id):
+        calls.append(user_id)
+        entered.set()
+        release.wait(5)
+
+    monkeypatch.setattr(service, "_enrich_once", slow_once)
+    first = threading.Thread(target=service.enrich_pending, args=(None, None, None, 1))
+    first.start()
+    assert entered.wait(2)
+    others = [threading.Thread(target=service.enrich_pending, args=(None, None, None, 1)) for _ in range(40)]
+    for t in others:
+        t.start()
+    for t in others:
+        t.join(1)  # they return at once, they do not wait for the running one
+    assert not any(t.is_alive() for t in others)
+    assert len(calls) == 1
+    release.set()
+    first.join(3)
+    assert not first.is_alive()
+    assert len(calls) == 2  # it went round once more for what arrived meanwhile, then ended
+    assert service._running == {}
+    service.enrich_pending(None, None, None, 1)  # and a later answer starts a new one
+    assert len(calls) == 3
