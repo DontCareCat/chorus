@@ -6,6 +6,7 @@ import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { useThumb } from "./hooks/useThumb";
 import { swallowNextClick } from "./lib/swallow-click";
 import { useTheme } from "./hooks/useTheme";
+import { QueueBar } from "./components/QueueBar";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { PlaylistPage } from "./pages/PlaylistPage";
@@ -119,6 +120,7 @@ export function App() {
           {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{nav}{account}{themeSwitch}</div>}
         </header>
       )}
+      {!isGame && !needsSignIn && route.name !== "login" && <QueueBar phone={phone} />}
       <main className={isGame ? "game-route" : undefined}>
         {auth.loading && <p className="muted">…</p>}
         {!auth.loading && auth.unreachable !== null && (

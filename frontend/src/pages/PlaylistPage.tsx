@@ -7,6 +7,7 @@ import { PlaylistNameDialog } from "../components/PlaylistNameDialog";
 import { SongList } from "../components/SongList";
 import { useAsync } from "../hooks/useAsync";
 import { useLayout } from "../hooks/useLayout";
+import { useQueueActions } from "../hooks/useQueueActions";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
@@ -18,6 +19,7 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
   const library = useAsync(() => api.songs(), []);
   const games = useAsync(() => api.myGames(), []);
   const phone = useLayout() === "phone";
+  const queue = useQueueActions();
   const [dialog, setDialog] = useState<"rename" | "add" | null>(null);
   const [target, setTarget] = useState<SongDto | null>(null);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
@@ -54,6 +56,8 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
             <div className="count">{playlistMeta(list.data)}</div>
           </div>
           <div className="page-actions">
+            <button type="button" className="btn" disabled={songs.length === 0} onClick={() => void queue.play(songs.filter((s) => !s.removed), false)}><Icon name="play" />{en.queue.playAll}</button>
+            <button type="button" className="btn secondary" disabled={songs.length === 0} onClick={() => void queue.play(songs.filter((s) => !s.removed), true)}><Icon name="shuffle" />{en.queue.shuffle}</button>
             <button type="button" className="btn secondary" onClick={() => setDialog("add")}><Icon name="add" />{en.playlists.addSongs}</button>
             <button type="button" className="kebab" aria-haspopup="menu" aria-label={en.playlists.menu(list.data.name)} onClick={(e) => setMenu(menu ? null : e.currentTarget)}><Icon name="more" /></button>
           </div>

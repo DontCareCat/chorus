@@ -115,6 +115,7 @@ export interface SettingsDto {
   allow_unsynchronized_lyrics: boolean;
   lyrics_cache_ttl_days: number;
   lyrics_timeout_minutes: number;
+  default_queue_difficulty: "progressive" | "easy" | "medium" | "hard" | "expert";
   auto_fetch_lyrics: boolean;
   auto_fetch_covers: boolean;
   auto_detect_language: boolean;

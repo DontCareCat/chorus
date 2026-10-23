@@ -10,7 +10,9 @@ import { StatusBadge } from "./StatusBadge";
 import { useAsync } from "../hooks/useAsync";
 import { useLongPress } from "../hooks/useLongPress";
 import type { useSelection } from "../hooks/useSelection";
+import { useQueueActions } from "../hooks/useQueueActions";
 import { useReorder } from "../hooks/useReorder";
+import { useSwipe } from "../hooks/useSwipe";
 import { useThumb } from "../hooks/useThumb";
 import type { DuplicateReason } from "../lib/duplicates";
 import { songStatus } from "../lib/lyrics-status";
@@ -56,6 +58,7 @@ interface SongListProps {
 /** The rows of the library or of a playlist, with the ⋮ menu, the tool dialogs and the play options of one open song. */
 export function SongList({ songs, games, phone, sortKey, listKey, selection, duplicate, reload, onRemove, extras, onExtra, removed, reorder }: SongListProps) {
   const ul = useRef<HTMLUListElement>(null);
+  const queue = useQueueActions();
   const moved = useReorder(ul, { ids: songs.map((s) => s.id), enabled: !!reorder, mode: phone ? "press" : "grip", onReorder: (ids) => reorder?.onReorder(ids) });
   const [open, setOpen] = useState<number | null>(null);
   const [menu, setMenu] = useState<{ id: number; anchor: HTMLElement } | null>(null);
@@ -91,7 +94,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
           return (
             <SongRow
               key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selection?.active ?? false} picked={selection?.has(s.id) ?? false}
-              selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder} onPick={() => selection?.toggle(s.id)} onLongPress={() => selection?.add(s.id)}
+              onQueue={() => void queue.add([s.id])} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder} onPick={() => selection?.toggle(s.id)} onLongPress={() => selection?.add(s.id)}
               copyOf={dup?.copyOf} duplicate={dup?.reasons} gone={removed?.(s) ?? false}
               open={open === s.id} games={games.filter((g) => g.song_id === s.id)} menuOpen={menu?.id === s.id}
               onToggle={() => setOpen(open === s.id ? null : s.id)} onMenu={(anchor) => setMenu(menu?.id === s.id ? null : { id: s.id, anchor })}
@@ -105,8 +108,8 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
         const s = songs.find((x) => x.id === menu.id);
         return s ? (
           <SongMenu
-            song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu} extras={extras?.(s)}
-            onExtra={(id) => onExtra?.(id, s)}
+            song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu} extras={[{ id: "queue", icon: "queue", label: en.queue.addTo }, ...(extras?.(s) ?? [])]}
+            onExtra={(id) => { if (id === "queue") void queue.add([s.id]); else onExtra?.(id, s); }}
             onPick={(a: SongAction) => { if (a === "remove") onRemove(s); else setTool({ kind: a, id: s.id }); }}
           />
         ) : null;
@@ -130,6 +133,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
 interface RowProps {
   song: SongDto;
   sortKey: SortChoice["key"] | null;
+  onQueue: () => void;
   selectable: boolean;
   orderable: boolean;
   reorderRow: boolean;
@@ -149,10 +153,12 @@ interface RowProps {
   onFix: () => void;
 }
 
-function SongRow({ song: s, sortKey, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
+function SongRow({ song: s, sortKey, onQueue, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
   const press = useLongPress({ onLongPress });
+  const li = useRef<HTMLLIElement>(null);
+  useSwipe(li, { directions: ["right"], onSwipe: onQueue, enabled: phone && ready });
   const dots = useRef<HTMLButtonElement>(null);
   const rowClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, a, input, label")) return;
@@ -161,8 +167,9 @@ function SongRow({ song: s, sortKey, selectable, orderable, reorderRow, gone, ph
     else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
   };
   return (
-    <li className="song" data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
-      <div className="song-main" data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
+    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
+      <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
+      <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
         {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
         <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
         <div className="song-text">

@@ -4,6 +4,7 @@ import { Icon } from "../components/Icon";
 import { AddToPlaylist } from "../components/AddToPlaylist";
 import { LibraryTabs } from "../components/LibraryTabs";
 import { SongList } from "../components/SongList";
+import { useQueueActions } from "../hooks/useQueueActions";
 import { SortControl } from "../components/SortControl";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
@@ -46,6 +47,7 @@ export function LibraryPage() {
   const [sortDir, setSortDir] = usePref("lib_sort_dir", "default" as SortChoice["dir"], isOneOf("default", "reverse"));
   const sort: SortChoice = { key: sortKey, dir: sortDir };
   const [browsing, setBrowsing] = useState(false);
+  const queue = useQueueActions();
   const [playlistFor, setPlaylistFor] = useState<number[] | null>(null);
   const selection = useSelection();
   const statusThumb = useThumb();
@@ -263,6 +265,10 @@ export function LibraryPage() {
               {en.library.filters[f]}<small key={counts[f]}>{counts[f]}</small>
             </button>
           ))}
+        </div>
+        <div className="queue-actions">
+          <button type="button" className="btn secondary small" disabled={shown.length === 0} onClick={() => void queue.play(shown, false)}><Icon name="play" />{en.queue.playAll}</button>
+          <button type="button" className="btn secondary small" disabled={shown.length === 0} onClick={() => void queue.play(shown, true)}><Icon name="shuffle" />{en.queue.shuffle}</button>
         </div>
         <SortControl choice={sort} onChange={(c) => { setSortKey(c.key); setSortDir(c.dir); }} />
         <div className="search-box">

@@ -1,3 +1,4 @@
+import { LEVELS, LevelBars, ProgressiveStars } from "../components/LevelIcon";
 import { Select } from "../components/Select";
 import { useEffect, useState } from "react";
 import { FolderBrowser } from "../components/FolderBrowser";
@@ -5,6 +6,9 @@ import { LanguageSelect } from "../components/LanguageSelect";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
+import { forgetQueueLevel } from "../hooks/useQueueActions";
+import { useThumb } from "../hooks/useThumb";
+import type { QueueLevel } from "../lib/queue";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
 import { getEngineKind, setEngineKind } from "../services/audio/create-engine";
@@ -24,6 +28,7 @@ export function SettingsPage() {
   const [browsing, setBrowsing] = useState(false);
   const [forever, setForever] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const queueThumb = useThumb();
 
   useEffect(() => {
     if (loaded.data) {
@@ -96,6 +101,21 @@ export function SettingsPage() {
             </label>
           </div>
           <button type="button" className="btn quiet bordered danger" onClick={() => void clear()}>{en.settings.clearCache}</button>
+        </section>
+
+        <section className="panel">
+          <h2>{en.queue.settingsTitle}</h2>
+          <div className="field">
+            <span>{en.queue.settingsLabel}</span>
+            <div className="segmented queue-levels thumbs" role="group" aria-label={en.queue.settingsLabel} ref={queueThumb}>
+              {(["progressive", ...LEVELS] as QueueLevel[]).map((l) => (
+                <button key={l} type="button" aria-pressed={form.default_queue_difficulty === l} onClick={() => { set("default_queue_difficulty", l); forgetQueueLevel(); }}>
+                  {l === "progressive" ? <><span>{en.queue.progressive}</span><ProgressiveStars /></> : <><LevelBars level={l} /><span>{en.library.difficulty[l]}</span></>}
+                </button>
+              ))}
+            </div>
+            <small>{en.queue.progressiveHelp}</small>
+          </div>
         </section>
 
         <section className="panel">

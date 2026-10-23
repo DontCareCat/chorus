@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { swallowNextClick } from "../lib/swallow-click";
 import { Icon } from "./Icon";
@@ -8,6 +9,8 @@ import type { SheetApi } from "./Sheet";
 export interface SelectOption<V extends string | number> {
   value: V;
   label: string;
+  /** what the button and the list show instead of the plain label (an icon with the name) */
+  node?: ReactNode;
 }
 
 interface Props<V extends string | number> {
@@ -21,6 +24,8 @@ interface Props<V extends string | number> {
   disabled?: boolean;
   /** phones: open as a bottom sheet (the default) instead of a popover */
   sheetOnPhone?: boolean;
+  /** a chip-shaped button of a fixed width (design guide section 19) instead of a text field */
+  chip?: boolean;
 }
 
 /**
@@ -28,7 +33,7 @@ interface Props<V extends string | number> {
  * (44 px items, 14 px inner padding, the chosen item ticked, hover/keyboard highlight) instead of the browser's own menu.
  * Popover under the button on PCs; a bottom sheet on phones. Arrow keys, Home/End, type-ahead, Enter/Space, Esc.
  */
-export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true }: Props<V>) {
+export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true, chip = false }: Props<V>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; max: number } | null>(null);
@@ -102,7 +107,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
           key={String(o.value)} role="option" data-i={i} aria-selected={i === current} data-active={i === active}
           onPointerEnter={() => setActive(i)} onClick={() => choose(i)}
         >
-          <span>{o.label}</span>
+          <span>{o.node ?? o.label}</span>
           {i === current && <Icon name="check" />}
         </li>
       ))}
@@ -112,10 +117,10 @@ export function Select<V extends string | number>({ value, onChange, options, id
   return (
     <>
       <button
-        type="button" id={id} ref={button} className="select-btn" role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
+        type="button" id={id} ref={button} className={`select-btn${chip ? " chip-select" : ""}`} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
         aria-label={ariaLabel} disabled={disabled} onClick={() => (open ? close() : show())} onKeyDown={onKey} data-placeholder={current < 0}
       >
-        <span>{current >= 0 ? options[current]!.label : placeholder ?? ""}</span>
+        <span>{current >= 0 ? options[current]!.node ?? options[current]!.label : placeholder ?? ""}</span>
       </button>
       {/* in the body, not beside the button: a click inside a <label> would otherwise be forwarded to the button and reopen the list */}
       {open && createPortal(phone ? <Sheet ref={sheet} label={ariaLabel ?? placeholder ?? ""} className="select-sheet" onClose={() => setOpen(false)}>{items}</Sheet> : items, document.body)}
