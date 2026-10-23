@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import DictionaryExample, Game, GameAnswer, Lyrics, LyricsStatus, Question, QuestionOption, Song, SongSource
+from app.db.models import DictionaryExample, Game, GameAnswer, Lyrics, LyricsStatus, PlaylistSong, Question, QuestionOption, Song, SongSource
 from app.services.library.storage import check_extension, sha256_file, store_in_media
 from app.services.library.tags import AUDIO_EXTS, extract_cover, read_tags
 
@@ -147,6 +147,7 @@ def remove_song(session: Session, song: Song, media_dir: Path) -> str:
         return "hidden"
     session.execute(delete(GameAnswer).where(GameAnswer.game_id.in_(select(Game.id).where(Game.song_id == song.id))))
     session.execute(delete(Game).where(Game.song_id == song.id))
+    session.execute(delete(PlaylistSong).where(PlaylistSong.song_id == song.id))
     session.execute(delete(DictionaryExample).where(DictionaryExample.song_id == song.id))
     session.execute(delete(QuestionOption).where(QuestionOption.question_id.in_(select(Question.id).where(Question.song_id == song.id))))
     session.execute(delete(Question).where(Question.song_id == song.id))
