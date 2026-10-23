@@ -28,6 +28,11 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
   const candidates = useMemo(() => (library.data ?? []).filter((s) => !songs.some((x) => x.id === s.id)), [library.data, songs]);
 
   const reload = () => { list.reload(); library.reload(); };
+  const saveOrder = async (ids: number[]) => {
+    const byId = new Map(songs.map((s) => [s.id, s]));
+    list.setData({ ...list.data!, songs: ids.map((id) => byId.get(id)!) }); // the new order shows at once; the server confirms it
+    try { await api.reorderPlaylist(playlistId, ids); } catch (e) { setNotice(e instanceof ApiError ? e.message : en.errors.generic); list.reload(); }
+  };
   const takeOut = async (s: SongDto) => {
     try { await api.removeFromPlaylist(playlistId, s.id); setNotice(null); list.reload(); } catch (e) { setNotice(e instanceof ApiError ? e.message : en.errors.generic); }
   };
@@ -61,6 +66,7 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
       <SongList
         songs={songs} games={games.data ?? []} phone={phone} sortKey={null} listKey={`pl${playlistId}`} reload={reload} onRemove={(s) => void removeFromLibrary(s)}
         removed={(s) => removedIds.has(s.id)}
+        reorder={{ onReorder: (ids) => void saveOrder(ids) }}
         extras={() => [{ id: "playlist", icon: "playlistAdd", label: en.playlists.addTo }, { id: "unlist", icon: "close", label: en.playlists.removeFrom, danger: true }]}
         onExtra={(id, s) => { if (id === "playlist") setTarget(s); else void takeOut(s); }}
       />
