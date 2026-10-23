@@ -175,6 +175,12 @@ export const en = {
     difficulty: { easy: "Easy", medium: "Medium", hard: "Hard", expert: "Expert" } as Record<string, string>,
     difficultyShare: { easy: "10% of the words", medium: "30% of the words", hard: "60% of the words", expert: "80% of the words" } as Record<string, string>,
   },
+  songStatus: {
+    pending: { short: "Looking for lyrics", full: "Chorus is searching LRCLIB for the lyrics of this song." },
+    needsChoice: { short: "Choose the right lyrics", full: "Several lyrics matched this song. Pick the right ones so the game uses the correct words.", fix: "Choose lyrics" },
+    notFound: { short: "No lyrics found", full: "LRCLIB has no synchronized lyrics for this title and artist. Try another spelling in the search, or upload an .lrc file.", fix: "Find lyrics" },
+    fileMissing: { short: "File missing", full: "The audio file is not at its saved place (a disconnected drive or a moved file). Reconnect it and scan the library, or remove the song.", fix: "Remove song" },
+  },
   lyricsStatus: {
     pending: "Looking for lyrics",
     found: "Lyrics ready",

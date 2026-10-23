@@ -21,15 +21,15 @@ const wav = (seed, secs = 2) => { const n = 8000 * secs, d = Buffer.alloc(44 + n
   await add("Edith - Sun (1).wav", 43); // a copy of the first by file name (and by tags)
   await page.reload(); await page.waitForSelector(".song");
   const chip = page.locator('.chips button:has-text("Duplicates")');
-  ok(await chip.count() === 1 && /2/.test(await chip.textContent()), "chip appears with the count: " + (await chip.textContent()));
+  ok(await chip.count() === 1 && /1/.test(await chip.textContent()), "chip counts the extra copy only (the original stays out): " + (await chip.textContent()));
   await chip.click();
   const rows = await page.$$eval(".song", (e) => e.map((x) => x.textContent));
-  ok(rows.length === 2 && rows.every((t) => t.includes("Sun")), "only the two copies are listed");
-  ok((await page.$$(".dup-tag")).length === 2, "each shows why: " + (await page.$$eval(".dup-tag", (e) => e.map((x) => x.textContent.trim()).join(" | "))));
+  ok(rows.length === 1 && rows[0].includes("Sun") && rows[0].includes("(1)"), "only the newer copy is listed, not the original: " + rows.length);
+  ok((await page.$$(".dup-tag")).length === 1, "it shows why: " + (await page.$$eval(".dup-tag", (e) => e.map((x) => x.textContent.trim()).join(" | "))));
   ok(await chip.getAttribute("aria-pressed") === "true", "chip is pressed");
 
   console.log("[removing a copy ends the filter]");
-  await page.click('.song >> nth=1 >> button:has-text("Remove")');
+  await page.click('.song >> nth=0 >> button:has-text("Remove")');
   await page.waitForFunction(() => document.querySelectorAll(".song").length === 2 && !document.querySelector(".dup-tag"));
   ok((await page.$$('.chips button:has-text("Duplicates")')).length === 0, "chip gone, list back to all songs");
 

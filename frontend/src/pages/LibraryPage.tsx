@@ -3,8 +3,9 @@ import { Cover } from "../components/Cover";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
-import { findDuplicates, type DuplicateReason } from "../lib/duplicates";
-import { inLanguage, languageCounts } from "../lib/languages";
+import { extraCopies, findDuplicates, type DuplicateReason } from "../lib/duplicates";
+import { languageCounts } from "../lib/languages";
+import { facetCounts, visibleSongs } from "../lib/library-facets";
 import { buildMatcher } from "../lib/search";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
@@ -121,22 +122,21 @@ export function LibraryPage() {
   };
 
   const all = songs.data ?? [];
-  const isReady = (s: SongDto) => s.lyrics_status === "found" && s.available;
   const duplicates = useMemo(() => findDuplicates(all), [all]);
-  const dupReasons = useMemo(() => new Map(duplicates.flatMap((g) => g.ids.map((id) => [id, g.reasons] as const))), [duplicates]);
-  const counts = { all: all.length, ready: all.filter(isReady).length, missing: all.filter((s) => !isReady(s)).length, duplicates: dupReasons.size };
+  const copies = useMemo(() => extraCopies(duplicates), [duplicates]); // the Duplicates filter lists the copies; the oldest song of a group stays out
   const matcher = useMemo(() => buildMatcher(query, regex), [query, regex]);
+  const facetOptions = useMemo(() => ({ status: filter, language, matches: matcher.test, duplicateIds: copies.extras }), [filter, language, matcher, copies]);
+  const facets = useMemo(() => facetCounts(all, facetOptions), [all, facetOptions]);
+  const counts = facets.status;
   const shown = useMemo(() => {
-    const keep = (s: SongDto) =>
-      (filter === "all" ? true : filter === "duplicates" ? dupReasons.has(s.id) : (filter === "ready") === isReady(s)) && inLanguage(s, language) && matcher.test(s);
-    if (filter !== "duplicates") return all.filter(keep);
-    const byId = new Map(all.map((s) => [s.id, s]));
-    return duplicates.flatMap((g) => g.ids.map((id) => byId.get(id)!)).filter(keep); // a group's songs sit together
-  }, [all, filter, language, matcher, duplicates, dupReasons]);
+    const list = visibleSongs(all, facetOptions);
+    return filter === "duplicates" ? [...list].sort((a, b) => (copies.keeper.get(a.id) ?? 0) - (copies.keeper.get(b.id) ?? 0) || a.id - b.id) : list; // copies of one song sit together
+  }, [all, facetOptions, filter, copies]);
   // the last duplicate was removed: do not leave the list on an empty filter
-  useEffect(() => { if (songs.data && filter === "duplicates" && counts.duplicates === 0) setFilter("all"); }, [songs.data, filter, counts.duplicates]);
+  useEffect(() => { if (songs.data && filter === "duplicates" && copies.extras.size === 0) setFilter("all"); }, [songs.data, filter, copies]);
 
-  const languages = useMemo(() => languageCounts(all), [all]);
+  // every language of the library keeps its chip (a count of 0 included), so a status or search never hides the way back
+  const languages = useMemo(() => languageCounts(all).map((l) => ({ code: l.code, count: facets.languages.find((x) => x.code === l.code)?.count ?? 0 })), [all, facets]);
   // a language that no song has any more (the last one was removed or changed) must not keep an empty list on screen
   // (only once the songs have loaded: before that the list is empty and would wipe the remembered filter)
   useEffect(() => { if (songs.data && language !== "all" && !languages.some((l) => l.code === language)) setLanguage("all"); }, [songs.data, languages, language]);
@@ -237,7 +237,7 @@ export function LibraryPage() {
 
       <div className="toolbar">
         <div className="chips" role="group" aria-label="Filter">
-          {(["all", "ready", "missing", "duplicates"] as const).filter((f) => f !== "duplicates" || counts.duplicates > 0).map((f) => (
+          {(["all", "ready", "missing", "duplicates"] as const).filter((f) => f !== "duplicates" || copies.extras.size > 0).map((f) => (
             <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
               {en.library.filters[f]}<small>{counts[f]}</small>
             </button>
@@ -274,7 +274,7 @@ export function LibraryPage() {
       <ul className="songs">
         {shown.map((s) => (
           <SongRow
-            key={s.id} song={s} selecting={selecting} picked={picked.has(s.id)} onPick={() => toggle(s.id)} duplicate={dupReasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
+            key={s.id} song={s} selecting={selecting} picked={picked.has(s.id)} onPick={() => toggle(s.id)} duplicate={copies.reasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
             onToggle={() => setOpen(open === s.id ? null : s.id)} onRemove={() => void remove(s)}
           />
         ))}

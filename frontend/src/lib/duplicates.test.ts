@@ -43,3 +43,19 @@ describe("findDuplicates", () => {
     expect(findDuplicates([song(1, "A", "X", 1, "a.mp3"), song(2, "B", "X", 1, "b.mp3")])).toEqual([]);
   });
 });
+
+import { extraCopies } from "./duplicates";
+
+describe("extraCopies", () => {
+  it("keeps the oldest song of each group out of the list", () => {
+    const info = extraCopies([{ ids: [7, 3, 9], reasons: ["file_name"] }, { ids: [20, 21], reasons: ["metadata"] }]);
+    expect([...info.extras].sort((a, b) => a - b)).toEqual([7, 9, 21]);
+    expect(info.keeper.get(7)).toBe(3);
+    expect(info.keeper.get(21)).toBe(20);
+    expect(info.reasons.get(9)).toEqual(["file_name"]);
+    expect(info.extras.has(3) || info.extras.has(20)).toBe(false);
+  });
+  it("is empty without groups", () => {
+    expect(extraCopies([]).extras.size).toBe(0);
+  });
+});

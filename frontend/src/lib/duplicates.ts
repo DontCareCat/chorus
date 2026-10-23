@@ -68,3 +68,30 @@ export function findDuplicates(songs: readonly DuplicateCandidate[]): DuplicateG
     .map(([root, ids]) => ({ ids, reasons: (["file_name", "metadata"] as const).filter((r) => reasons.get(find(root))?.has(r)) }))
     .sort((a, b) => b.ids.length - a.ids.length || a.ids[0]! - b.ids[0]!);
 }
+
+export interface CopyInfo {
+  /** Songs shown by the Duplicates filter: every member of a group except the one kept. */
+  extras: Set<number>;
+  /** extra song id -> the id of the song it is a copy of (the one kept) */
+  keeper: Map<number, number>;
+  /** extra song id -> why it matched (file name, title + artist) */
+  reasons: Map<number, DuplicateReason[]>;
+}
+
+/**
+ * The copies, not the originals: in every group the oldest song (the lowest id: it was added first) is kept out of the
+ * list, so "select all" + "remove" deletes only the extra entries and the original stays.
+ */
+export function extraCopies(groups: readonly DuplicateGroup[]): CopyInfo {
+  const info: CopyInfo = { extras: new Set(), keeper: new Map(), reasons: new Map() };
+  for (const g of groups) {
+    const keep = Math.min(...g.ids);
+    for (const id of g.ids) {
+      if (id === keep) continue;
+      info.extras.add(id);
+      info.keeper.set(id, keep);
+      info.reasons.set(id, g.reasons);
+    }
+  }
+  return info;
+}
