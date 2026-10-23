@@ -46,6 +46,12 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   ok(st.items.length === 3 && st.items.every((i) => i.difficulty === "progressive"), "Shuffle queues the 3 songs that have lyrics (the 4th is left out), progressive by default");
   ok(/left out/.test(await page.locator(".queue-bar small").first().innerText()), "and says one was left out");
   await page.reload(); await page.waitForSelector(".queue-bar");
+  { // the invisible swipe strips of a row must not sit over the play options (Start new game stopped working)
+    const row = page.locator(".song").first(); await row.locator(".play-btn").click(); await page.waitForSelector(".start-panel"); await page.waitForTimeout(400);
+    const hit = await page.locator(".start-panel .btn.large").evaluate((el) => { const b = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2)); });
+    ok(hit, "Start new game can be clicked while the queue is on (nothing lies over it)");
+    await row.locator(".play-btn").click(); await page.waitForTimeout(300);
+  }
   ok((await page.evaluate(() => JSON.parse(sessionStorage.getItem("chorus_queue")).items.length)) === 3, "the queue survives a reload");
 
   console.log("[the list]");

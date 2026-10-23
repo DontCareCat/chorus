@@ -308,7 +308,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .countdown { position: absolute; left: 18px; right: 18px; bottom: 4px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .countdown i { display: block; height: 100%; background: var(--wrong); transform-origin: left; }
 .countdown[hidden] { display: none; }
-.gain { position: absolute; right: 18px; top: -14px; font-weight: 800; font-size: 20px; color: var(--correct); pointer-events: none; animation: gain-pop 1.4s ease-out forwards; }
+.gain { position: absolute; right: 18px; top: -14px; font-weight: 800; font-size: 20px; color: var(--correct);animation: gain-pop 1.4s ease-out forwards; }
 .gain[data-ok="false"] { color: var(--wrong); }
 @keyframes gain-pop { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
 
@@ -385,7 +385,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .seek-tick[data-answered="true"] { width: 8px; height: 8px; margin-left: -4px; top: 8px; background: var(--text); border-color: var(--text); }
 .seek-tick[data-focus="true"] { box-shadow: 0 0 0 3px var(--surface-2), 0 0 0 5px var(--accent); border-color: var(--text); }
 .seek-tick:hover { border-color: var(--accent); }
-.seek-deadline { position: absolute; top: 1px; bottom: 1px; width: 0; margin-left: -1px; left: calc(8px + (100% - 16px) * var(--t)); border-left: 2px dashed var(--wrong); pointer-events: none; }
+.seek-deadline { position: absolute; top: 1px; bottom: 1px; width: 0; margin-left: -1px; left: calc(8px + (100% - 16px) * var(--t)); border-left: 2px dashed var(--wrong);}
 /* phones: the bar has two rows, the track with both times on top, the controls under it */
 [data-layout="phone"] .transport-inner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 0; padding: 6px 14px 8px; min-height: 0; }
 [data-layout="phone"] .transport-time { font-size: 13px; min-width: 0; }
@@ -829,7 +829,7 @@ html.dialog-open { overflow: hidden; }
 /* ---------- motion (design guide section 16) ---------- */
 /* sliding thumb of every radio-like group (hooks/useThumb.ts sets --thumb-x/y/w/h/r) */
 .thumbs { position: relative; isolation: isolate; }
-.thumbs::before { content: ""; position: absolute; z-index: -1; left: 0; top: 0; width: var(--thumb-w, 0); height: var(--thumb-h, 0); border-radius: var(--thumb-r, 10px); background: var(--thumb-bg, var(--text)); transform: translate(var(--thumb-x, 0), var(--thumb-y, 0)); opacity: 0; pointer-events: none; }
+.thumbs::before { content: ""; position: absolute; z-index: -1; left: 0; top: 0; width: var(--thumb-w, 0); height: var(--thumb-h, 0); border-radius: var(--thumb-r, 10px); background: var(--thumb-bg, var(--text)); transform: translate(var(--thumb-x, 0), var(--thumb-y, 0)); opacity: 0;}
 .thumbs[data-thumb="still"]::before, .thumbs[data-thumb="glide"]::before { opacity: 1; }
 .thumbs[data-thumb="glide"]::before { transition: transform var(--dur-base) var(--ease-standard), width var(--dur-base) var(--ease-standard), height var(--dur-base) var(--ease-standard); }
 .thumbs > .chip[aria-pressed="true"] { background: transparent; border-color: transparent; }
@@ -873,7 +873,7 @@ html.dialog-open { overflow: hidden; }
 
 /* the phone main menu rolls down from the top bar and its bars turn into a cross */
 .menu-panel { transition: clip-path var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); clip-path: inset(-4px -40px -48px -40px round 16px); }
-.menu-panel[data-state="closed"] { clip-path: inset(0 -40px 100% -40px round 16px); opacity: 0; transform: translateY(-8px); pointer-events: none; }
+.menu-panel[data-state="closed"] { clip-path: inset(0 -40px 100% -40px round 16px); opacity: 0; transform: translateY(-8px);}
 .burger path { transform-box: fill-box; transform-origin: center; transition: transform 0.22s var(--ease-standard), opacity 0.22s var(--ease-standard); }
 .menu-btn[aria-expanded="true"] .b1 { transform: translateY(5px) rotate(45deg); }
 .menu-btn[aria-expanded="true"] .b2 { opacity: 0; transform: scaleX(0.2); }
@@ -1011,7 +1011,7 @@ button.queue-bar-face { cursor: pointer; }
 .mi-more, .mi-node { margin-left: auto; display: inline-flex; }
 .mi-node { margin-left: 0; }
 .queue-menu .back { color: var(--text-2); }
-.swipe-reveal { position: absolute; inset: 0; display: flex; align-items: center; gap: 8px; padding: 0 18px; font-weight: 700; opacity: 0; transition: opacity var(--dur-fast); }
+.swipe-reveal { position: absolute; inset: 0; pointer-events: none; display: flex; align-items: center; gap: 8px; padding: 0 18px; font-weight: 700; opacity: 0; transition: opacity var(--dur-fast); }
 .swipe-reveal.remove { justify-content: flex-end; background: var(--wrong); color: #fff; }
 .swipe-reveal.add { background: var(--fill); color: var(--on-fill); }
 [data-swipe="left"] > .swipe-reveal.remove, [data-swipe="right"] > .swipe-reveal.add { opacity: 1; }
