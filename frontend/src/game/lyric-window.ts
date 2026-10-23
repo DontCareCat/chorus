@@ -64,6 +64,27 @@ export function buildWindowLines(
   });
 }
 
+const samePart = (a: WindowPart, b: WindowPart): boolean => {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "text") return a.text === (b as typeof a).text;
+  const o = b as typeof a;
+  if (a.index !== o.index || a.focused !== o.focused) return false;
+  return a.kind === "blank" || (a.word === (o as typeof a).word && a.state === (o as typeof a).state);
+};
+
+const sameLine = (a: WindowLine, b: WindowLine): boolean =>
+  a.lineId === b.lineId && a.startTime === b.startTime && a.targetId === b.targetId && a.status === b.status && a.parts.length === b.parts.length && a.parts.every((p, i) => samePart(p, b.parts[i]!));
+
+/**
+ * After an answer only one or two lines of the window change, but `buildWindowLines` makes new objects for all of them. This hands back the
+ * previous object for every line that is unchanged (and the previous array when nothing changed), so React can skip the lines it already drew.
+ */
+export function reuseLines(prev: readonly WindowLine[] | null, next: WindowLine[]): WindowLine[] {
+  if (!prev) return next;
+  const merged = next.map((l, i) => (prev[i] && sameLine(prev[i]!, l) ? prev[i]! : l));
+  return merged.length === prev.length && merged.every((l, i) => l === prev[i]) ? (prev as WindowLine[]) : merged;
+}
+
 /**
  * The line the song is at: the last one that has started. Before the first line it is the first one.
  * Without timing (free play) the window follows the focused question's line instead.

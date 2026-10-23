@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useRef, useState } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { centerOffset, clampShift, timecode } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
@@ -31,6 +31,39 @@ function Mark({ state }: { state: string }) {
   );
 }
 
+/** One line of the window. Memoised: after an answer only the changed lines (and the ones whose distance from the current line changed) are redrawn. */
+const LyricLine = memo(function LyricLine({ line: l, d, synced, current, onFocus }: { line: WindowLine; d: number; synced: boolean; current: boolean; onFocus: (questionId: number) => void }) {
+  const body = (
+    <>
+      <time>{synced ? timecode(l.startTime) : ""}</time>
+      <span>
+        {l.parts.map((p, k) =>
+          p.kind === "text" ? (
+            <span key={k}>{p.text}</span>
+          ) : p.kind === "blank" ? (
+            <span key={k} className="lw-blank" data-focus={p.focused} aria-label="blank" />
+          ) : (
+            <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>
+              {p.word}
+              <Mark state={p.state} />
+            </span>
+          ),
+        )}
+      </span>
+    </>
+  );
+  return l.targetId === null ? (
+    <div className="lw-line" data-d={d} data-status="plain" aria-current={current}>{body}</div>
+  ) : (
+    <button
+      type="button" className="lw-line" data-d={d} data-status={l.status} data-qid={l.targetId}
+      data-focus={l.parts.some((p) => p.kind !== "text" && p.focused)} aria-current={current} onClick={() => onFocus(l.targetId!)}
+    >
+      {body}
+    </button>
+  );
+});
+
 /**
  * The lyrics as a sliding window: the line being sung is in the middle, larger and in full contrast; the others get
  * smaller and fainter the further they are. Answered blanks show the RIGHT word in the line itself, green if the
@@ -39,59 +72,31 @@ function Mark({ state }: { state: string }) {
 export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus }: Props) {
   const viewport = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
-  const [shift, setShift] = useState(0);
 
+  // The shift is written straight to the element: a state update here (from a layout effect) forced a second, synchronous render of the whole
+  // game screen on every line change, and enough of them in a row ("Maximum update depth exceeded") crashed the page.
   useLayoutEffect(() => {
     const vp = viewport.current;
     const tr = track.current;
     if (!vp || !tr) return;
     const place = () => {
       const el = tr.children[current] as HTMLElement | undefined;
-      if (el) setShift(clampShift(centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight), vp.clientHeight, tr.offsetHeight));
+      if (el) tr.style.transform = `translateY(${clampShift(centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight), vp.clientHeight, tr.offsetHeight)}px)`;
     };
     place();
     const ro = new ResizeObserver(place);
     ro.observe(vp);
     return () => ro.disconnect();
-  }, [current, lines.length]);
+  }, [current, lines]);
 
   return (
     <section aria-labelledby="lw-title">
       <h3 className="lw-title" id="lw-title">{en.game.sheet}</h3>
       <div className="lyric-window" ref={viewport}>
-        <div className="lw-track" ref={track} style={{ transform: `translateY(${shift}px)` }}>
-          {lines.map((l, i) => {
-            const d = Math.min(3, Math.abs(i - current));
-            const body = (
-              <>
-                <time>{synced ? timecode(l.startTime) : ""}</time>
-                <span>
-                  {l.parts.map((p, k) =>
-                    p.kind === "text" ? (
-                      <span key={k}>{p.text}</span>
-                    ) : p.kind === "blank" ? (
-                      <span key={k} className="lw-blank" data-focus={p.focused} aria-label="blank" />
-                    ) : (
-                      <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>
-                        {p.word}
-                        <Mark state={p.state} />
-                      </span>
-                    ),
-                  )}
-                </span>
-              </>
-            );
-            return l.targetId === null ? (
-              <div key={l.lineId} className="lw-line" data-d={d} data-status="plain" aria-current={d === 0}>{body}</div>
-            ) : (
-              <button
-                key={l.lineId} type="button" className="lw-line" data-d={d} data-status={l.status} data-qid={l.targetId}
-                data-focus={l.parts.some((p) => p.kind !== "text" && p.focused)} aria-current={d === 0} onClick={() => onFocus(l.targetId!)}
-              >
-                {body}
-              </button>
-            );
-          })}
+        <div className="lw-track" ref={track}>
+          {lines.map((l, i) => (
+            <LyricLine key={l.lineId} line={l} d={Math.min(3, Math.abs(i - current))} synced={synced} current={i === current} onFocus={onFocus} />
+          ))}
         </div>
       </div>
     </section>

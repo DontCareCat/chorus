@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { volumeIcon } from "../game/volume";
 import { Icon } from "./Icon";
 import { PlayButton } from "./PlayButton";
 import { en } from "../i18n/en";
 import type { PlaybackStateName } from "../game/playback-state-machine";
-import type { Runway } from "../game/runway";
+import type { Runway, RunwayTick } from "../game/runway";
 
 interface Props {
   engineReady: boolean;
@@ -23,6 +23,8 @@ interface Props {
   queue?: { count: number; onOpen: () => void };
   /** the question dots and the "audio waits here" mark that sit on the progress track (guide section 23) */
   runway: Runway;
+  /** the dots, from a memo that changes only with the answers (the rest of `runway` moves with the playhead) */
+  ticks: readonly RunwayTick[];
   gated: boolean;
   focusedId: number | null;
   onFocus: (questionId: number) => void;
@@ -34,7 +36,7 @@ const mmss = (s: number) => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onStop, onBack, onSeek, volume, queue, runway, gated, focusedId, onFocus }: Props) {
+export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onStop, onBack, onSeek, volume, queue, runway, ticks, gated, focusedId, onFocus }: Props) {
   const running = state === "PLAYING" || state === "FADING_IN" || state === "FADING_OUT";
   // While the thumb is being dragged it shows the drag position; the seek happens when it is released.
   const [dragging, setDragging] = useState<number | null>(null);
@@ -95,20 +97,7 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
             onKeyUp={(e) => e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" ? commit() : undefined}
             onBlur={commit}
           />
-          {gated && runway.ticks.map((t, i) => (
-            <button
-              key={t.id}
-              type="button"
-              className="seek-tick"
-              data-qid={t.id}
-              data-answered={t.answered}
-              data-focus={t.id === focusedId}
-              style={{ "--t": t.pct / 100 } as CSSProperties}
-              aria-label={`Line ${i + 1}, ${t.count} ${t.count === 1 ? "question" : "questions"}${t.answered ? ", answered" : ", open"}`}
-              title={`Line ${i + 1}, ${t.count} ${t.count === 1 ? "question" : "questions"}${t.answered ? ", answered" : ", open"}`}
-              onClick={() => onFocus(t.id)}
-            />
-          ))}
+          {gated && <SeekTicks ticks={ticks} focusedId={focusedId} onFocus={onFocus} />}
           {gated && runway.deadlinePct !== null && <i className="seek-deadline" style={{ "--t": runway.deadlinePct / 100 } as CSSProperties} title={en.game.audioWaitsHere} />}
         </div>
         <span className="transport-time total" aria-hidden="true">{mmss(duration)}</span>
@@ -146,3 +135,20 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
     </div>
   );
 }
+
+/** The question dots on the progress track. Memoised: up to a hundred buttons that do not need redrawing while the song merely moves on. */
+const SeekTicks = memo(function SeekTicks({ ticks, focusedId, onFocus }: { ticks: readonly RunwayTick[]; focusedId: number | null; onFocus: (questionId: number) => void }) {
+  return (
+    <>
+      {ticks.map((t, i) => {
+        const label = `Line ${i + 1}, ${t.count} ${t.count === 1 ? "question" : "questions"}${t.answered ? ", answered" : ", open"}`;
+        return (
+          <button
+            key={t.id} type="button" className="seek-tick" data-qid={t.id} data-answered={t.answered} data-focus={t.id === focusedId}
+            style={{ "--t": t.pct / 100 } as CSSProperties} aria-label={label} title={label} onClick={() => onFocus(t.id)}
+          />
+        );
+      })}
+    </>
+  );
+});

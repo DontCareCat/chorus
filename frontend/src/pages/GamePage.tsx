@@ -10,7 +10,8 @@ import { useQueue } from "../hooks/useQueue";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { clearArrival, fadeOutAndRelease, peekArrival } from "../lib/handoff";
 import * as Q from "../lib/queue";
-import { buildWindowLines, currentLineIndex, timecode } from "../game/lyric-window";
+import { buildWindowLines, currentLineIndex, reuseLines, timecode } from "../game/lyric-window";
+import type { WindowLine } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
 import { computeRunway } from "../game/runway";
@@ -143,10 +144,15 @@ function GameScreen({ game }: { game: GameDto }) {
   const engineDuration = engine?.getDuration() ?? NaN;
   const duration = Number.isFinite(engineDuration) && engineDuration > 0 ? engineDuration : game.song_duration;
   const runway = computeRunway({ duration, currentTime: time, questions: g.syncQs, answered: g.answeredSet });
-  const windowLines = useMemo(
-    () => buildWindowLines(game.lines, g.quiz, g.results, game.lyrics_offset, focusedQ?.id ?? null),
-    [game.lines, game.lyrics_offset, g.quiz, g.results, focusedQ?.id],
-  );
+  // the same line objects as before for every line an answer did not touch, so the lyric window redraws only what changed
+  const lastLines = useRef<WindowLine[] | null>(null);
+  const windowLines = useMemo(() => {
+    const next = reuseLines(lastLines.current, buildWindowLines(game.lines, g.quiz, g.results, game.lyrics_offset, focusedQ?.id ?? null));
+    lastLines.current = next;
+    return next;
+  }, [game.lines, game.lyrics_offset, g.quiz, g.results, focusedQ?.id]);
+  // the question dots only change with the answers, not with the playhead: computed apart so the progress bar can skip redrawing them ten times a second
+  const ticks = useMemo(() => computeRunway({ duration, currentTime: 0, questions: g.syncQs, answered: g.answeredSet }).ticks, [duration, g.syncQs, g.answeredSet]);
   const focusedLine = focusedQ ? windowLines.findIndex((l) => l.lineId === focusedQ.lineId) : -1;
   const currentLine = currentLineIndex(windowLines, time, g.synced, focusedLine);
   const status = describeStatus({ short: layout === "phone", state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
@@ -369,6 +375,7 @@ function GameScreen({ game }: { game: GameDto }) {
         onBack={back5}
         onSeek={seekTo}
         runway={runway}
+        ticks={ticks}
         gated={g.synced}
         focusedId={focusedQ?.id ?? null}
         onFocus={setManualFocus}
