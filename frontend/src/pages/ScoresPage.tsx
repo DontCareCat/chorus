@@ -1,3 +1,4 @@
+import { useThumb } from "../hooks/useThumb";
 import { Select } from "../components/Select";
 import { isId, isOneOf, usePref } from "../lib/prefs";
 import { useAsync } from "../hooks/useAsync";
@@ -8,6 +9,8 @@ import type { GameMode } from "../types/game";
 
 /** The two scoreboards: everybody's total over all songs, and the best games on one song. */
 export function ScoresPage() {
+  const tabThumb = useThumb();
+  const modeThumb = useThumb();
   const [tab, setTab] = usePref<"all" | "song">("scores_tab", "all", isOneOf("all", "song"));
   const [mode, setMode] = usePref<GameMode>("scores_mode", "choice", isOneOf("choice", "typing"));
   const songs = useAsync(() => api.songs(), []);
@@ -22,12 +25,12 @@ export function ScoresPage() {
           <div className="count">{en.scores.help}</div>
         </div>
       </div>
-      <div className="segmented tabs" role="group" aria-label={en.scores.title}>
+      <div className="segmented tabs thumbs" role="group" aria-label={en.scores.title} ref={tabThumb}>
         {(["all", "song"] as const).map((t) => (
           <button key={t} type="button" aria-pressed={tab === t} onClick={() => setTab(t)}><b>{en.scores[t]}</b></button>
         ))}
       </div>
-      <div className="segmented tabs" role="group" aria-label={en.library.modeLabel} style={{ marginTop: 8 }}>
+      <div className="segmented tabs thumbs" role="group" aria-label={en.library.modeLabel} style={{ marginTop: 8 }} ref={modeThumb}>
         {(["choice", "typing"] as const).map((m) => (
           <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}><b>{en.library.modes[m].name}</b></button>
         ))}

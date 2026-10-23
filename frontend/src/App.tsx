@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
+import { useExitTransition } from "./hooks/useExitTransition";
 import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
+import { useThumb } from "./hooks/useThumb";
+import { swallowNextClick } from "./lib/swallow-click";
 import { useTheme } from "./hooks/useTheme";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -41,9 +44,26 @@ export function App() {
     return () => { live = false; };
   }, [signedIn, route.name]);
   useEffect(() => setMenuOpen(false), [route.name]);
+  const menu = useExitTransition(menuOpen, 220);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const burgerRef = useRef<HTMLButtonElement>(null);
+  // a tap outside the open phone menu closes it and does nothing else
+  useEffect(() => {
+    if (!menuOpen) return;
+    const down = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t) || burgerRef.current?.contains(t)) return;
+      swallowNextClick();
+      setMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [menuOpen]);
+  const navThumb = useThumb<HTMLElement>();
+  const themeThumb = useThumb<HTMLDivElement>();
 
   const nav = (
-    <nav aria-label="Main">
+    <nav aria-label="Main" className="thumbs" ref={navThumb}>
       <a href={paths.library()} aria-current={route.name === "library" || route.name === "song" ? "page" : undefined}>{en.nav.library}</a>
       <a href={paths.dictionary()} aria-current={route.name === "dictionary" || route.name === "review" ? "page" : undefined}>
         {en.nav.dictionary}{cards > 0 && <small className="nav-badge" aria-label={`${cards} cards to review`}>{cards}</small>}
@@ -59,20 +79,20 @@ export function App() {
           <strong>{auth.user.display_name}</strong>
           {auth.user.is_guest ? (
             <>
-              <a href={paths.login()}>{en.account.signIn}</a>
-              {auth.state?.allow_registration && <a href={paths.register()}>{en.account.createLink}</a>}
+              <a className="btn secondary small" href={paths.login()}>{en.account.signIn}</a>
+              {auth.state?.allow_registration && <a className="btn small" href={paths.register()}>{en.account.createLink}</a>}
             </>
           ) : (
-            <button type="button" className="btn quiet small" onClick={() => void auth.signOut().then(() => { location.hash = paths.library(); })}>{en.account.signOut}</button>
+            <button type="button" className="btn secondary small" onClick={() => void auth.signOut().then(() => { location.hash = paths.library(); })}>{en.account.signOut}</button>
           )}
         </>
       ) : (
-        !auth.loading && auth.unreachable === null && <a href={paths.login()}>{en.account.signIn}</a>
+        !auth.loading && auth.unreachable === null && <a className="btn secondary small" href={paths.login()}>{en.account.signIn}</a>
       )}
     </div>
   );
   const themeSwitch = (
-    <div className="theme-switch" role="group" aria-label={en.theme.label}>
+    <div className="theme-switch thumbs" role="group" aria-label={en.theme.label} ref={themeThumb}>
       {(["light", "dark"] as const).map((t) => (
         <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{en.theme[t]}</button>
       ))}
@@ -88,13 +108,13 @@ export function App() {
             {en.appName}
           </a>
           {phone ? (
-            <button type="button" className="menu-btn" aria-expanded={menuOpen} aria-label={en.nav.menu} onClick={() => setMenuOpen((v) => !v)}>
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={menuOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"} /></svg>
+            <button type="button" className="menu-btn" ref={burgerRef} aria-expanded={menuOpen} aria-label={en.nav.menu} onClick={() => setMenuOpen((v) => !v)}>
+              <svg className="burger" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path className="b1" d="M4 7h16" /><path className="b2" d="M4 12h16" /><path className="b3" d="M4 17h16" /></svg>
             </button>
           ) : (
             <>{nav}<div className="top-right">{account}{themeSwitch}</div></>
           )}
-          {phone && menuOpen && <div className="menu-panel">{nav}{account}{themeSwitch}</div>}
+          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{nav}{account}{themeSwitch}</div>}
         </header>
       )}
       <main className={isGame ? "game-route" : undefined}>

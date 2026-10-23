@@ -1,3 +1,4 @@
+import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
@@ -34,6 +35,7 @@ const describeScope = (scope: ReviewScope): string | null => {
  * the ones that are due first, then new words, then the ones due soonest. Each word is shown once per session.
  */
 export function ReviewPage() {
+  const sizeThumb = useThumb();
   const [scope, setScope] = useState<ReviewScope>(dictionaryScope);
   const scopeText = describeScope(scope);
   const [summary, setSummary] = useState<ReviewSummaryDto | null>(null);
@@ -193,7 +195,7 @@ export function ReviewPage() {
               <p className="hint">{en.dictionary.sessionHelp(summary.available)}</p>
               <div className="field">
                 <span>{en.dictionary.sessionSize}</span>
-                <div className="chips" role="group" aria-label={en.dictionary.sessionSize}>
+                <div className="chips thumbs" role="group" aria-label={en.dictionary.sessionSize} ref={sizeThumb}>
                   {SIZES.map((n) => (
                     <button key={n} type="button" className="chip" aria-pressed={size === n} onClick={() => setSize(n)}>{n}</button>
                   ))}

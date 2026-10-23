@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { songStatus } from "../lib/lyrics-status";
 import type { SongDto } from "../services/api";
@@ -29,7 +29,11 @@ describe("SongMenu", () => {
     const close = vi.fn();
     render(<SongMenu song={song} status={songStatus(song)} phone anchor={null} onPick={() => undefined} onClose={close} />);
     expect(document.querySelector(".sheet-scrim .sheet-head")?.textContent).toContain("Du hast");
+    vi.useFakeTimers();
     fireEvent.keyDown(document, { key: "Escape" });
+    expect(document.querySelector(".sheet")?.getAttribute("data-state")).toBe("closing"); // it rolls away first
+    act(() => { vi.advanceTimersByTime(300); });
+    vi.useRealTimers();
     expect(close).toHaveBeenCalled();
   });
 });

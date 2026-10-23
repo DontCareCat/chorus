@@ -11,6 +11,26 @@ interface Props {
   onFocus: (questionId: number) => void;
 }
 
+const MARKS: Record<string, { d: string; label: string }> = {
+  correct: { d: "M2.5 7.4 5.6 10.5 11.5 3.8", label: "correct" },
+  wrong: { d: "m3.5 3.5 7 7m0-7-7 7", label: "wrong" },
+  partial: { d: "M2 8c1.6-3 3.2-3 5 0s3.4 3 5 0", label: "almost right" },
+};
+
+/** The plain tick, cross or wave after an answered word (design guide section 16): no background, the word's own colour, scaled with the line. */
+function Mark({ state }: { state: string }) {
+  const m = MARKS[state];
+  if (!m) return null;
+  return (
+    <>
+      <span className="lw-mark" aria-hidden="true">
+        <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={m.d} /></svg>
+      </span>
+      <span className="sr-only"> ({m.label})</span>
+    </>
+  );
+}
+
 /**
  * The lyrics as a sliding window: the line being sung is in the middle, larger and in full contrast; the others get
  * smaller and fainter the further they are. Answered blanks show the RIGHT word in the line itself, green if the
@@ -52,7 +72,10 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
                     ) : p.kind === "blank" ? (
                       <span key={k} className="lw-blank" data-focus={p.focused} aria-label="blank" />
                     ) : (
-                      <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>{p.word}</span>
+                      <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>
+                        {p.word}
+                        <Mark state={p.state} />
+                      </span>
                     ),
                   )}
                 </span>

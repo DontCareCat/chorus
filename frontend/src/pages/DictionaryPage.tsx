@@ -1,3 +1,4 @@
+import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Example } from "../components/Example";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
@@ -19,6 +20,8 @@ export function headword(e: DictEntryDto): string {
 }
 
 export function DictionaryPage() {
+  const statusThumb = useThumb();
+  const langThumb = useThumb();
   const [status, setStatus] = usePref<DictStatus>("dict_status", "all", isOneOf("all", "due", "new", "suspended"));
   const [language, setLanguage] = usePref("dict_language", "all", isString);
   const [query, setQuery] = usePref("dict_query", "", isString);
@@ -90,11 +93,11 @@ export function DictionaryPage() {
       {everything > 0 && (
         <>
           <div className="toolbar">
-            <div className="chips" role="group" aria-label="Filter">
+            <div className="chips thumbs" role="group" aria-label="Filter" ref={statusThumb}>
               {STATUSES.map((s) => (
                 <button key={s} type="button" className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>
                   {en.dictionary.filters[s]}
-                  {data ? <small>{data.status_counts[s] ?? 0}</small> : null}
+                  {data ? <small key={data.status_counts[s] ?? 0}>{data.status_counts[s] ?? 0}</small> : null}
                 </button>
               ))}
             </div>
@@ -103,11 +106,11 @@ export function DictionaryPage() {
             </div>
           </div>
           {(data?.languages.length ?? 0) > 0 && (
-            <div className="chips lang-chips" role="group" aria-label={en.dictionary.languageFilter}>
+            <div className="chips lang-chips thumbs" role="group" aria-label={en.dictionary.languageFilter} ref={langThumb}>
               <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.dictionary.allLanguages}</button>
               {data!.languages.map((l) => (
                 <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)}>
-                  {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small>{l.count}</small>
+                  {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
                 </button>
               ))}
             </div>
@@ -124,7 +127,7 @@ export function DictionaryPage() {
       )}
       {data && everything > 0 && data.items.length === 0 && <p className="empty">{en.dictionary.emptyFilter}</p>}
 
-      <ul className="words">
+      <ul className="words" key={`${status}|${language}`}>
         {(data?.items ?? []).map((e) => (
           <li key={e.id} className="word" data-suspended={e.suspended} data-open={open === e.id}>
             <button type="button" className="word-main" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>

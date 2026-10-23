@@ -18,6 +18,7 @@ import { useAsync } from "../hooks/useAsync";
 import { useLayout } from "../hooks/useLayout";
 import { useLongPress } from "../hooks/useLongPress";
 import { useSelection } from "../hooks/useSelection";
+import { useThumb } from "../hooks/useThumb";
 import { songStatus } from "../lib/lyrics-status";
 import { scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
@@ -53,6 +54,8 @@ export function LibraryPage() {
   const [language, setLanguage] = usePref("lib_language", "all", isString);
   const [browsing, setBrowsing] = useState(false);
   const selection = useSelection();
+  const statusThumb = useThumb();
+  const langThumb = useThumb();
   const phone = useLayout() === "phone";
   const [menu, setMenu] = useState<{ id: number; anchor: HTMLElement } | null>(null);
   const [tool, setTool] = useState<{ kind: "lyrics" | "cover" | "language" | "metadata"; id: number } | null>(null);
@@ -283,10 +286,10 @@ export function LibraryPage() {
       )}
 
       <div className="toolbar">
-        <div className="chips" role="group" aria-label="Filter">
+        <div className="chips thumbs" role="group" aria-label="Filter" ref={statusThumb}>
           {(["all", "ready", "missing", "duplicates"] as const).filter((f) => f !== "duplicates" || copies.extras.size > 0).map((f) => (
             <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-              {en.library.filters[f]}<small>{counts[f]}</small>
+              {en.library.filters[f]}<small key={counts[f]}>{counts[f]}</small>
             </button>
           ))}
         </div>
@@ -297,11 +300,11 @@ export function LibraryPage() {
       </div>
 
       {languages.length > 1 && (
-        <div className="chips lang-chips" role="group" aria-label={en.library.languageFilter}>
+        <div className="chips lang-chips thumbs" role="group" aria-label={en.library.languageFilter} ref={langThumb}>
           <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.library.allLanguages}</button>
           {languages.map((l) => (
             <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)} title={languageName(l.code)}>
-              {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small>{l.count}</small>
+              {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
             </button>
           ))}
         </div>
@@ -322,7 +325,7 @@ export function LibraryPage() {
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
       )}
-      <ul className="songs" data-selecting={selection.active}>
+      <ul className="songs" key={`${filter}|${language}`} data-selecting={selection.active}>
         {shown.map((s) => {
           const keeper = copies.keeper.get(s.id);
           return (
@@ -341,7 +344,7 @@ export function LibraryPage() {
         return s ? (
           <SongMenu
             song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu}
-            onPick={(a: SongAction) => { setMenu(null); if (a === "remove") void remove(s); else setTool({ kind: a, id: s.id }); }}
+            onPick={(a: SongAction) => { if (a === "remove") void remove(s); else setTool({ kind: a, id: s.id }); }}
           />
         ) : null;
       })()}
@@ -417,6 +420,8 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<GameMode>("choice");
+  const modeThumb = useThumb();
+  const levelThumb = useThumb();
   const board = useAsync(() => api.songScores(song.id, mode), [song.id, mode]);
 
   const start = async () => {
@@ -435,7 +440,7 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
     <div className="start-panel">
       <div>
         <div className="label">{en.library.modeLabel}</div>
-        <div className="segmented mode-switch" role="group" aria-label={en.library.modeLabel}>
+        <div className="segmented mode-switch thumbs" role="group" aria-label={en.library.modeLabel} ref={modeThumb}>
           {(["choice", "typing"] as const).map((m) => (
             <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>
               <b>{en.library.modes[m].name}</b>
@@ -446,7 +451,7 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
       </div>
       <div>
         <div className="label">{en.library.difficultyLabel}</div>
-        <div className="segmented" role="group" aria-label={en.library.difficultyLabel}>
+        <div className="segmented thumbs" role="group" aria-label={en.library.difficultyLabel} ref={levelThumb}>
           {DIFFICULTIES.map((d) => (
             <button key={d} type="button" aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
               <b>{en.library.difficulty[d]}</b>

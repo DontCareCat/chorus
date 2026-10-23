@@ -2,6 +2,8 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { swallowNextClick } from "../lib/swallow-click";
 import { Icon } from "./Icon";
+import { Sheet } from "./Sheet";
+import type { SheetApi } from "./Sheet";
 
 export interface SelectOption<V extends string | number> {
   value: V;
@@ -32,12 +34,13 @@ export function Select<V extends string | number>({ value, onChange, options, id
   const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; max: number } | null>(null);
   const button = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const sheet = useRef<SheetApi>(null);
   const typed = useRef({ text: "", at: 0 });
   const listId = useId();
   const current = options.findIndex((o) => o.value === value);
   const phone = typeof document !== "undefined" && document.documentElement.dataset.layout === "phone" && sheetOnPhone;
 
-  const close = useCallback((focus = true) => { setOpen(false); if (focus) button.current?.focus(); }, []);
+  const close = useCallback((focus = true) => { if (phone && sheet.current) sheet.current.close(); else setOpen(false); if (focus) button.current?.focus(); }, [phone]);
   const choose = useCallback((i: number) => { const o = options[i]; if (o) { onChange(o.value); close(); } }, [options, onChange, close]);
   const show = () => { setActive(Math.max(current, 0)); setOpen(true); };
 
@@ -51,7 +54,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
   }, [open, phone]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || phone) return; // the sheet closes itself (backdrop, handle, Esc)
     const down = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!list.current?.contains(t) && !button.current?.contains(t)) { swallowNextClick(); close(false); }
@@ -65,7 +68,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
       window.removeEventListener("scroll", scroll, true);
       window.removeEventListener("resize", scroll);
     };
-  }, [open, close]);
+  }, [open, phone, close]);
 
   useEffect(() => { if (open) list.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView?.({ block: "nearest" }); }, [open, active, pos]);
 
@@ -115,7 +118,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
         <span>{current >= 0 ? options[current]!.label : placeholder ?? ""}</span>
       </button>
       {/* in the body, not beside the button: a click inside a <label> would otherwise be forwarded to the button and reopen the list */}
-      {open && createPortal(phone ? <div className="sheet-scrim" onKeyDown={onKey}><div className="song-menu select-sheet" data-phone="true"><i className="grab" aria-hidden="true" />{items}</div></div> : items, document.body)}
+      {open && createPortal(phone ? <Sheet ref={sheet} label={ariaLabel ?? placeholder ?? ""} className="select-sheet" onClose={() => setOpen(false)}>{items}</Sheet> : items, document.body)}
     </>
   );
 }
