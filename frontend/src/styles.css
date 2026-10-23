@@ -352,7 +352,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .lw-line[data-d="1"] { font-size: 16px; color: var(--text-2); }
 .lw-line[data-d="0"] { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; padding-top: 8px; padding-bottom: 8px; }
 .lw-line[data-d="0"] time { font-size: 14px; }
-.lw-line[data-focus="true"] { background: var(--surface-2); }
+.lw-line[data-playing="true"] { background: var(--surface-2); color: var(--text); } /* the line being sung; the big one (data-d="0") is the question's */
 .lw-line:hover { background: var(--surface-2); }
 .lw-blank { display: inline-block; min-width: 3.2ch; border-bottom: 2px solid var(--line-strong); height: 1em; vertical-align: -0.1em; margin: 0 0.1ch; }
 .lw-blank[data-focus="true"] { border-bottom-color: var(--accent); }

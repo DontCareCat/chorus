@@ -8,7 +8,7 @@ const syl = ["ba", "ke", "mi", "so", "tu", "la", "ne", "ri", "po", "du"];
 const word = (n) => syl[n % 10] + syl[Math.floor(n / 10) % 10] + syl[Math.floor(n / 100) % 10] + "en";
 
 const state = (p) => p.evaluate(() => {
-  const vp = document.querySelector(".lyric-window"), cur = vp.querySelector('.lw-line[aria-current="true"]');
+  const vp = document.querySelector(".lyric-window"), cur = vp.querySelector('.lw-line[data-follow="true"]');
   const v = vp.getBoundingClientRect(), c = cur.getBoundingClientRect();
   return { top: vp.scrollTop, max: vp.scrollHeight - vp.clientHeight, idx: [...vp.querySelectorAll(".lw-line")].indexOf(cur), time: cur.querySelector("time")?.textContent, focused: cur.dataset.focus === "true", off: Math.round((c.top + c.height / 2) - (v.top + v.height / 2)), inView: c.bottom > v.top && c.top < v.bottom, chip: !!document.querySelector(".chip-float"), chipDir: document.querySelector(".chip-float")?.dataset.dir };
 });
@@ -53,6 +53,9 @@ const settle = (p, ms = 900) => p.waitForTimeout(ms);
   st = await state(page);
   ok(st.idx > 2 && st.focused, `answering ahead: the window moved on to the next question's line (line ${st.idx}), song still at the start`);
   ok(Math.abs(st.off) < 60 || st.top === st.max, `...and it is in the middle of the window (${st.off}px off)`);
+  const two = await page.evaluate(() => { const L = [...document.querySelectorAll(".lw-line")]; const sz = (l) => parseFloat(getComputedStyle(l).fontSize); const big = L.find((l) => l.dataset.d === "0"), hi = L.find((l) => l.dataset.playing === "true"); return { bigIdx: L.indexOf(big), bigFocus: big.dataset.focus, hiIdx: L.indexOf(hi), bg: getComputedStyle(hi).backgroundColor, bigBg: getComputedStyle(big).backgroundColor, bigSize: sz(big), hiSize: sz(hi), n: L.filter((l) => l.dataset.playing === "true").length }; });
+  ok(two.n === 1 && two.hiIdx === 0 && two.bigIdx === st.idx && two.bigIdx > 0, "two lines stand out: the song's line is highlighted (" + two.hiIdx + "), the question's is another one (" + two.bigIdx + ")");
+  ok(two.bigSize > two.hiSize && two.bigFocus === "true" && two.bg !== "rgba(0, 0, 0, 0)" && two.bigBg === "rgba(0, 0, 0, 0)", `the question's line is bigger (${two.bigSize}px vs ${two.hiSize}px), the song's line has the background`);
   const before = st.idx;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.wheel(0, -400); await settle(page, 400);
   await page.mouse.wheel(0, 700); await settle(page, 400);

@@ -9,6 +9,10 @@ interface Props {
   current: number;
   synced: boolean;
   onFocus: (questionId: number) => void;
+  /** Index of the line the song is singing (highlighted); -1 without synced lyrics. */
+  playing: number;
+  /** Index of the line of the question being answered (shown bigger); -1 when none is open, then the followed line is the big one. */
+  asked: number;
   /** Changes when the window should take the reader back to its line at once (an answer was given). */
   pulse: number;
 }
@@ -34,7 +38,7 @@ function Mark({ state }: { state: string }) {
 }
 
 /** One line of the window. Memoised: after an answer only the changed lines (and the ones whose distance from the current line changed) are redrawn. */
-const LyricLine = memo(function LyricLine({ line: l, d, synced, current, onFocus }: { line: WindowLine; d: number; synced: boolean; current: boolean; onFocus: (questionId: number) => void }) {
+const LyricLine = memo(function LyricLine({ line: l, d, synced, playing, follow, onFocus }: { line: WindowLine; d: number; synced: boolean; playing: boolean; follow: boolean; onFocus: (questionId: number) => void }) {
   const body = (
     <>
       <time>{synced ? timecode(l.startTime) : ""}</time>
@@ -55,11 +59,11 @@ const LyricLine = memo(function LyricLine({ line: l, d, synced, current, onFocus
     </>
   );
   return l.targetId === null ? (
-    <div className="lw-line" data-d={d} data-status="plain" aria-current={current}>{body}</div>
+    <div className="lw-line" data-d={d} data-status="plain" data-playing={playing} data-follow={follow} aria-current={playing || undefined}>{body}</div>
   ) : (
     <button
       type="button" className="lw-line" data-d={d} data-status={l.status} data-qid={l.targetId}
-      data-focus={l.parts.some((p) => p.kind !== "text" && p.focused)} aria-current={current} onClick={() => onFocus(l.targetId!)}
+      data-focus={l.parts.some((p) => p.kind !== "text" && p.focused)} data-playing={playing} data-follow={follow} aria-current={playing || undefined} onClick={() => onFocus(l.targetId!)}
     >
       {body}
     </button>
@@ -72,14 +76,16 @@ export const BROWSE_IDLE_MS = 6000;
 const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"]);
 
 /**
- * The lyrics as a scrollable list: the line to follow (the song's own line, or the next question's when the player answers ahead of the
- * song) is kept in the middle, larger and in full contrast; the others get smaller and fainter the further they are. Answered blanks
+ * The lyrics as a scrollable list. Two lines stand out: the one the song is singing is highlighted, the one with the question being answered
+ * is bigger (the others get smaller and fainter the further they are from it). The line to follow (the song's own, or the next question's
+ * when the player answers ahead of the song) is kept in the middle. Answered blanks
  * show the RIGHT word in the line itself, green if the player had it, red if not.
  *
  * The reader can scroll anywhere. Then the window stops following and a chip offers the way back; it follows again by itself at the next
  * line change once the reader has been idle for BROWSE_IDLE_MS, and at once when `pulse` changes (an answer was given).
  */
-export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus, pulse }: Props) {
+export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus, pulse, playing, asked }: Props) {
+  const big = asked >= 0 ? asked : current; // the size follows the question being answered, the highlight the song
   const viewport = useRef<HTMLDivElement>(null);
   const browsing = useRef(false);
   const lastTouch = useRef(0);
@@ -91,14 +97,14 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
   /** Where the followed line is relative to what can be seen, only while the reader is browsing. */
   const refreshAway = useCallback(() => {
     const vp = viewport.current;
-    const el = vp?.querySelector<HTMLElement>('.lw-line[aria-current="true"]');
+    const el = vp?.querySelector<HTMLElement>('.lw-line[data-follow="true"]');
     if (!vp || !el || !browsing.current) return setAway(null);
     setAway(el.offsetTop + el.offsetHeight < vp.scrollTop ? "up" : el.offsetTop > vp.scrollTop + vp.clientHeight ? "down" : null);
   }, []);
 
   const place = useCallback((smooth: boolean) => {
     const vp = viewport.current;
-    const el = vp?.querySelector<HTMLElement>('.lw-line[aria-current="true"]');
+    const el = vp?.querySelector<HTMLElement>('.lw-line[data-follow="true"]');
     if (!vp || !el) return;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     vp.scrollTo({ top: centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight) * -1, behavior: smooth && !reduced ? "smooth" : "auto" });
@@ -150,7 +156,7 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
       >
         <div className="lw-track">
           {lines.map((l, i) => (
-            <LyricLine key={l.lineId} line={l} d={Math.min(3, Math.abs(i - current))} synced={synced} current={i === current} onFocus={onFocus} />
+            <LyricLine key={l.lineId} line={l} d={Math.min(3, Math.abs(i - big))} synced={synced} playing={i === playing} follow={i === current} onFocus={onFocus} />
           ))}
         </div>
       </div>

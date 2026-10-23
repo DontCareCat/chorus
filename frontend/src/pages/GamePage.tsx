@@ -264,7 +264,8 @@ function GameScreen({ game }: { game: GameDto }) {
   const phone = layout === "phone";
   // the record turns while the music is audible
   const spinning = playback.state.name === "PLAYING" || playback.state.name === "FADING_IN" || playback.state.name === "FADING_OUT";
-  const centerOn = followLine(currentLine, focusedLine, ahead && !!focusedQ && !g.answeredSet.has(focusedQ.id)); // nothing left to answer ahead: the song again
+  const asked = focusedQ && !g.answeredSet.has(focusedQ.id) ? focusedLine : -1; // nothing left to answer: no question line
+  const centerOn = followLine(currentLine, focusedLine, ahead && asked >= 0); // nothing left to answer ahead: the song again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   const stateText = phone ? (hint ?? last.text) || status.text : status.text;
 
@@ -312,7 +313,7 @@ function GameScreen({ game }: { game: GameDto }) {
   );
   const lyricWindow = (
     <div className="game-side">
-      <LyricWindow lines={windowLines} current={centerOn} synced={g.synced} onFocus={focusFromSheet} pulse={pulse} />
+      <LyricWindow lines={windowLines} current={centerOn} playing={g.synced ? currentLine : -1} asked={asked} synced={g.synced} onFocus={focusFromSheet} pulse={pulse} />
     </div>
   );
 
