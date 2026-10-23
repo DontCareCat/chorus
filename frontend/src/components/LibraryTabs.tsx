@@ -4,7 +4,7 @@ import { paths } from "../router";
 
 /** Songs | Playlists: the two views of the library, as one sliding-thumb segment (guide section 18). */
 export function LibraryTabs({ current }: { current: "songs" | "playlists" }) {
-  const thumb = useThumb<HTMLElement>();
+  const thumb = useThumb<HTMLElement>("library-tabs");
   return (
     <nav className="library-tabs segmented thumbs" aria-label={en.playlists.tabs} ref={thumb}>
       <a href={paths.library()} aria-current={current === "songs" ? "page" : undefined}>{en.playlists.songs}</a>

@@ -186,7 +186,7 @@ function SongRow({ song: s, sortKey, onQueue, selectable, orderable, reorderRow,
         {!phone && <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
         <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && onMenu(dots.current)}><Icon name="more" /></button>
       </div>
-      {open && <StartPanel song={s} games={games} />}
+      {open && <div className="expand"><StartPanel song={s} games={games} /></div>}
     </li>
   );
 }

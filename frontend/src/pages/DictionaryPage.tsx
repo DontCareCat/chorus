@@ -143,7 +143,7 @@ export function DictionaryPage() {
               </span>
             </button>
             {open === e.id && (
-              <div className="word-detail">
+              <div className="expand"><div className="word-detail">
                 {e.lemma && <p className="hint">{en.dictionary.asSung(e.surface)}</p>}
                 <ul className="examples">
                   {e.examples.map((ex) => <Example key={ex.id} ex={ex} word={e.surface} snippets={snippets} />)}
@@ -154,7 +154,7 @@ export function DictionaryPage() {
                   <button type="button" className="btn secondary small" onClick={() => void act(() => api.setSuspended(e.id, !e.suspended))}>{e.suspended ? en.dictionary.resume : en.dictionary.pause}</button>
                   {e.enrich_status === "failed" && <button type="button" className="btn secondary small" onClick={() => void act(() => api.refreshWord(e.id))}>{en.dictionary.lookupAgain}</button>}
                 </div>
-              </div>
+              </div></div>
             )}
           </li>
         ))}

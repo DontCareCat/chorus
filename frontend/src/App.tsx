@@ -40,6 +40,7 @@ export function App() {
   useKeyboardFit(isGame);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cards, setCards] = useState(0);
+  const [wave, setWave] = useState(0); // counts wordmark clicks; a new key restarts the bar animation
   const signedIn = auth.user !== null;
   // how many cards are waiting (the badge on "Dictionary"); looked up again whenever the page changes
   useEffect(() => {
@@ -108,8 +109,8 @@ export function App() {
     <div className="shell" data-route={route.name} data-layout={layout}>
       {!(isGame && phone) && (
         <header className="topbar">
-          <a className="wordmark" href={paths.library()}>
-            <span className="bars" aria-hidden="true"><i /><i /><i /></span>
+          <a className="wordmark" href={paths.library()} onClick={() => setWave((n) => n + 1)}>
+            <span className="bars" key={wave} data-wave={wave > 0 || undefined} aria-hidden="true"><i /><i /><i /></span>
             {en.appName}
           </a>
           {phone ? (

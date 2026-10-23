@@ -13,8 +13,21 @@ describe("progressiveLevel", () => {
     expect(progressiveLevel([game({ correct_count: 9, total: 10 })], 1, "choice")).toBe("hard");
     expect(progressiveLevel([game({ difficulty: "easy", correct_count: 85, total: 100 })], 1, "choice")).toBe("medium");
   });
-  it("stays where it was after a weaker game, and never lowers", () => {
+  it("stays where it was after a weaker game, and one bad game does not lower it", () => {
     expect(progressiveLevel([game({ difficulty: "hard", correct_count: 2, total: 10 })], 1, "choice")).toBe("hard");
+    expect(progressiveLevel([game({ difficulty: "hard", correct_count: 5, total: 10 })], 1, "choice")).toBe("hard");
+  });
+  it("goes one level down after two games in a row under 25% right at that level", () => {
+    const bad = (at: string, over: Partial<GameSummaryDto> = {}) => game({ difficulty: "hard", correct_count: 2, total: 10, finished_at: at, ...over });
+    expect(progressiveLevel([bad("2026-01-01T00:00:00Z"), bad("2026-01-02T00:00:00Z")], 1, "choice")).toBe("medium");
+    expect(progressiveLevel([bad("2026-01-01T00:00:00Z"), bad("2026-01-02T00:00:00Z", { correct_count: 3 })], 1, "choice")).toBe("hard"); // 30% is not under 25%
+    expect(progressiveLevel([bad("2026-01-01T00:00:00Z", { correct_count: 9 }), bad("2026-01-02T00:00:00Z")], 1, "choice")).toBe("hard"); // not consecutive
+    expect(progressiveLevel([bad("2026-01-01T00:00:00Z", { difficulty: "expert" }), bad("2026-01-02T00:00:00Z")], 1, "choice")).toBe("hard"); // the run restarts after a change of level
+    expect(progressiveLevel([bad("2026-01-01T00:00:00Z"), bad("2026-01-02T00:00:00Z"), bad("2026-01-03T00:00:00Z", { difficulty: "medium" })], 1, "choice")).toBe("medium");
+  });
+  it("does not go below Easy", () => {
+    const g = (at: string) => game({ difficulty: "easy", correct_count: 0, total: 10, finished_at: at });
+    expect(progressiveLevel([g("2026-01-01T00:00:00Z"), g("2026-01-02T00:00:00Z")], 1, "choice")).toBe("easy");
   });
   it("tops out at Expert", () => expect(progressiveLevel([game({ difficulty: "expert" })], 1, "choice")).toBe("expert"));
   it("uses the latest finished game of that song and mode only", () => {

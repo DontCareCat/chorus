@@ -116,6 +116,13 @@ main { padding-bottom: 48px; }
 .bars i:nth-child(1) { height: 12px; }
 .bars i:nth-child(2) { height: 22px; }
 .bars i:nth-child(3) { height: 16px; }
+/* a click on the wordmark: the bars shrink and spring back one after another, left to right */
+.bars i { transform-origin: bottom; }
+.bars[data-wave] i { animation: barWave 520ms var(--ease-standard) both; }
+.bars[data-wave] i:nth-child(2) { animation-delay: 90ms; }
+.bars[data-wave] i:nth-child(3) { animation-delay: 180ms; }
+@keyframes barWave { 0% { transform: scaleY(1); } 40% { transform: scaleY(0.25); } 100% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .bars[data-wave] i { animation: none; } }
 .top-right { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
 .topbar nav { display: flex; gap: 8px; font-weight: 600; }
 .topbar nav a { color: var(--text-2); text-decoration: none; padding: 4px 12px; border-radius: 8px; }
@@ -835,6 +842,13 @@ html.dialog-open { overflow: hidden; }
 .thumbs > button[aria-pressed="true"], nav.thumbs > a[aria-current="page"] { background: transparent; }
 .thumbs[data-thumb="none"] > .chip[aria-pressed="true"] { background: var(--text); }
 
+/* a panel opening under its row (play options, dictionary word): grows from nothing and fades in, 180 ms (guide: expanding panels) */
+.expand { display: grid; grid-template-rows: 1fr; animation: expandRows 180ms var(--ease-out); }
+.expand > * { min-height: 0; animation: expandClip 180ms; }
+@keyframes expandRows { from { grid-template-rows: 0fr; opacity: 0; } }
+@keyframes expandClip { from, to { overflow: hidden; } }
+@media (prefers-reduced-motion: reduce) { .expand, .expand > * { animation: none; } }
+
 /* list rows and counts after a filter change */
 @keyframes rowIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes countIn { from { opacity: 0; } }
@@ -962,7 +976,7 @@ nav.library-tabs { --thumb-bg: var(--text); gap: 4px; padding: 4px; border-radiu
 .queue-body { display: grid; gap: 10px; }
 .queue-toolbar { display: flex; align-items: center; justify-content: space-between; }
 .queue-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.queue-row { position: relative; overflow: hidden; border-top: 1px solid var(--line); }
+.queue-row { position: relative; overflow: hidden; border-top: 1px solid var(--line); touch-action: pan-y; }
 .queue-face { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 4px; background: var(--surface); }
 .queue-face .cover { width: 48px; height: 48px; flex: none; }
 .queue-text { flex: 1; min-width: 0; display: grid; }
@@ -987,7 +1001,7 @@ nav.library-tabs { --thumb-bg: var(--text); gap: 4px; padding: 4px; border-radiu
 [data-swipe="left"] > .swipe-reveal.remove, [data-swipe="right"] > .swipe-reveal.add { opacity: 1; }
 .toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--text); color: var(--bg); }
 .toast .btn { color: var(--bg); }
-.song { position: relative; }
+.song { position: relative; touch-action: pan-y; } /* sideways movement belongs to the swipe, not to the browser's pan */
 .song[data-swiping="true"] { overflow: hidden; }
 .song [data-swipe-face], .song-main[data-swipe-face] { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) { .queue-bar, .queue-bar[data-state="closing"] { animation: none; } .queue-list[data-reordering="true"] > li:not([data-dragging]) { transition: none; } }

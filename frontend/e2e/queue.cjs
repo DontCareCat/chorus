@@ -123,14 +123,17 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   ph.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   await ph.goto(B); await ph.waitForSelector(".song"); await filter(ph);
   await ph.evaluate(() => sessionStorage.clear());
-  const fire = (type, x, y, sel) => ph.evaluate(([t, x, y, sel]) => { const el = document.querySelector(sel); /* a touch keeps its first target, like the browser does */ el.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, pointerId: 9, pointerType: "touch", clientX: x, clientY: y, isPrimary: true })); }, [type, x, y, sel]);
+  // real touch input through the browser's own gesture handling (synthetic pointer events hide a pan that cancels the swipe)
+  const cdp = await m.newCDPSession(ph);
   const row = ph.locator(".song", { hasText: `Qb ${stamp}` });
+  await row.scrollIntoViewIfNeeded(); await ph.waitForTimeout(200);
   const box = await row.boundingBox();
-  const sel = `.song[data-song-id="${songs[1].id}"] .song-text`;
-  await fire("pointerdown", 100, box.y + 30, sel);
-  for (let i = 1; i <= 6; i++) { await fire("pointermove", 100 + i * 25, box.y + 32, sel); await ph.waitForTimeout(15); }
+  const ty = box.y + 30;
+  const touch = (type, x) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y: ty }] });
+  await touch("touchStart", 60);
+  for (let i = 1; i <= 8; i++) { await touch("touchMove", 60 + i * 25); await ph.waitForTimeout(20); }
   ok((await row.getAttribute("data-swipe")) === "right", "dragging a row to the right shows the Add to queue strip");
-  await fire("pointerup", 250, box.y + 32, sel);
+  await touch("touchEnd", 260);
   await ph.waitForSelector(".queue-bar");
   ok((await ph.evaluate(() => JSON.parse(sessionStorage.getItem("chorus_queue")).items.length)) === 1, "past the threshold the song is added");
   await ph.waitForTimeout(300);

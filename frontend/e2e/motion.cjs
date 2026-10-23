@@ -20,6 +20,20 @@ const LRC = ["Ich gehe jeden Morgen zur Arbeit", "Du hast mich gefragt und ich h
   const thumb = (sel) => page.evaluate((q) => { const g = document.querySelector(q); const c = getComputedStyle(g, "::before"); return { x: parseFloat(g.style.getPropertyValue("--thumb-x")), w: parseFloat(g.style.getPropertyValue("--thumb-w")), d: c.transitionDuration, state: g.dataset.thumb }; }, sel);
   const offs = (sel, text) => page.evaluate(([q, t]) => { const b = [...document.querySelector(q).children].find((x) => x.textContent.includes(t)); return { x: b.offsetLeft, w: b.offsetWidth }; }, [sel, text]);
 
+  console.log("[library tabs, logo, expanding panels]");
+  const tabX = () => page.evaluate(() => { const n = document.querySelector(".library-tabs"); return n ? new DOMMatrix(getComputedStyle(n, "::before").transform).m41 : null; });
+  const tabFrames = page.evaluate(async () => { const xs = []; const t0 = performance.now(); while (performance.now() - t0 < 400) { const n = document.querySelector(".library-tabs"); if (n && n.dataset.thumb) xs.push(new DOMMatrix(getComputedStyle(n, "::before").transform).m41); await new Promise((r) => requestAnimationFrame(r)); } return xs; });
+  await page.evaluate(() => [...document.querySelectorAll(".library-tabs a")].find((a) => a.getAttribute("aria-current") !== "page").click());
+  const xs = await tabFrames;
+  ok(xs.length > 4 && xs[0] < 20 && xs[xs.length - 1] > 80 && xs.filter((x) => x > xs[0] + 2 && x < xs[xs.length - 1] - 2).length >= 2, "Songs | Playlists: the thumb glides from the old tab to the new one across the page change: " + xs.slice(0, 8).map((x) => x.toFixed(0)).join(","));
+  await page.goto(B); await page.waitForSelector(".song");
+  await page.click(".wordmark");
+  const bars = await page.evaluate(async () => { const f = []; const t0 = performance.now(); while (performance.now() - t0 < 700) { f.push([...document.querySelectorAll(".bars i")].map((i) => new DOMMatrix(getComputedStyle(i).transform).d)); await new Promise((r) => requestAnimationFrame(r)); } return f; });
+  const low = (k) => bars.findIndex((f) => f[k] < 0.4);
+  ok(low(0) >= 0 && low(1) > low(0) && low(2) > low(1) && bars[bars.length - 1].every((d) => d > 0.99), "a click on the logo: the bars shrink one after another and spring back to full size");
+  const grow = await page.evaluate(async () => { document.querySelector(".play-btn:not(:disabled)").click(); const h = []; const t0 = performance.now(); while (performance.now() - t0 < 300) { const e = document.querySelector(".expand"); if (e) h.push(e.getBoundingClientRect().height); await new Promise((r) => requestAnimationFrame(r)); } return h; });
+  ok(grow.length > 4 && grow[0] < grow[grow.length - 1] * 0.5 && grow.some((h) => h > grow[0] + 5 && h < grow[grow.length - 1] - 5), "the play options grow open instead of appearing: " + grow.slice(0, 6).map((h) => h.toFixed(0)).join(","));
+
   console.log("[sliding thumbs, desktop]");
   let t = await thumb(".topbar > nav");
   const lib = await offs(".topbar > nav", "Library");
