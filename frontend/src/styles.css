@@ -357,7 +357,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .lw-line:hover { background: var(--surface-2); }
 .lw-blank { display: inline-block; min-width: 3.2ch; border-bottom: 2px solid var(--line-strong); height: 1em; vertical-align: -0.1em; margin: 0 0.1ch; }
 .lw-blank[data-focus="true"] { border-bottom-color: var(--accent); }
-.lw-word { font-weight: 700; }
+.lw-word { font-weight: 700; white-space: nowrap; } /* the tick or cross never drops to the next line without its word */
 .lw-word[data-state="correct"] { color: var(--correct); }
 .lw-word[data-state="wrong"] { color: var(--wrong); }
 .lw-word[data-state="partial"] { color: var(--accent); }

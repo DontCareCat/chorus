@@ -190,6 +190,7 @@ export const en = {
   songStatus: {
     click: (what: string) => `Click to ${what.toLowerCase()}`,
     pending: { short: "Looking for lyrics", full: "Chorus is searching LRCLIB for the lyrics of this song." },
+    stalled: { short: "Lyrics are taking too long", full: "The lyrics search has not finished in the time set in Settings. Check the connection, or find the lyrics yourself.", fix: "Find lyrics" },
     needsChoice: { short: "Choose the right lyrics", full: "Several lyrics matched this song. Pick the right ones so the game uses the correct words.", fix: "Choose lyrics" },
     notFound: { short: "No lyrics found", full: "LRCLIB has no synchronized lyrics for this title and artist. Try another spelling in the search, or upload an .lrc file.", fix: "Find lyrics" },
     fileMissing: { short: "File missing", full: "The audio file is not at its saved place (a disconnected drive or a moved file). Reconnect it and scan the library, or remove the song.", fix: "Remove song" },
@@ -316,6 +317,7 @@ export const en = {
     defaultLanguage: "Language for new songs",
     defaultLanguageHelp: "Two-letter code such as de, fr, es.",
     cacheDays: "Keep downloaded lyrics for (days)",
+    lyricsTimeout: "Warn when lyrics are not found within (minutes)",
     cacheForever: "Keep forever",
     clearCache: "Clear lyrics cache",
     cacheCleared: (n: number) => `${n} cached lookup${n === 1 ? "" : "s"} removed`,

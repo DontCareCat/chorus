@@ -23,3 +23,13 @@ describe("songStatus", () => {
     }
   });
 });
+
+describe("stalled lookups", () => {
+  it("warn with the Find lyrics fix instead of spinning forever", () => {
+    const st = songStatus({ lyrics_status: "pending", lyrics_stalled: true, available: true });
+    expect([st.kind, st.fix]).toEqual(["warn", "lyrics"]);
+  });
+  it("keep spinning while inside the timeout", () => {
+    expect(songStatus({ lyrics_status: "pending", lyrics_stalled: false, available: true }).kind).toBe("pending");
+  });
+});

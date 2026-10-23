@@ -13,6 +13,13 @@ export function layoutFor(matches: (query: string) => boolean): Layout {
   return "desktop";
 }
 
+/** True while a text field has focus: the on-screen keyboard is probably open and shrinks the viewport, which must not flip the layout. */
+export function typing(el: Element | null = document.activeElement): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "TEXTAREA" || (tag === "INPUT" && !/^(button|checkbox|radio|submit|reset|range|file|color)$/i.test((el as HTMLInputElement).type)) || (el as HTMLElement).isContentEditable === true;
+}
+
 const current = (): Layout => layoutFor((q) => window.matchMedia?.(q).matches ?? false);
 
 /** Which screen class the page is on: a phone (or a tablet held upright), a tablet / small laptop, or a desktop. */
@@ -20,10 +27,13 @@ export function useLayout(): Layout {
   const [layout, setLayout] = useState<Layout>(current);
   useEffect(() => {
     const lists = [PHONE, COMPACT].map((q) => window.matchMedia(q));
-    const on = () => setLayout(current());
+    // Opening the keyboard on a tablet drops the height under 520 px; swapping the layout then would remount the open dialog and close the keyboard.
+    const on = () => { if (!typing()) setLayout(current()); };
+    const after = () => setLayout(current());
     lists.forEach((l) => l.addEventListener("change", on));
+    document.addEventListener("focusout", after);
     document.documentElement.dataset.layout = layout;
-    return () => lists.forEach((l) => l.removeEventListener("change", on));
+    return () => { lists.forEach((l) => l.removeEventListener("change", on)); document.removeEventListener("focusout", after); };
   }, [layout]);
   return layout;
 }

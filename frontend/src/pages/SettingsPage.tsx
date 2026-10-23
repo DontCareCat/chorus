@@ -77,6 +77,10 @@ export function SettingsPage() {
             <span><strong>{en.settings.autoFetch}</strong></span>
           </label>
           <div className="field">
+            <span>{en.settings.lyricsTimeout}</span>
+            <input type="number" min={1} max={1440} value={form.lyrics_timeout_minutes} onChange={(e) => set("lyrics_timeout_minutes", Math.min(1440, Math.max(1, Number(e.target.value) || 1)))} aria-label={en.settings.lyricsTimeout} style={{ maxWidth: "12rem" }} />
+          </div>
+          <div className="field">
             <span>{en.settings.cacheDays}</span>
             <input type="number" min={1} disabled={forever} value={forever ? "" : form.lyrics_cache_ttl_days} onChange={(e) => set("lyrics_cache_ttl_days", Number(e.target.value))} aria-label={en.settings.cacheDays} style={{ maxWidth: "12rem" }} />
             <label className="check" style={{ marginTop: 12, marginBottom: 0 }}>

@@ -58,6 +58,7 @@ export interface SongDto {
   has_cover: boolean | null;
   cover_source: "embedded" | "online" | "custom" | "choose" | "none" | null;
   lyrics_status: "pending" | "found" | "needs_choice" | "not_found";
+  lyrics_stalled?: boolean;
 }
 
 export interface SongPatch {
@@ -109,6 +110,7 @@ export interface DiscoveryDto {
 export interface SettingsDto {
   allow_unsynchronized_lyrics: boolean;
   lyrics_cache_ttl_days: number;
+  lyrics_timeout_minutes: number;
   auto_fetch_lyrics: boolean;
   auto_fetch_covers: boolean;
   auto_detect_language: boolean;

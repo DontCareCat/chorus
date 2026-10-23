@@ -20,6 +20,7 @@ class SongOut(BaseModel):
     has_cover: bool | None  # None = not checked yet; the cover endpoint answers 404 if there is none
     cover_source: str | None = None  # embedded | online | custom | choose (candidates to pick from) | none
     lyrics_status: LyricsStatus
+    lyrics_stalled: bool = False  # still pending past the configured timeout (set by the list endpoint)
 
 
 class SongPatch(BaseModel):

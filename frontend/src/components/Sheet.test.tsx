@@ -6,7 +6,7 @@ import { dragOutcome, Sheet } from "./Sheet";
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("dragOutcome", () => {
-  it("is a tap below 6 px", () => expect(dragOutcome(3, 400, 0)).toBe("tap"));
+  it("springs back when a drag returns to the start", () => expect(dragOutcome(3, 400, -0.2)).toBe("back"));
   it("closes past 30% of the height", () => expect(dragOutcome(130, 400, 0.1)).toBe("close"));
   it("closes on a flick even when short", () => expect(dragOutcome(40, 400, 0.8)).toBe("close"));
   it("springs back for a short, slow drag", () => expect(dragOutcome(60, 400, 0.1)).toBe("back"));

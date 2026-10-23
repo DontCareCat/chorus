@@ -86,3 +86,13 @@ def test_settings_roundtrip_and_validation(api):
     assert api.get("/api/settings").json()["allow_unsynchronized_lyrics"] is True
     d["lyrics_cache_ttl_days"] = -1
     assert api.put("/api/settings", json=d).status_code == 422
+
+
+def test_list_flags_songs_whose_lyrics_search_ran_too_long(api, tmp_path):
+    s = upload(api, make_wav(tmp_path / "A - B.wav")).json()
+    row = api.get("/api/songs").json()[0]
+    assert row["id"] == s["id"] and row["lyrics_stalled"] is False  # just added
+    d = api.get("/api/settings").json()
+    assert d["lyrics_timeout_minutes"] == 10
+    d["lyrics_timeout_minutes"] = 0
+    assert api.put("/api/settings", json=d).status_code == 422

@@ -1,5 +1,6 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
-import { layoutFor } from "./useLayout";
+import { layoutFor, typing } from "./useLayout";
 
 const device = (width: number, height: number) => (q: string) => {
   const portrait = height > width;
@@ -28,5 +29,14 @@ describe("layout modes", () => {
   it("desktops are desktops", () => {
     expect(layoutFor(device(1440, 900))).toBe("desktop");
     expect(layoutFor(device(1920, 1080))).toBe("desktop");
+  });
+});
+
+describe("typing", () => {
+  it("is true for text fields and false for buttons", () => {
+    const input = document.createElement("input");
+    const box = document.createElement("input"); box.type = "checkbox";
+    const btn = document.createElement("button");
+    expect([typing(input), typing(box), typing(btn), typing(null)]).toEqual([true, false, false, false]);
   });
 });

@@ -15,11 +15,13 @@ interface Props {
 export function Dialog({ title, subtitle, onClose, children }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const phone = document.documentElement.dataset.layout === "phone";
+  const closing = useRef(onClose);
+  closing.current = onClose; // an inline onClose changes on every render; the effect must not re-run and pull focus back to the box
   useEffect(() => {
     if (phone) return;
     const previous = document.activeElement as HTMLElement | null;
     box.current?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closing.current(); };
     document.addEventListener("keydown", onKey);
     document.documentElement.classList.add("dialog-open");
     return () => {
@@ -27,7 +29,7 @@ export function Dialog({ title, subtitle, onClose, children }: Props) {
       document.documentElement.classList.remove("dialog-open");
       previous?.focus?.();
     };
-  }, [onClose, phone]);
+  }, [phone]);
 
   const head = (
     <header className="dialog-head">

@@ -11,8 +11,7 @@ export const DISMISS_SPEED = 0.5;
 const TAP_PX = 6;
 
 /** Pure rule for a released drag: close it, or spring back. */
-export function dragOutcome(dy: number, height: number, speed: number): "tap" | "close" | "back" {
-  if (dy < TAP_PX) return "tap";
+export function dragOutcome(dy: number, height: number, speed: number): "close" | "back" {
   return dy > height * DISMISS_SHARE || speed > DISMISS_SPEED ? "close" : "back";
 }
 
@@ -80,6 +79,7 @@ export const Sheet = forwardRef<SheetApi, Props>(function Sheet({ onClose, label
     if (!d || !el) return;
     el.removeAttribute("data-dragging");
     const dy = Math.max(0, e.clientY - d.y);
+    // only a press that never moved is a tap; a drag back to the start springs back and stays open
     const outcome = d.moved ? dragOutcome(dy, el.offsetHeight, d.speed) : "tap";
     if (outcome === "back") {
       el.style.transition = "transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1)";

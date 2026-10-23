@@ -13,6 +13,7 @@ class RuntimeSettings(BaseModel):
     auto_fetch_lyrics: bool = True
     default_language: str = Field("de", min_length=2, max_length=16)
     library_dirs: list[str] = Field(default_factory=list)
+    lyrics_timeout_minutes: int = Field(10, ge=1, le=1440)  # a song still searching for lyrics after this long gets a warning
     auto_detect_language: bool = True  # set a new song's language from its lyrics
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)
     translation_enabled: bool = True  # dictionary: look up translations and articles online (the words and sentences are sent to the translation service and Wiktionary)

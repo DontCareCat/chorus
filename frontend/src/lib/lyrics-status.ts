@@ -14,6 +14,7 @@ export interface SongStatus {
 
 export interface StatusSong {
   lyrics_status: string;
+  lyrics_stalled?: boolean;
   available: boolean;
 }
 
@@ -23,7 +24,9 @@ export function songStatus(s: StatusSong): SongStatus {
   if (!s.available) return { kind: "error", short: t.fileMissing.short, full: t.fileMissing.full, fix: "file", fixLabel: t.fileMissing.fix };
   switch (s.lyrics_status) {
     case "found": return { kind: "ready", short: "", full: "", fix: null, fixLabel: "" };
-    case "pending": return { kind: "pending", short: t.pending.short, full: t.pending.full, fix: null, fixLabel: "" };
+    case "pending":
+      if (s.lyrics_stalled) return { kind: "warn", short: t.stalled.short, full: t.stalled.full, fix: "lyrics", fixLabel: t.stalled.fix };
+      return { kind: "pending", short: t.pending.short, full: t.pending.full, fix: null, fixLabel: "" };
     case "needs_choice": return { kind: "warn", short: t.needsChoice.short, full: t.needsChoice.full, fix: "lyrics", fixLabel: t.needsChoice.fix };
     default: return { kind: "error", short: t.notFound.short, full: t.notFound.full, fix: "lyrics", fixLabel: t.notFound.fix };
   }

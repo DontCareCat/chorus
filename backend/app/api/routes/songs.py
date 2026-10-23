@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, path_access
 from app.core.config import settings as env
 from app.core.errors import AppError
+from app.db.models.types import utcnow
 from app.db.database import get_session
 from app.db.models import Lyrics, Song, SongSource
 from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
@@ -23,14 +24,19 @@ from app.services.library.tags import extract_cover
 from app.services.lyrics.background import discover_for_songs
 from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrclib import LrclibClient
-from app.services.settings import RuntimeSettings
+from app.services.lyrics.stall import is_stalled
+from app.services.settings import RuntimeSettings, load_settings
 
 router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_user)])
 
 
 @router.get("/songs", response_model=list[SongOut])
 def list_songs(session: Session = Depends(get_session)):
-    return list(session.scalars(select(Song).where(Song.removed.is_(False)).order_by(Song.artist, Song.title)))
+    songs = list(session.scalars(select(Song).where(Song.removed.is_(False)).order_by(Song.artist, Song.title)))
+    timeout, now = load_settings(session).lyrics_timeout_minutes, utcnow()
+    for s in songs:
+        s.lyrics_stalled = is_stalled(s, timeout, now)  # transient: read by SongOut
+    return songs
 
 
 @router.post("/songs", response_model=SongOut, status_code=201)
