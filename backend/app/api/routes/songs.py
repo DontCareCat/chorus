@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, path_access
@@ -12,7 +12,7 @@ from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.models.types import utcnow
 from app.db.database import get_session
-from app.db.models import Lyrics, Song, SongSource
+from app.db.models import Game, Lyrics, Song, SongSource, User
 from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
@@ -31,11 +31,21 @@ router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_
 
 
 @router.get("/songs", response_model=list[SongOut])
-def list_songs(session: Session = Depends(get_session)):
+def list_songs(session: Session = Depends(get_session), user: User = Depends(current_user)):
     songs = list(session.scalars(select(Song).where(Song.removed.is_(False)).order_by(Song.artist, Song.title)))
     timeout, now = load_settings(session).lyrics_timeout_minutes, utcnow()
-    for s in songs:
-        s.lyrics_stalled = is_stalled(s, timeout, now)  # transient: read by SongOut
+    mine = {
+        r.song_id: r
+        for r in session.execute(
+            select(Game.song_id, func.max(Game.score).label("best"), func.count(Game.id).label("n"), func.max(Game.finished_at).label("last"))
+            .where(Game.user_id == user.id, Game.finished_at.is_not(None))
+            .group_by(Game.song_id)
+        )
+    }
+    for s in songs:  # transient attributes, read by SongOut
+        s.lyrics_stalled = is_stalled(s, timeout, now)
+        r = mine.get(s.id)
+        s.best_score, s.plays, s.last_played_at = (r.best, r.n, r.last) if r else (None, 0, None)
     return songs
 
 

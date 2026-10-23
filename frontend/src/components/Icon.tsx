@@ -18,6 +18,16 @@ import progress from "@material-symbols/svg-400/outlined/progress_activity.svg?r
 import schedule from "@material-symbols/svg-400/outlined/schedule.svg?raw";
 import search from "@material-symbols/svg-400/outlined/search.svg?raw";
 import warning from "@material-symbols/svg-400/outlined/warning-fill.svg?raw";
+import arrowUp from "@material-symbols/svg-400/outlined/arrow_upward.svg?raw";
+import shuffle from "@material-symbols/svg-400/outlined/shuffle.svg?raw";
+import playlistAdd from "@material-symbols/svg-400/outlined/playlist_add.svg?raw";
+import queue from "@material-symbols/svg-400/outlined/queue_music.svg?raw";
+import skipNext from "@material-symbols/svg-400/outlined/skip_next.svg?raw";
+import grip from "@material-symbols/svg-400/outlined/drag_indicator.svg?raw";
+import add from "@material-symbols/svg-400/outlined/add.svg?raw";
+import sortIcon from "@material-symbols/svg-400/outlined/sort.svg?raw";
+import tune from "@material-symbols/svg-400/outlined/tune.svg?raw";
+import undo from "@material-symbols/svg-400/outlined/undo.svg?raw";
 
 const pathOf = (svg: string): string => /<path d="([^"]+)"/.exec(svg)?.[1] ?? "";
 
@@ -41,6 +51,16 @@ const PATHS = {
   clock: pathOf(schedule),
   search: pathOf(search),
   warning: pathOf(warning),
+  arrowUp: pathOf(arrowUp),
+  shuffle: pathOf(shuffle),
+  playlistAdd: pathOf(playlistAdd),
+  queue: pathOf(queue),
+  skipNext: pathOf(skipNext),
+  grip: pathOf(grip),
+  add: pathOf(add),
+  sortIcon: pathOf(sortIcon),
+  tune: pathOf(tune),
+  undo: pathOf(undo),
 } as const;
 
 export type IconName = keyof typeof PATHS;

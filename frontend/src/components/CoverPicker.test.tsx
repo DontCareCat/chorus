@@ -10,7 +10,7 @@ beforeEach(() => vi.restoreAllMocks());
 
 const song = (over: Partial<SongDto> = {}): SongDto => ({
   id: 7, title: "Du hast", artist: "Rammstein", album: null, duration: 100, language: "de", language_source: "default", lyrics_offset: 0, source: "upload", file_name: "x.wav",
-  available: true, has_cover: false, cover_source: null, lyrics_status: "found", ...over,
+  available: true, has_cover: false, cover_source: null, lyrics_status: "found", created_at: "2026-01-01T00:00:00Z", best_score: null, plays: 0, last_played_at: null, ...over,
 });
 const candidates = [
   { id: "m1", title: "Sehnsucht", artist: "Rammstein", date: "1997-08-22", score: 100 },

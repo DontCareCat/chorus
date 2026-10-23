@@ -59,6 +59,10 @@ export interface SongDto {
   cover_source: "embedded" | "online" | "custom" | "choose" | "none" | null;
   lyrics_status: "pending" | "found" | "needs_choice" | "not_found";
   lyrics_stalled?: boolean;
+  created_at: string;
+  best_score: number | null;
+  plays: number;
+  last_played_at: string | null;
 }
 
 export interface SongPatch {

@@ -105,3 +105,17 @@ def test_unknown_song_and_sign_in_requirement(api, song):
     api.put("/api/settings", json={**s, "allow_guest": False})
     stranger = other_browser(api)
     assert stranger.get("/api/scores").status_code == 401 and stranger.get(f"/api/songs/{song['id']}/scores").status_code == 401
+
+
+def test_song_list_carries_my_own_score_plays_and_last_played(api, song):
+    row = api.get("/api/songs").json()[0]
+    assert (row["best_score"], row["plays"], row["last_played_at"]) == (None, 0, None)
+    play(api, song, right=0)
+    best = play(api, song, right=100)
+    play(api, song, right=1, finish=False)  # unfinished games do not count
+    row = api.get("/api/songs").json()[0]
+    assert row["plays"] == 2 and row["last_played_at"]
+    assert row["best_score"] == api.get(f"/api/games/{best['public_id']}").json()["progress"]["score"]
+    bob = other_browser(api)  # another account sees none of mine
+    bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
+    assert bob.get("/api/songs").json()[0]["plays"] == 0

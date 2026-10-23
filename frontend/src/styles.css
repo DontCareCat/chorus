@@ -877,3 +877,13 @@ html.dialog-open { overflow: hidden; }
 }
 .nav-badge { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--on-fill) 22%, transparent); }
 nav a[aria-current="page"] .nav-badge { background: var(--text); color: var(--bg); box-shadow: none; } /* on the yellow thumb the badge turns dark */
+
+/* sort control (guide section 17) */
+.sort-control { display: flex; align-items: center; gap: 4px; }
+.sort-control .select-btn { width: 180px; height: 36px; }
+.sort-dir svg { transition: transform var(--dur-base) var(--ease-standard); }
+.sort-dir[data-reversed="true"] svg { transform: rotate(180deg); }
+.sorted-by { margin-left: auto; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+.sorted-by[data-empty="true"] { color: var(--text-3); font-weight: 400; }
+[data-layout="phone"] .sort-control { order: 3; margin-left: auto; }
+@media (prefers-reduced-motion: reduce) { .sort-dir svg { transition: none; } }

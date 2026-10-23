@@ -5,6 +5,7 @@ import { Dialog } from "../components/Dialog";
 import { Icon } from "../components/Icon";
 import { SongMenu, type SongAction } from "../components/SongMenu";
 import { Details, Finder } from "../components/SongTools";
+import { SortControl } from "../components/SortControl";
 import { StatusBadge } from "../components/StatusBadge";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
@@ -13,6 +14,8 @@ import { extraCopies, findDuplicates, type DuplicateReason } from "../lib/duplic
 import { languageCounts } from "../lib/languages";
 import { facetCounts, visibleSongs } from "../lib/library-facets";
 import { buildMatcher } from "../lib/search";
+import { SORT_KEYS, sortSongs, sortValue } from "../lib/library-sort";
+import type { SortChoice } from "../lib/library-sort";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
 import { useLayout } from "../hooks/useLayout";
@@ -52,6 +55,9 @@ export function LibraryPage() {
   const [query, setQuery] = usePref("lib_query", "", isString);
   const [regex, setRegex] = usePref("lib_regex", false, isBool);
   const [language, setLanguage] = usePref("lib_language", "all", isString);
+  const [sortKey, setSortKey] = usePref("lib_sort", "name" as SortChoice["key"], isOneOf(...SORT_KEYS));
+  const [sortDir, setSortDir] = usePref("lib_sort_dir", "default" as SortChoice["dir"], isOneOf("default", "reverse"));
+  const sort: SortChoice = { key: sortKey, dir: sortDir };
   const [browsing, setBrowsing] = useState(false);
   const selection = useSelection();
   const statusThumb = useThumb();
@@ -166,8 +172,8 @@ export function LibraryPage() {
   const counts = facets.status;
   const shown = useMemo(() => {
     const list = visibleSongs(all, facetOptions);
-    return filter === "duplicates" ? [...list].sort((a, b) => (copies.keeper.get(a.id) ?? 0) - (copies.keeper.get(b.id) ?? 0) || a.id - b.id) : list; // copies of one song sit together
-  }, [all, facetOptions, filter, copies]);
+    return filter === "duplicates" ? [...list].sort((a, b) => (copies.keeper.get(a.id) ?? 0) - (copies.keeper.get(b.id) ?? 0) || a.id - b.id) : sortSongs(list, { key: sortKey, dir: sortDir }); // copies of one song sit together
+  }, [all, facetOptions, filter, copies, sortKey, sortDir]);
   // only what is on screen stays selected, so "N selected" is what Remove deletes
   useEffect(() => selection.keepOnly(new Set(shown.map((x) => x.id))), [shown, selection.keepOnly]);
   useEffect(() => {
@@ -293,6 +299,7 @@ export function LibraryPage() {
             </button>
           ))}
         </div>
+        <SortControl choice={sort} onChange={(c) => { setSortKey(c.key); setSortDir(c.dir); }} />
         <div className="search-box">
           <input className="pill" type="search" {...noAutofill("library-search")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.library.searchPlaceholder} aria-label={en.library.searchPlaceholder} aria-invalid={!!matcher.error} />
           <button type="button" className="chip regex-toggle" aria-pressed={regex} onClick={() => setRegex(!regex)} title={en.library.regexToggle} aria-label={en.library.regexToggle}>.*</button>
@@ -325,12 +332,12 @@ export function LibraryPage() {
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
       )}
-      <ul className="songs" key={`${filter}|${language}`} data-selecting={selection.active}>
+      <ul className="songs" key={`${filter}|${language}|${sortKey}|${sortDir}`} data-selecting={selection.active}>
         {shown.map((s) => {
           const keeper = copies.keeper.get(s.id);
           return (
             <SongRow
-              key={s.id} song={s} phone={phone} selectionActive={selection.active} picked={selection.has(s.id)} onPick={() => selection.toggle(s.id)} onLongPress={() => selection.add(s.id)}
+              key={s.id} song={s} phone={phone} sortKey={filter === "duplicates" ? null : sortKey} selectionActive={selection.active} picked={selection.has(s.id)} onPick={() => selection.toggle(s.id)} onLongPress={() => selection.add(s.id)}
               copyOf={keeper !== undefined ? all.find((x) => x.id === keeper)?.title : undefined} duplicate={copies.reasons.get(s.id)}
               open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)} menuOpen={menu?.id === s.id}
               onToggle={() => setOpen(open === s.id ? null : s.id)} onMenu={(anchor) => setMenu(menu?.id === s.id ? null : { id: s.id, anchor })}
@@ -366,6 +373,7 @@ export function LibraryPage() {
 
 interface RowProps {
   song: SongDto;
+  sortKey: SortChoice["key"] | null;
   phone: boolean;
   selectionActive: boolean;
   picked: boolean;
@@ -381,7 +389,7 @@ interface RowProps {
   onFix: () => void;
 }
 
-function SongRow({ song: s, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
+function SongRow({ song: s, sortKey, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available;
   const status = songStatus(s);
   const press = useLongPress({ onLongPress });
@@ -403,6 +411,7 @@ function SongRow({ song: s, phone, selectionActive, picked, onPick, onLongPress,
             <span title={s.artist}>{s.artist}</span>
             <span className="lang">{s.language}</span>
             <span>{mmss(s.duration)}</span>
+            {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
             {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
           </div>
         </div>
@@ -494,4 +503,11 @@ function History({ games, board }: { games: GameSummaryDto[]; board: SongScoreDt
       {top}
     </>
   );
+}
+
+/** The value the list is sorted by, at the end of the meta line (empty values say "never played"). */
+function SortedBy({ sortKey, song }: { sortKey: SortChoice["key"]; song: SongDto }) {
+  const v = sortValue(sortKey, song);
+  const text = v === null ? en.library.sort.never : en.library.sort[v.kind](v.value as never);
+  return <span className="sorted-by" data-empty={v === null}>{text}</span>;
 }

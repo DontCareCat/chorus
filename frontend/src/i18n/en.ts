@@ -106,6 +106,18 @@ export const en = {
     dropTitle: "Drop songs here",
     dropHelp: "Audio files or whole folders",
     searchPlaceholder: "Search title or artist",
+    sort: {
+      label: "Sort by",
+      direction: "Direction",
+      keys: { name: "Name", score: "Your score", plays: "Plays", added: "Date added", played: "Recently played" },
+      // [default, reversed] wording of each key's direction
+      dirs: { name: ["A to Z", "Z to A"], score: ["Best first", "Lowest first"], plays: ["Most first", "Fewest first"], added: ["Newest first", "Oldest first"], played: ["Latest first", "Earliest first"] },
+      score: (n: number) => `best ${n.toLocaleString("en")}`,
+      plays: (n: number) => `${n} ${n === 1 ? "play" : "plays"}`,
+      added: (d: string) => `added ${new Date(d).toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })}`,
+      played: (d: string) => `played ${new Date(d).toLocaleDateString("en", { day: "numeric", month: "short", year: "numeric" })}`,
+      never: "never played",
+    },
     filters: { all: "All", ready: "Lyrics ready", missing: "Needs lyrics", duplicates: "Duplicates" },
     duplicateReason: { file_name: "Same file name", metadata: "Same title and artist" },
     duplicateHint: "Probably the same song as another one in the library. Remove the one you do not need.",

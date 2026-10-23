@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.db.models import LyricsStatus, SongSource
@@ -20,6 +22,10 @@ class SongOut(BaseModel):
     has_cover: bool | None  # None = not checked yet; the cover endpoint answers 404 if there is none
     cover_source: str | None = None  # embedded | online | custom | choose (candidates to pick from) | none
     lyrics_status: LyricsStatus
+    created_at: datetime
+    best_score: int | None = None  # the signed-in user's own finished games (list endpoint only)
+    plays: int = 0
+    last_played_at: datetime | None = None
     lyrics_stalled: bool = False  # still pending past the configured timeout (set by the list endpoint)
 
 
