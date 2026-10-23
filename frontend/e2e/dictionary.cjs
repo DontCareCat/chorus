@@ -4,6 +4,7 @@
 //   CHORUS_URL=http://localhost:18201/ node frontend/e2e/dictionary.cjs
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
+const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 const wav = (secs) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * 37) % 3000, 44 + i * 2); return d; };
 const LINES = ["Ich gehe jeden Morgen zur Arbeit", "Du hast mich gefragt und ich hab nichts gesagt", "Wir fahren mit dem Zug zum Bahnhof", "Die Sonne scheint über der Stadt", "Ich liebe meine kleine Wohnung sehr", "Der Mond steht hoch am Himmel heute", "Wir tanzen durch die ganze Nacht", "Das Leben ist schön und wir singen"];
@@ -40,7 +41,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
     await page.waitForTimeout(1000);
   }
   ok(all.total >= game.questions.length - 2, `every asked word is in the dictionary: ${all.total} words for ${game.questions.length} questions`);
-  ok(all.items.every((e) => e.enrich_status === "done" && /^en\(/.test(e.translation)), "all translated into English by default");
+  ok(all.items.every((e) => e.enrich_status === "done" && /^(en\(|thing$)/.test(e.translation)), "all translated into English by default (Wiktionary's meaning for words it knows)");
   const nouns = all.items.filter((e) => e.article);
   ok(nouns.length > 0 && nouns.every((e) => ["der", "die", "das"].includes(e.article)), "nouns have articles: " + nouns.map((e) => `${e.article} ${e.surface}`).join(", "));
 
@@ -134,18 +135,28 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   }
   ok(seen.size === 7, "7 different cards in a row, each once per session, including words reviewed earlier today having been rated Good");
 
+  console.log("[counters follow the filters]");
+  await page.goto(B + "#/dictionary"); await page.waitForSelector(".word");
+  const chip = (t) => page.locator(".toolbar .chips .chip", { hasText: t });
+  const allBefore = Number(/\d+/.exec(await chip("All").textContent())[0]);
+  ok(allBefore === (await api("GET", "dictionary")).total, "the All chip counts every word: " + allBefore);
+  await page.fill('input[type="search"]', "zzzzqq"); await page.waitForSelector("text=No words match.");
+  ok(Number(/\d+/.exec(await chip("All").textContent())[0]) === 0 && Number(/\d+/.exec(await chip("New").textContent())[0]) === 0, "a search with no match makes every status counter 0");
+  await page.fill('input[type="search"]', "");
+  await page.waitForSelector(".word");
+
   console.log("[daily limit]");
   await page.goto(B + "#/settings"); await page.waitForSelector("text=Review cards per day");
-  const lim = page.locator("label.field:has-text('Review cards per day') select");
-  ok((await lim.inputValue()) === "0" && (await lim.locator("option").first().textContent()) === "Unlimited", "unlimited is the default and the first option");
-  await lim.selectOption("10"); await page.waitForSelector("text=Daily card limit saved.");
+  const lim = page.locator("label.field:has-text('Review cards per day') .select-btn");
+  ok((await lim.textContent()) === "Unlimited", "unlimited is the default");
+  await pick(page, "label.field:has-text('Review cards per day') .select-btn", /^10$/); await page.waitForSelector("text=Daily card limit saved.");
   ok((await api("GET", "auth/me")).user.daily_card_limit === 10, "the limit is saved");
   const doneToday = (await api("GET", "dictionary/review/summary")).reviewed_today;
   await api("PATCH", "auth/me", { daily_card_limit: doneToday });
   await page.goto(B + "#/dictionary/review"); await page.waitForSelector(".review-done");
   ok(/reviewed your \d+ cards for today/.test(await page.textContent(".review-done")), "at the limit the review says so: " + await page.textContent(".review-done"));
   await lim.count(); await page.goto(B + "#/settings"); await page.waitForSelector("text=Review cards per day");
-  await lim.selectOption("0"); await page.waitForSelector("text=Daily card limit saved.");
+  await pick(page, "label.field:has-text('Review cards per day') .select-btn", "Unlimited"); await page.waitForSelector("text=Daily card limit saved.");
   ok((await api("GET", "auth/me")).user.daily_card_limit === 0, "and back to unlimited");
 
   console.log("[pause, remove, language]");
@@ -159,13 +170,13 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await page.waitForFunction((n) => document.querySelectorAll(".word").length === n, before - 1);
   ok((await api("GET", "dictionary")).total === before - 1, "and removed");
   await page.goto(B + "#/settings"); await page.waitForSelector("text=Translate words into");
-  const sel = page.locator("label.field:has-text('Translate words into') select");
-  await sel.selectOption("uk");
+  const sel = "label.field:has-text('Translate words into') .select-btn";
+  await pick(page, sel, "Ukrainian (uk)");
   await page.waitForSelector("text=Translation language saved.");
   let uk;
   for (let i = 0; i < 60; i++) { uk = await api("GET", "dictionary"); if (uk.items.every((e) => e.enrich_status === "done")) break; await page.waitForTimeout(1000); }
   ok(uk.items.every((e) => /^uk\(/.test(e.translation)), "changing the language translates every word again: " + uk.items[0].translation);
-  await sel.selectOption("en"); await page.waitForTimeout(500);
+  await pick(page, sel, "English (en)"); await page.waitForTimeout(500);
 
   console.log("[phone]");
   await page.setViewportSize({ width: 390, height: 844 });

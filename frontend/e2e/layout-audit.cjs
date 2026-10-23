@@ -51,11 +51,11 @@ const audit = () => {
     const parent = el.parentElement.getBoundingClientRect();
     if (el.closest(".menu-panel") && Math.abs((r.left + r.right) / 2 - (parent.left + parent.right) / 2) > 2) stretched.push("theme switch is not centred in the menu");
   }
-  // dropdowns: our own arrow, the same distance from the right edge as the text is from the left (never the browser's)
-  for (const el of document.querySelectorAll("select")) {
+  // dropdowns: never the browser's select; our button keeps room for its arrow (same distance from the right edge as the text from the left)
+  if (document.querySelector("select")) stretched.push("a native select is on the page (use components/Select.tsx)");
+  for (const el of document.querySelectorAll(".select-btn")) {
     const cs = getComputedStyle(el); if (!el.getBoundingClientRect().width) continue;
-    if (cs.appearance !== "none" || cs.backgroundImage === "none") stretched.push("select uses the browser's arrow");
-    else if (parseFloat(cs.paddingRight) < parseFloat(cs.paddingLeft) + 20) stretched.push("select arrow has no room beside its text");
+    if (parseFloat(cs.paddingRight) < parseFloat(cs.paddingLeft) + 20 || cs.backgroundImage === "none") stretched.push("dropdown arrow has no room beside its text");
   }
   return { out, stretched };
 };
@@ -92,6 +92,11 @@ const audit = () => {
       const r = await page.evaluate(audit);
       ok(r.out.length === 0 && r.stretched.length === 0, `${name}: ${r.out.length + r.stretched.length ? [...r.out, ...r.stretched].join(" | ") : "no box has content touching its edge"}`);
     }
+    // an open dropdown: items are at least 44 px tall with 12+ px inner padding and the list stays on screen
+    await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn"); await page.click(".select-btn >> nth=0"); await page.waitForSelector(".select-list");
+    const dd = await page.evaluate(() => { const li = document.querySelector(".select-list li"); const cs = getComputedStyle(li); const l = document.querySelector(".select-list").getBoundingClientRect(); return { h: li.getBoundingClientRect().height, pad: parseFloat(cs.paddingLeft), inside: l.left >= 0 && l.right <= innerWidth + 1 }; });
+    ok(dd.h >= 44 && dd.pad >= 12 && dd.inside, `open dropdown: items ${dd.h}px tall, ${dd.pad}px inner padding, inside the screen: ${dd.inside}`);
+    await page.keyboard.press("Escape");
     if (label === "phone") { // the menu panel with the theme switch
       await page.goto(B); await page.waitForSelector(".song"); await page.click(".menu-btn"); await page.waitForSelector(".menu-panel .theme-switch");
       const r = await page.evaluate(audit);

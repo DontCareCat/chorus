@@ -1,3 +1,5 @@
+import { Select } from "./Select";
+
 export const LANGUAGES: readonly { code: string; name: string }[] = [
   { code: "ar", name: "Arabic" }, { code: "bg", name: "Bulgarian" }, { code: "ca", name: "Catalan" }, { code: "cs", name: "Czech" },
   { code: "da", name: "Danish" }, { code: "nl", name: "Dutch" }, { code: "en", name: "English" }, { code: "fi", name: "Finnish" },
@@ -20,11 +22,6 @@ interface Props {
 
 /** Language names for people, two-letter codes for the database. A code that is not in the list stays selectable. */
 export function LanguageSelect({ value, onChange, id }: Props) {
-  const known = LANGUAGES.some((l) => l.code === value);
-  return (
-    <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-      {!known && value && <option value={value}>{value}</option>}
-      {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.name} ({l.code})</option>)}
-    </select>
-  );
+  const options = [...(LANGUAGES.some((l) => l.code === value) || !value ? [] : [{ value, label: value }]), ...LANGUAGES.map((l) => ({ value: l.code, label: `${l.name} (${l.code})` }))];
+  return <Select id={id} value={value} onChange={onChange} options={options} />;
 }

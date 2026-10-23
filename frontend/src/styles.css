@@ -120,9 +120,12 @@ main { padding-bottom: 48px; }
 .topbar nav { display: flex; gap: 8px; font-weight: 600; }
 .topbar nav a { color: var(--text-2); text-decoration: none; padding: 4px 12px; border-radius: 8px; }
 .topbar nav a[aria-current="page"] { color: var(--on-fill); background: var(--fill); }
-.theme-switch { display: flex; padding: 3px; gap: 2px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); }
-.theme-switch button { height: 30px; padding: 0 12px; border-radius: var(--r-pill); border: none; background: transparent; color: var(--text-2); font-size: 14px; font-weight: 600; }
-.theme-switch button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+.theme-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: var(--r-pill); border: 1px solid var(--line-strong); isolation: isolate; }
+.theme-switch::before { content: ""; position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 2); border-radius: var(--r-pill); background: var(--text); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.theme-switch:has(button:last-child[aria-pressed="true"])::before { transform: translateX(100%); }
+.theme-switch button { height: 30px; padding: 0 14px; border-radius: var(--r-pill); border: none; background: transparent; color: var(--text-2); font-size: 14px; font-weight: 600; transition: color 0.25s; }
+.theme-switch button[aria-pressed="true"] { color: var(--bg); }
+@media (prefers-reduced-motion: reduce) { .theme-switch::before, .theme-switch button { transition: none; } }
 .account { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--text-2); }
 .account strong { color: var(--text); font-weight: 600; }
 
@@ -592,7 +595,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 .dialog-head h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
 .path-bar { flex: none; display: flex; gap: 8px; padding: 4px 20px 0; align-items: center; }
 .path-bar input { flex: 1; min-width: 0; font-size: 15px; }
-.path-bar select { width: 8.5rem; flex: none; }
+.path-bar .select-btn { width: 8.5rem; flex: none; }
 .crumbs { flex: none; display: flex; gap: 2px; padding: 8px 20px 4px; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
 .crumbs button { border: none; background: transparent; color: var(--text-2); font-size: 14px; padding: 2px 6px; border-radius: 6px; }
 .crumbs button + button::before { content: "›"; margin-right: 8px; color: var(--text-4); }
@@ -620,7 +623,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .fs-actions > span { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-layout="phone"] .dialog-scrim { padding: 0; }
 [data-layout="phone"] .dialog { width: 100%; max-height: none; height: 100%; border-radius: 0; border: none; box-shadow: none; }
-[data-layout="phone"] .path-bar select { width: 6rem; }
+[data-layout="phone"] .path-bar .select-btn { width: 6rem; }
 [data-layout="phone"] .dialog-head, [data-layout="phone"] .path-bar, [data-layout="phone"] .crumbs, [data-layout="phone"] .dialog-foot { padding-left: 14px; padding-right: 14px; }
 [data-layout="phone"] .fs-actions { flex-wrap: wrap; }
 [data-layout="phone"] .fs-actions .btn { flex: 1; }
@@ -795,3 +798,33 @@ html.dialog-open { overflow: hidden; }
 /* top menu bar on PCs and tablets: wordmark, links beside it, account and theme at the right edge */
 .topbar > nav { margin-right: auto; }
 [data-layout="phone"] .topbar > nav { margin: 0; }
+
+/* top menu links on PCs and tablets: a line under the text fades in on hover and focus */
+.topbar > nav a { position: relative; }
+.topbar > nav a::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 1px; height: 2px; border-radius: 1px; background: currentColor; opacity: 0; transition: opacity 0.2s ease; }
+.topbar > nav a:hover, .topbar > nav a:focus-visible { color: var(--text); }
+.topbar > nav a[aria-current="page"]:hover { color: var(--on-fill); }
+.topbar > nav a:hover::after, .topbar > nav a:focus-visible::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .topbar > nav a::after { transition: none; } }
+
+/* a ticked checkbox keeps full contrast (these rules must out-rank the "others are dimmed" rule above) */
+.songs .song-main > .pick:is(:hover, :checked, :focus-visible) { opacity: 1; }
+.btn.quiet.bordered.danger { color: var(--wrong); }
+
+/* dropdown (components/Select.tsx, design guide section 15) */
+.select-btn { width: 100%; min-width: 0; height: 44px; padding: 0 40px 0 14px; border-radius: var(--r-input); border: 1px solid var(--line-strong); color: var(--text); font-size: 16px; text-align: left; display: flex; align-items: center; outline: none;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%238a8a8a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 12px 8px; }
+.select-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-btn[data-placeholder="true"] { color: var(--text-3); }
+.select-btn:focus-visible, .select-btn[aria-expanded="true"] { border-color: var(--accent); }
+.select-btn:disabled { color: var(--disabled-fg); background-color: var(--disabled-bg); }
+.select-list { position: fixed; z-index: 70; margin: 0; padding: 6px; overflow-y: auto; overscroll-behavior: contain; border-radius: 14px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 0 14px 40px color-mix(in oklch, var(--text) 22%, transparent); }
+.select-list li { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 10px; cursor: pointer; font-size: 16px; }
+.select-list li > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select-list li[data-active="true"] { background: var(--surface-2); }
+.select-list li[aria-selected="true"] { font-weight: 700; }
+.select-list li .icon { flex: none; font-size: 20px; }
+.select-sheet { padding-top: 8px; }
+.select-sheet .grab { display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--line-strong); margin: 4px auto 8px; }
+.select-sheet .select-list { position: static; max-height: 62dvh; border: none; box-shadow: none; padding: 0 0 8px; background: transparent; }
+.select-sheet .select-list li { min-height: 52px; padding: 0 20px; border-radius: 0; font-size: 17px; }

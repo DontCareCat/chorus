@@ -71,7 +71,7 @@ export function DictionaryPage() {
 
   const total = summary.data?.total ?? data?.total ?? 0;
   const available = (scoped.data?.due ?? 0) + (scoped.data?.new ?? 0);
-  const everything = (data?.languages ?? []).reduce((n, l) => n + l.count, 0);
+  const everything = Math.max(summary.data?.total ?? 0, (data?.languages ?? []).reduce((n, l) => n + l.count, 0)); // the whole dictionary, not what the filters leave
 
   return (
     <>
@@ -94,8 +94,7 @@ export function DictionaryPage() {
               {STATUSES.map((s) => (
                 <button key={s} type="button" className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>
                   {en.dictionary.filters[s]}
-                  {s === "due" && summary.data ? <small>{summary.data.due}</small> : null}
-                  {s === "new" && summary.data ? <small>{summary.data.new}</small> : null}
+                  {data ? <small>{data.status_counts[s] ?? 0}</small> : null}
                 </button>
               ))}
             </div>

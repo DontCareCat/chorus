@@ -3,6 +3,7 @@
 // Song 2 must start without lyrics on a fresh database; the script itself is repeatable.
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:5173/";
+const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 (async () => {
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
@@ -14,17 +15,17 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.waitForSelector("text=Save settings");
   await page.check("text=Allow unsynchronized lyrics");
   await page.check("text=Keep forever");
-  await page.selectOption("select", "fr");
+  await pick(page, "label.field:has-text('Language for new songs') .select-btn", "French (fr)");
   for (const dir of ["/tmp/music-a", "/tmp/music-b"]) { await page.fill('input[aria-label="Add folder"]', dir); await page.click('button:has-text("Add folder")'); }
   await page.click('button:has-text("Save settings")');
   await page.waitForSelector("text=Saved");
   await page.reload(); await page.waitForSelector("text=Save settings");
   ok(await page.isChecked("text=Allow unsynchronized lyrics"), "unsynchronized toggle persisted");
   ok(await page.isChecked("text=Keep forever"), "cache TTL 'keep forever' persisted (0)");
-  ok((await page.$$(".folder-list li")).length === 2 && (await page.inputValue("select")) === "fr", "library folders and language persisted");
+  ok((await page.$$(".folder-list li")).length === 2 && (await page.textContent("label.field:has-text('Language for new songs') .select-btn")).includes("(fr)"), "library folders and language persisted");
   // restore defaults
   await page.uncheck("text=Allow unsynchronized lyrics"); await page.uncheck("text=Keep forever");
-  await page.selectOption("select", "de");
+  await pick(page, "label.field:has-text('Language for new songs') .select-btn", "German (de)");
   for (const b of await page.$$('.folder-list button')) await b.click();
   await page.click('button:has-text("Save settings")'); await page.waitForSelector("text=Saved");
 

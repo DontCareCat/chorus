@@ -194,6 +194,18 @@ def language_counts(session: Session, user: User) -> list[tuple[str, int]]:
     return sorted(((code, n) for code, n in rows), key=lambda r: (-r[1], r[0]))
 
 
+def facets(session: Session, user: User, status: str, language: str | None, text: str | None, now: datetime | None = None) -> dict:
+    """Counters that agree with the filters: each status chip counts the words the chosen language and search leave, and each
+    language chip counts the words the chosen status and search leave (every language of the user keeps its chip, with 0)."""
+    now = now or utcnow()
+    by_status = {s: filtered(session, user, s, language, text, now=now).count() for s in ("all", "due", "new", "suspended")}
+    counts = dict(
+        filtered(session, user, status, None, text, now=now).with_entities(DictionaryEntry.language, func.count()).group_by(DictionaryEntry.language).all()
+    )
+    languages = [(code, counts.get(code, 0)) for code, _ in language_counts(session, user)]
+    return {"status": by_status, "languages": languages}
+
+
 def reviewed_today(session: Session, user: User, now: datetime) -> int:
     """Cards reviewed since midnight UTC (a card reviewed twice today counts once)."""
     start = now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)

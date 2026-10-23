@@ -1,3 +1,4 @@
+import { Select } from "./Select";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAsync } from "../hooks/useAsync";
@@ -109,10 +110,7 @@ export function FolderBrowser({ mode, start = "", recursiveDefault = true, copyD
         <form autoComplete="off" className="path-bar" onSubmit={submitPath}>
           <button type="button" className="btn secondary small" onClick={() => data?.parent && go(data.parent)} disabled={!data?.parent} aria-label={en.browser.up} title={en.browser.up}>↑</button>
           <input type="text" value={typed} onChange={(e) => { setTyped(e.target.value); setEdited(true); }} aria-label={en.browser.path} {...noAutofill("folder-path")} />
-          <select aria-label={en.browser.places} value="" onChange={(e) => e.target.value && go(e.target.value)}>
-            <option value="">{en.browser.places}</option>
-            {(data?.roots ?? []).map((r) => <option key={r.path} value={r.path}>{r.name}</option>)}
-          </select>
+          <Select ariaLabel={en.browser.places} value="" placeholder={en.browser.places} sheetOnPhone={false} onChange={(v: string) => go(v)} options={(data?.roots ?? []).map((r) => ({ value: r.path, label: r.name }))} />
         </form>
         <nav className="crumbs" aria-label={en.browser.way}>
           {crumbs(here).map((c, i, all) => (

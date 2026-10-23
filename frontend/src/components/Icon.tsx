@@ -7,6 +7,7 @@ import volumeDown from "@material-symbols/svg-400/outlined/volume_down.svg?raw";
 import volumeMute from "@material-symbols/svg-400/outlined/volume_mute.svg?raw";
 import volumeOff from "@material-symbols/svg-400/outlined/volume_off.svg?raw";
 import volumeUp from "@material-symbols/svg-400/outlined/volume_up.svg?raw";
+import check from "@material-symbols/svg-400/outlined/check.svg?raw";
 import close from "@material-symbols/svg-400/outlined/close.svg?raw";
 import deleteIcon from "@material-symbols/svg-400/outlined/delete.svg?raw";
 import edit from "@material-symbols/svg-400/outlined/edit.svg?raw";
@@ -29,6 +30,7 @@ const PATHS = {
   volumeDown: pathOf(volumeDown),
   volumeMute: pathOf(volumeMute),
   volumeOff: pathOf(volumeOff),
+  check: pathOf(check),
   close: pathOf(close),
   trash: pathOf(deleteIcon),
   edit: pathOf(edit),

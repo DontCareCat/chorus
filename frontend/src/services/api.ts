@@ -233,6 +233,7 @@ export interface DictListDto {
   total: number;
   items: DictEntryDto[];
   languages: { code: string; count: number }[];
+  status_counts: Record<string, number>;
 }
 
 /** A card's review schedule; "Back" sends the one from before the rating. */

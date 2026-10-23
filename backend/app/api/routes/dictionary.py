@@ -63,9 +63,10 @@ def list_entries(
     query = service.filtered(session, user, status, language, q)
     total = query.count()
     rows = query.order_by(DictionaryEntry.added_at.desc(), DictionaryEntry.id.desc()).offset(offset).limit(limit).all()
+    f = service.facets(session, user, status, language, q)
     return EntryList(
         total=total, items=[entry_out(session, e) for e in rows],
-        languages=[LanguageCount(code=c, count=n) for c, n in service.language_counts(session, user)],
+        languages=[LanguageCount(code=c, count=n) for c, n in f["languages"]], status_counts=f["status"],
     )
 
 

@@ -6,9 +6,9 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   page.on("dialog", (d) => d.accept());
-  await page.goto(B + "#/settings"); await page.waitForSelector("select");
-  const sel = await page.evaluate(() => { const s = document.querySelector("select"); const r = s.getBoundingClientRect(); const cs = getComputedStyle(s); return { appearance: cs.appearance, pr: cs.paddingRight, pl: cs.paddingLeft, pos: cs.backgroundPosition, w: r.width }; });
-  console.log(sel); ok(sel.appearance === "none" && parseFloat(sel.pr) > 30, "select has its own arrow with room");
+  await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn");
+  const sel = await page.evaluate(() => { const s = document.querySelector(".select-btn"); const r = s.getBoundingClientRect(); const cs = getComputedStyle(s); return { native: document.querySelectorAll("select").length, pr: cs.paddingRight, pl: cs.paddingLeft, w: r.width }; });
+  console.log(sel); ok(sel.native === 0 && parseFloat(sel.pr) > 30 && parseFloat(sel.pl) >= 12, "dropdowns are ours (no native select) with room for the arrow");
   await page.screenshot({ path: "/tmp/settings-select.png" });
   await page.goto(B); await page.waitForSelector(".song");
   const before = await page.locator(".song").count();

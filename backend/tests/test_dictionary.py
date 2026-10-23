@@ -564,3 +564,26 @@ def test_junk_from_the_translation_service_is_not_kept(api, song, session, dicti
     ask(api, g, q, "typing")
     e = next(e for e in entries(api)["items"] if e["surface"] == word)
     assert e["translation"] is None and e["enrich_status"] == "done"
+
+
+def test_counters_follow_the_other_filters(api, song, session):
+    g = start(api, song)
+    for q in g["questions"][:4]:
+        ask(api, g, q)
+    base = entries(api)
+    total = base["total"]
+    assert base["status_counts"] == {"all": total, "due": 0, "new": total, "suspended": 0}
+    first = base["items"][0]
+    api.patch(f"/api/dictionary/{first['id']}", json={"suspended": True})
+    c = entries(api)["status_counts"]
+    assert c["all"] == total and c["suspended"] == 1 and c["new"] == total - 1
+    # a search narrows every counter; the language chips follow the status
+    one = entries(api, q=first["surface"])
+    assert one["status_counts"]["all"] == one["total"] >= 1
+    assert one["languages"] == [{"code": "de", "count": one["total"]}]
+    # a status with no words keeps the language chip, counted 0
+    due = entries(api, status="due")
+    assert due["languages"] == [{"code": "de", "count": 0}] and due["total"] == 0
+    # another language chosen: status counters are 0, the language chips still list de
+    fr = entries(api, language="fr")
+    assert fr["status_counts"]["all"] == 0 and [x["code"] for x in fr["languages"]] == ["de"]

@@ -56,7 +56,8 @@ class LanguageCount(BaseModel):
 class EntryList(BaseModel):
     total: int
     items: list[EntryOut]
-    languages: list[LanguageCount]
+    languages: list[LanguageCount]  # every language of the user, counted by the chosen status + search
+    status_counts: dict[str, int]  # all / due / new / suspended, counted by the chosen language + search
 
 
 class EntryPatch(BaseModel):

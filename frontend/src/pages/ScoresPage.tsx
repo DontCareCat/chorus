@@ -1,3 +1,4 @@
+import { Select } from "../components/Select";
 import { isId, isOneOf, usePref } from "../lib/prefs";
 import { useAsync } from "../hooks/useAsync";
 import { en } from "../i18n/en";
@@ -35,9 +36,7 @@ export function ScoresPage() {
         <>
           <label className="field" style={{ marginTop: 14 }}>
             <span>{en.scores.chooseSong}</span>
-            <select value={chosen ?? ""} onChange={(e) => setSongId(Number(e.target.value))}>
-              {(songs.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.title} · {s.artist}</option>)}
-            </select>
+            <Select value={chosen ?? ""} onChange={(v: number) => setSongId(v)} options={(songs.data ?? []).map((s) => ({ value: s.id, label: `${s.title} · ${s.artist}` }))} />
           </label>
           {chosen !== null && <SongBoard songId={chosen} mode={mode} key={`${chosen}-${mode}`} />}
         </>

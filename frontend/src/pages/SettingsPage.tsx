@@ -1,3 +1,4 @@
+import { Select } from "../components/Select";
 import { useEffect, useState } from "react";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LanguageSelect } from "../components/LanguageSelect";
@@ -90,7 +91,7 @@ export function SettingsPage() {
               <span>{en.settings.cacheForever}</span>
             </label>
           </div>
-          <button type="button" className="btn quiet danger" onClick={() => void clear()} style={{ padding: 0 }}>{en.settings.clearCache}</button>
+          <button type="button" className="btn quiet bordered danger" onClick={() => void clear()}>{en.settings.clearCache}</button>
         </section>
 
         <section className="panel">
@@ -102,11 +103,11 @@ export function SettingsPage() {
           </label>
           <label className="field">
             <span>{en.settings.dailyLimit}</span>
-            <select value={user?.daily_card_limit ?? 0} onChange={(e) => { void api.updateAccount({ daily_card_limit: Number(e.target.value) }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.dailyLimitSaved }), (err) => setNotice({ kind: "error", text: msg(err) })); }}>
-              {[0, 10, 20, 40, 60, 100, 200, 500].concat(user && ![0, 10, 20, 40, 60, 100, 200, 500].includes(user.daily_card_limit) ? [user.daily_card_limit] : []).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : a - b)).map((n) => (
-                <option key={n} value={n}>{n === 0 ? en.settings.unlimited : n}</option>
-              ))}
-            </select>
+            <Select
+              value={user?.daily_card_limit ?? 0}
+              onChange={(n: number) => { void api.updateAccount({ daily_card_limit: n }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.dailyLimitSaved }), (err) => setNotice({ kind: "error", text: msg(err) })); }}
+              options={[0, 10, 20, 40, 60, 100, 200, 500].concat(user && ![0, 10, 20, 40, 60, 100, 200, 500].includes(user.daily_card_limit) ? [user.daily_card_limit] : []).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : a - b)).map((n) => ({ value: n, label: n === 0 ? en.settings.unlimited : String(n) }))}
+            />
             <small>{en.settings.dailyLimitHelp}</small>
           </label>
           <label className="check">

@@ -3,6 +3,7 @@
 //   CHORUS_URL=http://localhost:18201/ node frontend/e2e/language.cjs
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
+const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 const wav = (seed) => { const n = 8000 * 2, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * seed + seed * 7) % 3000, 44 + i * 2); return d; };
 const lrc = (lines) => lines.map((t, i) => `[00:${String(i * 3).padStart(2, "0")}.00] ${t}`).join("\n");
@@ -65,7 +66,7 @@ const TEXT = {
   console.log("[song page: detect on request, choices are respected]");
   await page.goto(B + `#/songs/${f1.id}`); await page.waitForSelector(".panel");
   ok(/Detected from the lyrics/.test(await page.textContent(".panel:has(h2:has-text('Song details'))")), "the song page says where the language came from");
-  await page.selectOption('.panel:has(h2:has-text("Song details")) select', "es");
+  await pick(page, '.panel:has(h2:has-text("Song details")) .select-btn', "Spanish (es)");
   await page.click('button:has-text("Save details")'); await page.waitForSelector("text=Saved");
   await page.reload(); await page.waitForSelector(".panel");
   ok(/Chosen by you/.test(await page.textContent(".panel:has(h2:has-text('Song details'))")), "after saving a language it says 'Chosen by you'");
