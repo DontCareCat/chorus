@@ -12,6 +12,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import type { useSelection } from "../hooks/useSelection";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { useReorder } from "../hooks/useReorder";
+import { PlayButton } from "./PlayButton";
 import { useSwipe } from "../hooks/useSwipe";
 import { useThumb } from "../hooks/useThumb";
 import type { DuplicateReason } from "../lib/duplicates";
@@ -183,7 +184,7 @@ function SongRow({ song: s, sortKey, onQueue, selectable, orderable, reorderRow,
           </div>
         </div>
         <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={onFix} /></div>
-        {!phone && <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
+        {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
         <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && onMenu(dots.current)}><Icon name="more" /></button>
       </div>
       {open && <div className="expand"><StartPanel song={s} games={games} /></div>}

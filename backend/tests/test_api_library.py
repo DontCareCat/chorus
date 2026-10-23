@@ -96,3 +96,13 @@ def test_list_flags_songs_whose_lyrics_search_ran_too_long(api, tmp_path):
     assert d["lyrics_timeout_minutes"] == 10
     d["lyrics_timeout_minutes"] = 0
     assert api.put("/api/settings", json=d).status_code == 422
+
+
+def test_queue_playback_settings_have_defaults_and_limits(api):
+    d = api.get("/api/settings").json()
+    assert d["queue_autoplay"] is True and d["queue_fade"] is False and d["queue_fade_seconds"] == 4
+    d.update(queue_autoplay=False, queue_fade=True, queue_fade_seconds=6)
+    saved = api.put("/api/settings", json=d).json()
+    assert (saved["queue_autoplay"], saved["queue_fade"], saved["queue_fade_seconds"]) == (False, True, 6)
+    d["queue_fade_seconds"] = 0
+    assert api.put("/api/settings", json=d).status_code == 422

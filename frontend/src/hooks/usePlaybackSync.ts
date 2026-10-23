@@ -29,6 +29,8 @@ export interface PlaybackSync {
   rewind: (seconds: number) => void;
   /** Mark a question answered NOW (optimistic) and tell the controller. Never waits for the network. */
   markAnswered: (questionId: number) => void;
+  /** The page is leaving while the song fades out on its own: stop controlling the audio. */
+  release: () => void;
 }
 
 /**
@@ -84,5 +86,7 @@ export function usePlaybackSync(opts: UsePlaybackSyncOptions): PlaybackSync {
     [controller],
   );
 
-  return { state, controller, play, pause, seek, stop, rewind, markAnswered };
+  const release = useCallback(() => controller?.release(), [controller]);
+
+  return { state, controller, play, pause, seek, stop, rewind, markAnswered, release };
 }

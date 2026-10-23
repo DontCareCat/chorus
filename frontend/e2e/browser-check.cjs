@@ -236,25 +236,22 @@ async function answerAllOpen(page, limit = null) {
   await answerAllOpen(page, 3); // so the open question is a later one and there is something behind it to click back to
   await startAudio(page);
   await page.waitForTimeout(1200);
-  const info = () => page.evaluate(() => { const a = document.querySelector("audio"); const ph = document.querySelector(".runway-playhead"); const g = window.__chorus; return { st: g.controller.state.name, t: a.currentTime, paused: a.paused, gain: g.engine.getVolume(), ph: parseFloat(ph.style.left), dur: a.duration }; });
+  const info = () => page.evaluate(() => { const a = document.querySelector("audio"); const sk = document.querySelector("input.seek"); const g = window.__chorus; return { st: g.controller.state.name, t: a.currentTime, paused: a.paused, gain: g.engine.getVolume(), ph: parseFloat(sk.style.getPropertyValue("--p")), dur: a.duration }; });
   const dto10 = await gameDto(page);
   const open10 = dto10.questions.find((q) => !q.answer);
   const deadline10 = open10.audio_end + 3;
   const m10 = await mark(page);
-  const rb = await page.locator(".runway").boundingBox();
   const sb = await page.locator("input.seek").boundingBox();
   let worst = 0;
   for (const frac of [0.5, 0.7, 0.9, 0.97, 0.5, 0.99, 0.8]) {
-    await page.mouse.click(rb.x + rb.width * frac, rb.y + rb.height * 0.55);
-    await page.waitForTimeout(90);
-    await page.mouse.click(sb.x + sb.width * frac, sb.y + sb.height / 2);
+    await page.mouse.click(sb.x + 8 + (sb.width - 16) * frac, sb.y + sb.height / 2);
     await page.waitForTimeout(90);
     worst = Math.max(worst, (await info()).t);
   }
   await page.waitForTimeout(600);
   l = await slice(page, m10);
   const i10 = await info();
-  console.log(`  after 14 clicks: state ${i10.st}, audio ${i10.t.toFixed(2)} s (the open question's deadline is ${deadline10} s), highest position seen ${worst.toFixed(2)} s`);
+  console.log(`  after 7 clicks: state ${i10.st}, audio ${i10.t.toFixed(2)} s (the open question's deadline is ${deadline10} s), highest position seen ${worst.toFixed(2)} s`);
   assert(!l.some((x) => x.state === "FADING_OUT" || x.state === "SEEKING" || x.state === "ERROR"), "no fade-out, rewind or error was triggered by the clicks");
   assert(worst <= deadline10 + 0.4, "the audio never ran past the open question's deadline");
   assert(Math.abs(i10.ph - (i10.t / i10.dur) * 100) < 1.5, `the playhead matches the audio position (${i10.ph.toFixed(1)}% vs ${(i10.t / i10.dur * 100).toFixed(1)}%)`);

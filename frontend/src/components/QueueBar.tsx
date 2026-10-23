@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "./Cover";
 import { Icon } from "./Icon";
 import { Marquee } from "./Marquee";
+import { PlayButton } from "./PlayButton";
 import { QueueDialog } from "./QueueDialog";
 import { useAsync } from "../hooks/useAsync";
 import { useExitTransition } from "../hooks/useExitTransition";
@@ -69,10 +70,10 @@ export function QueueBar({ phone }: { phone: boolean }) {
         <div className="queue-bar-actions">
           {!phone && <button type="button" className="ib" aria-label={en.queue.openList} title={en.queue.openList} onClick={() => setListOpen(true)}><Icon name="queue" /></button>}
           {done ? (
-            <button type="button" className="ib primary" aria-label={en.queue.again} title={en.queue.again} onClick={() => store.start(q.items.map((i) => i.songId), { difficulty: q.items[0]!.difficulty, mode: q.items[0]!.mode }, true)}><Icon name="shuffle" /></button>
+            <PlayButton icon="shuffle" aria-label={en.queue.again} title={en.queue.again} onClick={() => store.start(q.items.map((i) => i.songId), { difficulty: q.items[0]!.difficulty, mode: q.items[0]!.mode }, true)} />
           ) : (
             <>
-              <button type="button" className="ib primary" aria-label={en.queue.playNext} title={en.queue.playNext} onClick={() => void play()} disabled={busy}><Icon name="play" /></button>
+              <PlayButton aria-label={en.queue.playNext} title={en.queue.playNext} onClick={() => void play()} disabled={busy} />
               {!phone && <button type="button" className="ib" aria-label={en.queue.skip} title={en.queue.skip} onClick={store.advance}><Icon name="skipNext" /></button>}
             </>
           )}

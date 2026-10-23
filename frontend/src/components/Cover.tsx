@@ -7,7 +7,7 @@ interface Props {
   title: string;
   /** null = not checked yet (the request itself finds out); false = known to have none */
   hasCover: boolean | null;
-  size?: "small" | "large" | "xl" | "row";
+  size?: "small" | "large" | "xl" | "row" | "label";
   /** Changes when the cover was replaced, so the browser fetches the new image. */
   version?: string | number;
 }

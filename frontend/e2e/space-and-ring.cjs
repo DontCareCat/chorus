@@ -39,15 +39,11 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.focus('.transport button[aria-label="Pause"], .transport button[aria-label="Play"]');
   await page.keyboard.press("Shift+Tab"); await page.keyboard.press("Tab"); // makes :focus-visible apply
   const geo = await page.evaluate(() => {
-    const b = document.querySelector('.transport .icon-btn.big');
+    const b = document.querySelector(".transport .pbtn");
     const r = b.getBoundingClientRect();
-    const svg = b.querySelector("svg").getBoundingClientRect();
-    // the glyph's disc is 5/6 of the svg box, centred in it
-    const discD = svg.width * (800 / 960);
-    const disc = { cx: svg.left + svg.width / 2, cy: svg.top + svg.height / 2, d: discD };
-    return { ring: { cx: r.left + r.width / 2, cy: r.top + r.height / 2, d: r.width }, disc, focusVisible: b.matches(":focus-visible") };
+    return { w: r.width, h: r.height, radius: getComputedStyle(b).borderRadius, focusVisible: b.matches(":focus-visible"), outline: getComputedStyle(b).outlineStyle };
   });
-  ok(Math.abs(geo.ring.cx - geo.disc.cx) < 1 && Math.abs(geo.ring.cy - geo.disc.cy) < 1 && Math.abs(geo.ring.d - geo.disc.d) < 1.5, `the focus ring is concentric with the disc (ring ${geo.ring.d.toFixed(1)} px at ${geo.ring.cx.toFixed(1)},${geo.ring.cy.toFixed(1)}; disc ${geo.disc.d.toFixed(1)} px at ${geo.disc.cx.toFixed(1)},${geo.disc.cy.toFixed(1)})`);
+  ok(Math.abs(geo.w - geo.h) < 0.5 && geo.radius === "50%" && geo.focusVisible && geo.outline !== "none", `the play button is a disc (${geo.w}x${geo.h}) with the keyboard focus ring on it (${geo.outline})`);
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL SPACE AND RING CHECKS PASSED");
 })();

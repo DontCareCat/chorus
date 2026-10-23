@@ -14,6 +14,9 @@ class RuntimeSettings(BaseModel):
     default_language: str = Field("de", min_length=2, max_length=16)
     library_dirs: list[str] = Field(default_factory=list)
     default_queue_difficulty: str = Field("progressive", pattern="^(progressive|easy|medium|hard|expert)$")  # difficulty of songs in the play queue
+    queue_autoplay: bool = True  # a finished game from the play queue starts the next song by itself
+    queue_fade: bool = False  # fade between songs: one fades out while the next fades in
+    queue_fade_seconds: int = Field(4, ge=1, le=12)  # how long that fade lasts
     lyrics_timeout_minutes: int = Field(10, ge=1, le=1440)  # a song still searching for lyrics after this long gets a warning
     auto_detect_language: bool = True  # set a new song's language from its lyrics
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)

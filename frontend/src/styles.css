@@ -219,6 +219,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) .cover { --cover-bg: oklch(0.36 0.07 var(--hue, 95)); --cover-fg: oklch(0.88 0.06 var(--hue, 95)); } }
 .cover[data-size="large"] { width: 64px; height: 64px; border-radius: 12px; font-size: 30px; }
 .cover[data-size="row"] { width: var(--cover-row); height: var(--cover-row); border-radius: 12px; font-size: calc(var(--cover-row) * 0.43); }
+.cover[data-size="label"] { width: 100%; height: 100%; border-radius: 50%; font-size: calc(var(--vinyl, 88px) * 0.14); }
 .cover[data-size="xl"] { width: 120px; height: 120px; border-radius: 14px; font-size: 52px; }
 .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -246,13 +247,15 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .song-meta { display: flex; align-items: center; gap: 10px; margin-top: 4px; color: var(--text-2); font-size: 15px; flex-wrap: wrap; min-width: 0; }
 .song-meta > span:first-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lang { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 0 6px; border-radius: 5px; border: 1px solid var(--line-strong); }
-.play-btn { flex: none; width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--fill); display: grid; place-items: center; margin-left: 4px; }
-.play-btn:hover { background: var(--fill-hover); }
-.play-btn::before { content: ""; width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; border-left: 11px solid var(--on-fill); margin-left: 3px; }
-.play-btn[aria-expanded="true"] { background: var(--text); }
-.play-btn[aria-expanded="true"]::before { border-left-color: var(--bg); }
-.play-btn:disabled { background: var(--disabled-bg); }
-.play-btn:disabled::before { border-left-color: var(--disabled-fg); }
+/* the one play button (guide section 23): a yellow disc, a dark play or pause glyph; `aria-expanded` = the row's play options are open */
+.pbtn { flex: none; width: 44px; height: 44px; padding: 0; border-radius: 50%; border: none; background: var(--fill); color: var(--on-fill); display: grid; place-items: center; font-size: 28px; transition: background-color var(--dur-fast), transform var(--dur-fast); }
+.pbtn[data-size="s"] { width: 36px; height: 36px; font-size: 22px; }
+.pbtn[data-size="l"] { width: 52px; height: 52px; font-size: 32px; }
+.pbtn:hover:not(:disabled) { background: var(--fill-hover); }
+.pbtn:active:not(:disabled) { transform: scale(0.94); }
+.pbtn[aria-expanded="true"] { background: var(--text); color: var(--bg); }
+.pbtn:disabled { background: var(--disabled-bg); color: var(--disabled-fg); }
+[data-layout="phone"] .pbtn[data-size="m"] { width: 48px; height: 48px; }
 .start-panel { padding: 8px 8px 28px 84px; display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-end; }
 .start-panel .label { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 10px; }
 .segmented { display: flex; padding: 4px; gap: 4px; border-radius: 14px; background: var(--surface-2); flex-wrap: wrap; }
@@ -310,17 +313,6 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 @keyframes gain-pop { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
 
 /* timeline */
-.runway { position: relative; height: 40px; margin: 18px 0 6px; cursor: default; }
-.runway[data-seekable="true"] { cursor: pointer; }
-.runway-track { position: absolute; left: 0; right: 0; top: 19px; height: 2px; background: var(--line-strong); border-radius: 1px; }
-.runway-done { position: absolute; left: 0; top: 19px; height: 2px; background: var(--accent); border-radius: 1px; pointer-events: none; }
-.runway-tick { position: absolute; top: 15px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; border: 1.5px solid var(--text-3); background: var(--bg); padding: 0; }
-.runway-tick[data-answered="true"] { width: 8px; height: 8px; margin-left: -4px; top: 16px; background: var(--text); border-color: var(--text); }
-.runway-tick[data-focus="true"] { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
-.runway-tick:hover { border-color: var(--accent); }
-.runway-playhead { position: absolute; top: 8px; width: 2px; height: 24px; margin-left: -1px; background: var(--accent); border-radius: 1px; pointer-events: none; }
-.runway-deadline { position: absolute; top: 4px; height: 32px; width: 0; margin-left: -1px; border-left: 2px dashed var(--wrong); pointer-events: none; }
-
 .state-line { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); min-height: 1.6em; }
 .state-line[data-tone="wait"] { color: var(--accent); }
 .state-line[data-tone="warn"] { color: var(--wrong); }
@@ -375,23 +367,42 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 /* player bar */
 .transport { flex: none; padding-bottom: env(safe-area-inset-bottom); background: var(--surface-2); border-top: 1px solid var(--line); }
 .transport-inner { max-width: 1120px; margin: 0 auto; padding: 0 40px; min-height: 72px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-@media (max-width: 600px) { .transport-inner { padding: 8px 16px; gap: 8px; } .transport-time { min-width: 0; font-size: 13px; } .seek { flex-basis: 3rem; min-width: 3rem; } }
 .controls { display: flex; align-items: center; gap: 6px; }
 .icon-btn { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: none; background: transparent; color: var(--text); font-size: 28px; }
 .icon-btn:hover:not(:disabled) { background: var(--raised); }
 .icon-btn:disabled { color: var(--disabled-fg); }
-/* the filled play/pause circle glyph IS the yellow disc; its triangle / bars are cut out of it */
-/* The play/pause glyph's disc is 5/6 of its box: the button is exactly the disc (44 px) and the glyph overflows it,
-   so the focus ring is concentric with the yellow disc. */
-.icon-btn.big { width: 44px; height: 44px; font-size: 52.8px; overflow: visible; background: transparent; color: var(--fill); }
-.icon-btn.big { position: relative; }
-.icon-btn.big .icon { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); } /* centres the overflowing glyph on the button */
-.icon-btn.big:hover:not(:disabled) { background: transparent; color: var(--fill-hover); }
-.icon-btn.big:disabled { background: transparent; color: var(--disabled-fg); }
-.seek { flex: 1 1 10rem; min-width: 6rem; accent-color: var(--accent); height: 1.5rem; cursor: pointer; }
+.seek-wrap { position: relative; flex: 1 1 10rem; min-width: 6rem; height: 24px; }
+.seek { width: 100%; margin: 0; accent-color: var(--accent); height: 1.5rem; cursor: pointer; }
 .volume { display: flex; align-items: center; gap: 4px; }
 .volume-slider { width: 6.5rem; accent-color: var(--text); height: 1.5rem; cursor: pointer; }
-.transport-time { font-variant-numeric: tabular-nums; font-size: 15px; color: var(--text-2); min-width: 6.5rem; text-align: right; }
+.transport-time { font-variant-numeric: tabular-nums; font-size: 15px; color: var(--text-2); min-width: 2.8rem; }
+.transport-time.total { text-align: left; }
+.transport-time.elapsed { text-align: right; }
+/* the question dots and the "audio waits here" mark sit ON the progress track (guide section 23); --t = fraction of the song,
+   mapped onto the part of the track the thumb can reach */
+.seek-tick { position: absolute; top: 7px; width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 2px solid var(--text-3); background: var(--surface-2); margin-left: -5px; left: calc(8px + (100% - 16px) * var(--t)); }
+.seek-tick::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; } /* a 32 px touch target around the 10 px dot */
+.seek-tick[data-answered="true"] { width: 8px; height: 8px; margin-left: -4px; top: 8px; background: var(--text); border-color: var(--text); }
+.seek-tick[data-focus="true"] { box-shadow: 0 0 0 3px var(--surface-2), 0 0 0 5px var(--accent); border-color: var(--text); }
+.seek-tick:hover { border-color: var(--accent); }
+.seek-deadline { position: absolute; top: 1px; bottom: 1px; width: 0; margin-left: -1px; left: calc(8px + (100% - 16px) * var(--t)); border-left: 2px dashed var(--wrong); pointer-events: none; }
+/* phones: the bar has two rows, the track with both times on top, the controls under it */
+[data-layout="phone"] .transport-inner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 0; padding: 6px 14px 8px; min-height: 0; }
+[data-layout="phone"] .transport-time { font-size: 13px; min-width: 0; }
+[data-layout="phone"] .seek-wrap { min-width: 0; height: 32px; }
+[data-layout="phone"] .seek { height: 32px; }
+[data-layout="phone"] .seek-tick { top: 12px; width: 8px; height: 8px; margin-left: -4px; border-width: 1.5px; }
+[data-layout="phone"] .seek-tick[data-answered="true"] { top: 13px; width: 6px; height: 6px; margin-left: -3px; }
+[data-layout="phone"] .seek-deadline { top: 5px; bottom: 5px; }
+[data-layout="phone"] .transport .controls { grid-row: 2; grid-column: 1 / -1; justify-content: center; gap: 18px; min-height: 56px; }
+[data-layout="phone"] .transport .queue-btn { grid-row: 2; grid-column: 3; justify-self: end; z-index: 1; }
+@media (orientation: landscape) and (max-height: 500px) { /* a phone on its side has no height to spare: one row again */
+  [data-layout="phone"] .transport-inner { grid-template-columns: auto auto minmax(0, 1fr) auto auto; padding: 4px 14px; }
+  [data-layout="phone"] .transport .controls { grid-row: 1; grid-column: 1; min-height: 0; gap: 8px; }
+  [data-layout="phone"] .transport .queue-btn { grid-row: 1; grid-column: 5; }
+}
+@media (hover: none) { [data-layout="phone"] .seek::-webkit-slider-thumb { width: 20px; height: 20px; margin-top: -6px; } }
+
 @media (hover: none), (max-width: 760px) { .volume { display: none; } }
 .icon { display: block; }
 
@@ -454,12 +465,6 @@ main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding:
 .game .score-panel { min-width: 0; padding: 8px 18px 12px; gap: 14px; }
 .game .score-points { font-size: 30px; }
 .game-timeline { flex: none; }
-.game .runway { margin: 6px 0 0; height: 30px; }
-.game .runway-track, .game .runway-done { top: 14px; }
-.game .runway-tick { top: 10px; }
-.game .runway-tick[data-answered="true"] { top: 11px; }
-.game .runway-playhead { top: 3px; }
-.game .runway-deadline { top: 0; }
 .game .state-line { min-height: 1.4em; }
 .game-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; padding-top: 6px; padding-bottom: 14px; }
 .game-main { min-height: 0; display: flex; flex-direction: column; justify-content: center; }
@@ -532,12 +537,6 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .game .pips i { width: 8px; height: 3px; }
 [data-layout="phone"] .game .countdown { left: 14px; right: 14px; bottom: 3px; }
 [data-layout="phone"] .game .gain { top: -12px; font-size: 16px; }
-[data-layout="phone"] .game .runway { height: 24px; margin-top: 2px; }
-[data-layout="phone"] .game .runway-track, [data-layout="phone"] .game .runway-done { top: 11px; }
-[data-layout="phone"] .game .runway-tick { top: 7px; }
-[data-layout="phone"] .game .runway-tick[data-answered="true"] { top: 8px; }
-[data-layout="phone"] .game .runway-playhead { top: 3px; height: 18px; }
-[data-layout="phone"] .game .runway-deadline { top: 2px; height: 20px; }
 [data-layout="phone"] .game .state-line { font-size: 12px; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-layout="phone"] .game-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 6px; padding-top: 4px; padding-bottom: 8px; }
 [data-layout="phone"] .game-main { justify-content: flex-end; }
@@ -551,11 +550,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .opt { height: 56px; padding: 0 12px; gap: 10px; font-size: 18px; }
 [data-layout="phone"] .opt-key { width: 22px; height: 22px; font-size: 12px; }
 [data-layout="phone"] .game .finish { margin: 0 0 8px; padding: 8px 12px; }
-[data-layout="phone"] .transport-inner { flex-wrap: nowrap; padding: 0 8px; gap: 4px; min-height: 60px; }
 [data-layout="phone"] .icon-btn { width: 44px; height: 44px; }
-[data-layout="phone"] .icon-btn.big { width: 48px; height: 48px; font-size: 57.6px; }
-[data-layout="phone"] .seek { flex: 1 1 3rem; min-width: 3rem; }
-[data-layout="phone"] .transport-time { min-width: 0; font-size: 13px; }
 
 /* a tablet held upright has room: the same layout, larger */
 @media (min-width: 701px) {
@@ -566,7 +561,6 @@ html[data-layout="phone"] body { font-size: 16px; }
   [data-layout="phone"] .lw-line[data-d="1"] { font-size: 19px; }
   [data-layout="phone"] .lw-line { font-size: 17px; }
   [data-layout="phone"] .opt { height: 72px; font-size: 22px; }
-  [data-layout="phone"] .transport-inner { min-height: 72px; }
 }
 
 /* typing mode: one field instead of four options */
@@ -730,7 +724,6 @@ button.fs-name:hover { background: var(--surface-2); }
 .kebab { width: 44px; height: 44px; border-radius: 50%; border: 1px solid transparent; background: transparent; color: var(--text-2); display: grid; place-items: center; padding: 0; font-size: 26px; }
 .kebab:hover { border-color: var(--line-strong); color: var(--text); }
 .kebab[aria-expanded="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
-.play-btn { margin-left: 0; }
 .start-panel { padding-left: calc(var(--pick-col) + var(--row-gap) + var(--cover-row) + var(--row-gap) - var(--row-pad) + 14px); }
 .dup-tag { font-size: 12px; font-weight: 600; padding: 0 8px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -955,7 +948,6 @@ nav.library-tabs { --thumb-bg: var(--text); gap: 4px; padding: 4px; border-radiu
 /* play queue (guide sections 19-20) */
 .ib { width: 40px; height: 40px; flex: none; border-radius: 999px; border: 1px solid var(--line-strong); display: grid; place-items: center; background: transparent; color: var(--text); font-size: 22px; transition: background-color var(--dur-fast), color var(--dur-fast); }
 .ib:hover:not(:disabled) { background: var(--surface-2); }
-.ib.primary { background: var(--fill); color: var(--on-fill); border-color: transparent; }
 .ib:disabled { opacity: 0.5; }
 .queue-bar { display: flex; align-items: center; gap: 14px; min-height: 60px; margin: 0 auto 14px; padding: 8px 14px; max-width: var(--page-max, 1040px); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 16px; box-shadow: 0 8px 24px oklch(0 0 0 / 0.12); animation: queueIn 220ms var(--ease-out); }
 .queue-bar[data-state="closing"] { animation: queueOut 220ms var(--ease-standard) forwards; }
@@ -1067,10 +1059,6 @@ button.queue-bar-face { cursor: pointer; }
 .queue-bar .cover-ph { background: var(--surface-2); }
 .queue-face .cover { font-size: 22px; }
 .queue-menu hr { border: none; height: 1px; background: var(--line); margin: 4px 8px; padding: 0; }
-.queue-next { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin-top: 10px; border-radius: 14px; background: var(--fill-soft); }
-.queue-next-text { flex: 1; min-width: 0; display: grid; }
-.queue-next-text strong, .queue-next-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queue-next-text small { color: var(--text-2); font-size: 13px; }
 
 /* scores (guide section 21) */
 .scores-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 18px; }
@@ -1091,3 +1079,42 @@ button.queue-bar-face { cursor: pointer; }
 .scores-empty { justify-items: start; padding: 28px; }
 [data-layout="phone"] .scores-toolbar .tabs { flex: 1 1 100%; }
 [data-layout="phone"] .scores-toolbar .tabs button { flex: 1; min-width: 0; }
+
+/* the record in the game header (guide section 23): the cover is its label, it turns while the song plays */
+.vinyl { --vinyl: 88px; position: relative; flex: none; width: var(--vinyl); height: var(--vinyl); border-radius: 50%; box-shadow: 0 2px 10px oklch(0 0 0 / 0.22); }
+.vinyl-disc { position: absolute; inset: 0; border-radius: 50%; will-change: transform; }
+.vinyl-disc svg { display: block; width: 100%; height: 100%; }
+.vinyl-label { position: absolute; left: 50%; top: 50%; width: 36.5%; height: 36.5%; transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 1px oklch(0 0 0 / 0.35); }
+.vinyl-label::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11%; height: 11%; transform: translate(-50%, -50%); border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 1px oklch(0 0 0 / 0.4); }
+.fade-length { margin-left: 32px; }
+.fade-length[data-off="true"] .segmented { opacity: 0.55; }
+.fade-length .segmented button { min-width: 64px; }
+
+/* the result of a finished game: Library and Next (guide section 23) */
+.finish-card { margin: 20px 0 0; padding: 22px 26px; border-radius: 20px; font-size: 16px; }
+.finish-top { display: flex; align-items: center; gap: 12px; }
+.finish-top h2 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.finish-ok { width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--correct); color: var(--surface); display: grid; place-items: center; font-size: 22px; }
+.finish-nums { display: flex; align-items: baseline; gap: 6px 26px; flex-wrap: wrap; margin-top: 14px; }
+.finish-nums b { font-size: 38px; letter-spacing: -0.03em; line-height: 1; margin-right: -18px; }
+.finish-nums span { color: var(--text-2); }
+.finish-rank { margin: 6px 0 0; color: var(--text-2); }
+.finish-acts { display: flex; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.finish-next { position: relative; overflow: hidden; min-width: 176px; gap: 8px; }
+.finish-next .icon { font-size: 26px; }
+.finish-bar { position: absolute; left: 0; bottom: 0; height: 4px; width: 0; border-radius: 0 2px 2px 0; background: color-mix(in oklch, var(--on-fill) 55%, transparent); animation: finishBar 5s linear forwards; }
+@keyframes finishBar { to { width: 100%; } }
+.finish-cap { margin: 12px 0 0; font-size: 14px; color: var(--text-2); }
+.finish-cap b { color: var(--text); }
+.finish-stay { margin-left: 10px; padding: 0; border: 0; border-bottom: 1.5px solid var(--text); background: transparent; color: var(--text); font: inherit; font-weight: 700; }
+[data-layout="phone"] .game .finish-card { margin: 0 0 10px; padding: 16px; }
+[data-layout="phone"] .finish-top h2 { font-size: 18px; }
+[data-layout="phone"] .finish-ok { width: 26px; height: 26px; font-size: 18px; }
+[data-layout="phone"] .finish-nums b { font-size: 28px; }
+[data-layout="phone"] .finish-nums span:last-child { display: none; } /* the best multiplier: the score panel above shows it */
+[data-layout="phone"] .finish-rank { margin-top: 2px; font-size: 14px; }
+[data-layout="phone"] .game-side { overflow: hidden; } /* a lyric window squeezed to nothing by a tall result card must not draw over it */
+[data-layout="phone"] .finish-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+[data-layout="phone"] .finish-acts .btn.large { height: 48px; padding: 0; min-width: 0; width: 100%; }
+[data-layout="phone"] .finish-acts .btn.large:only-child { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .finish-bar { animation-duration: 0.01s; } }

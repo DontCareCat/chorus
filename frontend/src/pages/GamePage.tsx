@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Cover } from "../components/Cover";
+import { Vinyl } from "../components/Vinyl";
 import { LyricWindow } from "../components/LyricWindow";
 import { Question } from "../components/Question";
-import { Runway } from "../components/Runway";
 import { ScorePanel } from "../components/ScorePanel";
 import { QueueDialog } from "../components/QueueDialog";
-import { QueueNext } from "../components/QueueNext";
+import { FinishCard } from "../components/FinishCard";
 import { Transport } from "../components/Transport";
 import { useQueue } from "../hooks/useQueue";
+import { useQueueActions } from "../hooks/useQueueActions";
+import { clearArrival, fadeOutAndRelease, peekArrival } from "../lib/handoff";
 import * as Q from "../lib/queue";
 import { buildWindowLines, currentLineIndex, timecode } from "../game/lyric-window";
 import { resultWord } from "../game/results";
@@ -40,10 +41,16 @@ export function GamePage({ publicId }: { publicId: string }) {
 function GameScreen({ game }: { game: GameDto }) {
   const g = useGame(game);
   const layout = useLayout();
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // The <audio> element lives in <body>, outside React's tree: when a queue moves on with a fade between songs it keeps playing (and fading
+  // out) after this page has gone, and a browser pauses an element that is removed from the page.
+  const [audioEl] = useState(() => { const a = document.createElement("audio"); a.preload = "auto"; return a; });
+  const handedOff = useRef(false);
+  const arrival = useRef(peekArrival()); // how this game was reached: started by the queue, with a fade-in?
   const [engine, setEngine] = useState<GameEngine | null>(null);
   const [wantPlay, setWantPlay] = useState(false);
   const queueStore = useQueue();
+  const queueActions = useQueueActions();
+  const settings = useAsync(() => api.settings(), []);
   const [queueOpen, setQueueOpen] = useState(false);
   const [manualFocus, setManualFocus] = useState<number | null>(null);
   const [, setFrame] = useState(0);
@@ -80,7 +87,8 @@ function GameScreen({ game }: { game: GameDto }) {
   // Start playing once the engine exists AND its controller is ready (first click is the user gesture).
   useEffect(() => {
     if (wantPlay && playback.controller) {
-      playback.play();
+      if (arrival.current?.fadeMs) playback.controller.playFadingIn(arrival.current.fadeMs); // a song that follows another fades in as long as the fade is set
+      else playback.play();
       setWantPlay(false);
     }
   }, [wantPlay, playback]);
@@ -98,10 +106,22 @@ function GameScreen({ game }: { game: GameDto }) {
   useEffect(() => () => { clearTimeout(lastTimer.current); clearTimeout(hintTimer.current); }, []);
   useEffect(
     () => () => {
-      engine?.dispose();
+      if (!handedOff.current) engine?.dispose();
     },
     [engine],
   );
+  useEffect(() => {
+    audioEl.src = api.audioUrl(game.song_id);
+    const failed = () => setAudioFailed(true), loaded = () => setAudioFailed(false);
+    audioEl.addEventListener("error", failed);
+    audioEl.addEventListener("loadeddata", loaded);
+    document.body.appendChild(audioEl);
+    return () => {
+      audioEl.removeEventListener("error", failed);
+      audioEl.removeEventListener("loadeddata", loaded);
+      if (!handedOff.current) { audioEl.pause(); audioEl.removeAttribute("src"); audioEl.remove(); }
+    };
+  }, [audioEl, game.song_id]);
 
   // When the game is finished, say where it ranks on this song.
   const [rank, setRank] = useState<number | null>(null);
@@ -191,10 +211,19 @@ function GameScreen({ game }: { game: GameDto }) {
   }, [focusedQ, g.answeredSet, answer, engine, seekTo, vol.step, vol.toggleMute, game.mode]);
 
   const start = () => {
-    if (!audioRef.current || engine) return;
-    setEngine(createEngine(audioRef.current, getEngineKind(), game.sample_rate));
+    if (engine || started.current) return;
+    started.current = true;
+    setEngine(createEngine(audioEl, getEngineKind(), game.sample_rate));
     setWantPlay(true);
   };
+  const started = useRef(false);
+  // a game the queue moved on to starts by itself (it was reached from a click, so the browser lets it play)
+  useEffect(() => {
+    if (arrival.current?.autostart) startRef.current();
+    clearArrival();
+  }, []);
+  const startRef = useRef(start);
+  startRef.current = start;
   // Space: pause while the song runs (also during a fade), otherwise play; the first press starts the engine.
   const togglePlayRef = useRef(() => {});
   togglePlayRef.current = () => {
@@ -218,6 +247,8 @@ function GameScreen({ game }: { game: GameDto }) {
   const onSubmit = useCallback((text: string) => { if (focusedRef.current) answerRef.current(focusedRef.current, { text }); }, []);
 
   const phone = layout === "phone";
+  // the record turns while the music is audible
+  const spinning = playback.state.name === "PLAYING" || playback.state.name === "FADING_IN" || playback.state.name === "FADING_OUT";
   // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
   // and, when tapped, holds the window on that line until the audio gets there or the question changes.
   const [pinned, setPinned] = useState(false);
@@ -227,7 +258,7 @@ function GameScreen({ game }: { game: GameDto }) {
   }, [pinned, currentLine, focusedLine]);
   const centerOn = phone && pinned && focusedLine >= 0 ? focusedLine : currentLine;
   const farFromFocus = phone && focusedLine >= 0 && Math.abs(focusedLine - currentLine) > 3;
-  const chip = !phone ? null : pinned ? { text: en.game.backToAudio, dir: "" } : farFromFocus ? { text: en.game.yourQuestion(timecode(windowLines[focusedLine]?.startTime ?? null)), dir: focusedLine > currentLine ? "down" : "up" } : null;
+  const chip = !phone || g.finished ? null : pinned ? { text: en.game.backToAudio, dir: "" } : farFromFocus ? { text: en.game.yourQuestion(timecode(windowLines[focusedLine]?.startTime ?? null)), dir: focusedLine > currentLine ? "down" : "up" } : null;
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   const stateText = phone ? (hint ?? last.text) || status.text : status.text;
 
@@ -247,16 +278,31 @@ function GameScreen({ game }: { game: GameDto }) {
   ) : (
     <p className="notice">{en.game.notFound}</p>
   );
-  // a game the queue started carries on with the next song once the music has stopped (a countdown the player can cancel)
-  const running = ["PLAYING", "FADING_IN", "FADING_OUT", "SEEKING"].includes(playback.state.name);
-  const queueNext = g.finished && queueStore.queue.playing === game.public_id && Q.next(queueStore.queue) !== null && !running;
+  // a game the queue started offers Next, and (Autoplay) carries on by itself; see FinishCard
+  const musicOver = !spinning && (!engine || (duration > 0 && time >= duration - 0.6)); // never started counts as over: a reloaded finished game carries on
+  const queueSettings = settings.data
+    ? { autoplay: settings.data.queue_autoplay, fade: settings.data.queue_fade, fadeSeconds: settings.data.queue_fade_seconds }
+    : { autoplay: false, fade: false, fadeSeconds: 4 }; // until the settings are known nothing starts by itself
+  const goNext = useCallback((fadeMs: number) => queueActions.playNext({
+    arrival: { fadeMs, autostart: true },
+    beforeNavigate: () => {
+      const ghostMs = fadeMs || (spinning ? 400 : 0); // the old song never just stops: it fades out while this page is replaced
+      if (ghostMs > 0 && engine) { handedOff.current = true; playback.release(); fadeOutAndRelease(engine, audioEl, ghostMs); }
+    },
+  }), [queueActions, spinning, engine, playback, audioEl]);
   const finished = g.finished && (
-    <>
-      <p className="notice ok finish">
-        {en.game.finished(g.standing.points, g.correct, g.total, g.standing.best)}{rank !== null && ` ${en.scores.yourRank(rank)}`} · <a href={paths.library()}>{en.game.backToLibrary}</a>
-      </p>
-      {queueNext && <QueueNext />}
-    </>
+    <FinishCard
+      standing={g.standing}
+      correct={g.correct}
+      total={g.total}
+      rank={rank}
+      fromQueue={queueStore.queue.playing === game.public_id}
+      running={spinning}
+      over={musicOver}
+      remaining={Math.max(0, duration - time)}
+      settings={queueSettings}
+      onNext={goNext}
+    />
   );
   const lyricWindow = (
     <div className="game-side">
@@ -276,7 +322,7 @@ function GameScreen({ game }: { game: GameDto }) {
         <a className="back" href={paths.library()} aria-label={en.game.backToLibrary} title={en.game.backToLibrary}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         </a>
-        {!phone && <Cover songId={game.song_id} title={game.song_title} hasCover={null} size="large" />}
+        {!phone && <Vinyl songId={game.song_id} title={game.song_title} hasCover={null} spinning={spinning} />}
         <div className="game-title">
           <h1>{game.song_title}</h1>
           <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(" · ")}</p>
@@ -284,16 +330,8 @@ function GameScreen({ game }: { game: GameDto }) {
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
 
-      <audio ref={audioRef} src={api.audioUrl(game.song_id)} preload="auto" onError={() => setAudioFailed(true)} onLoadedData={() => setAudioFailed(false)} />
       {audioFailed && <p className="notice error wrap" role="alert">{en.audio.cannotLoad}</p>}
       <div className="game-timeline wrap">
-        <Runway
-          runway={runway}
-          focusedId={focusedQ?.id ?? null}
-          onFocus={setManualFocus}
-          gated={g.synced}
-          onSeek={engine && duration > 0 ? (f) => void seekTo(f * duration) : undefined}
-        />
         <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>
       </div>
       <div className="game-body wrap">
@@ -330,6 +368,10 @@ function GameScreen({ game }: { game: GameDto }) {
         onStop={stop}
         onBack={back5}
         onSeek={seekTo}
+        runway={runway}
+        gated={g.synced}
+        focusedId={focusedQ?.id ?? null}
+        onFocus={setManualFocus}
         queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />

@@ -29,6 +29,7 @@ export interface ControllerOptions {
  */
 export class PlaybackController {
   state: MachineState = initialState;
+  private released = false; // the game page handed the audio over (cross-fade into the next song): this controller no longer touches it
   private epoch = 0; // invalidates completions of superseded async effects (fades, seeks, play)
   private readonly gating: boolean;
   private readonly fadeOutMs: number;
@@ -104,7 +105,21 @@ export class PlaybackController {
   }
 
   reset(): void {
+    if (this.released) return;
     this.dispatch({ type: "RESET" });
+  }
+
+  /** Give the audio up: the page leaves while the song fades out on its own, so nothing here may pause or reset it any more. */
+  release(): void {
+    this.released = true;
+  }
+
+  /** Start from silence and rise to full volume over `ms` (a song that follows another one: cross-fade). A first play only. */
+  playFadingIn(ms: number): void {
+    this.play();
+    const e = this.o.engine;
+    e.setVolume(0);
+    void e.fadeIn(ms);
   }
 
   /**

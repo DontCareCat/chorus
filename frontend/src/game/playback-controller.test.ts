@@ -726,3 +726,29 @@ describe("play at the end of the song", () => {
     expect(g.engine.getCurrentTime()).toBe(12);
   });
 });
+
+describe("a song that follows another (fade between songs)", () => {
+  it("playFadingIn starts silent and rises to full volume over the given time", async () => {
+    const g = rig([], { gating: false });
+    g.c.playFadingIn(4000);
+    await flush();
+    expect(g.c.state.name).toBe("PLAYING");
+    expect(g.engine.getVolume()).toBe(0);
+    await g.run(2000);
+    expect(g.engine.getVolume()).toBeGreaterThan(0.3);
+    expect(g.engine.getVolume()).toBeLessThan(0.7);
+    await g.run(2500);
+    expect(g.engine.getVolume()).toBe(1);
+  });
+  it("a released controller leaves the audio alone", async () => {
+    const g = rig([], { gating: false });
+    g.c.play();
+    await flush();
+    await g.run(600);
+    g.engine.log.length = 0;
+    g.c.release();
+    g.c.reset(); // what the page's clean-up does
+    expect(g.engine.log).toEqual([]);
+    expect(g.c.state.name).toBe("PLAYING");
+  });
+});

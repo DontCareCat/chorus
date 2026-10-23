@@ -29,6 +29,7 @@ export function SettingsPage() {
   const [forever, setForever] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const queueThumb = useThumb();
+  const fadeThumb = useThumb();
 
   useEffect(() => {
     if (loaded.data) {
@@ -115,6 +116,23 @@ export function SettingsPage() {
               ))}
             </div>
             <small>{en.queue.progressiveHelp}</small>
+          </div>
+          <label className="check">
+            <input type="checkbox" checked={form.queue_autoplay} onChange={(e) => set("queue_autoplay", e.target.checked)} />
+            <span><strong>{en.queue.autoplay}</strong><small>{en.queue.autoplayHelp}</small></span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={form.queue_fade} onChange={(e) => set("queue_fade", e.target.checked)} />
+            <span><strong>{en.queue.fade}</strong><small>{en.queue.fadeHelp}</small></span>
+          </label>
+          <div className="field fade-length" data-off={!form.queue_fade}>
+            <span>{en.queue.fadeLength}</span>
+            <div className="segmented thumbs" role="group" aria-label={en.queue.fadeLength} ref={fadeThumb}>
+              {[2, 4, 6, 8].map((n) => (
+                <button key={n} type="button" aria-pressed={form.queue_fade_seconds === n} disabled={!form.queue_fade} onClick={() => set("queue_fade_seconds", n)}>{en.queue.fadeSeconds(n)}</button>
+              ))}
+            </div>
+            <small>{form.queue_fade ? en.queue.fadeHint(form.queue_fade_seconds) : en.queue.fadeOffHint}</small>
           </div>
         </section>
 

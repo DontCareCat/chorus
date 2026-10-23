@@ -2,6 +2,8 @@
 import pauseCircle from "@material-symbols/svg-400/outlined/pause_circle-fill.svg?raw";
 import playCircle from "@material-symbols/svg-400/outlined/play_circle-fill.svg?raw";
 import replay5 from "@material-symbols/svg-400/outlined/replay_5.svg?raw";
+import playArrow from "@material-symbols/svg-400/outlined/play_arrow-fill.svg?raw";
+import pauseBars from "@material-symbols/svg-400/outlined/pause-fill.svg?raw";
 import stop from "@material-symbols/svg-400/outlined/stop.svg?raw";
 import volumeDown from "@material-symbols/svg-400/outlined/volume_down.svg?raw";
 import volumeMute from "@material-symbols/svg-400/outlined/volume_mute.svg?raw";
@@ -34,6 +36,8 @@ const pathOf = (svg: string): string => /<path d="([^"]+)"/.exec(svg)?.[1] ?? ""
 const PATHS = {
   play: pathOf(playCircle),
   pause: pathOf(pauseCircle),
+  playArrow: pathOf(playArrow), // the bare glyphs inside PlayButton's disc
+  pauseBars: pathOf(pauseBars),
   stop: pathOf(stop),
   rewind5: pathOf(replay5),
   volumeUp: pathOf(volumeUp),
