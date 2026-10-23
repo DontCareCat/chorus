@@ -639,7 +639,7 @@ button.fs-name:hover { background: var(--surface-2); }
 
 
 /* ---- dictionary and review (design guide section 13) ---- */
-.nav-badge { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--accent); color: var(--on-accent, #1b1700); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; vertical-align: 1px; }
+.nav-badge { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--fill); color: var(--on-fill); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; vertical-align: 1px; }
 .words { border-bottom: 1px solid var(--line); }
 .word { border-top: 1px solid var(--line); }
 .word[data-suspended="true"] .word-head, .word[data-suspended="true"] .word-tr { opacity: 0.55; }
@@ -875,3 +875,5 @@ html.dialog-open { overflow: hidden; }
   .thumbs[data-thumb="glide"]::before, .sheet, .sheet-scrim, .menu-panel, .burger path, .chip, .segmented button, .theme-switch button, .topbar nav a { transition: none; }
   .songs > li, .words > li, .chip small, .song-menu, .select-list, .tool-dialog, .dialog-scrim[data-kind="tool"] { animation: none; }
 }
+.nav-badge { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--on-fill) 22%, transparent); }
+nav a[aria-current="page"] .nav-badge { background: var(--text); color: var(--bg); box-shadow: none; } /* on the yellow thumb the badge turns dark */
