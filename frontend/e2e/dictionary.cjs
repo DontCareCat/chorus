@@ -4,7 +4,11 @@
 //   CHORUS_URL=http://localhost:18201/ node frontend/e2e/dictionary.cjs
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
-const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
+const pick = async (page, trigger, text) => { // DOM clicks: Playwright's own scroll-into-view would close the dropdown (it closes on scroll)
+  await page.locator(trigger).first().evaluate((el) => el.click());
+  await page.locator(".select-list [role=option]", { hasText: text }).first().waitFor();
+  await page.locator(".select-list [role=option]", { hasText: text }).first().evaluate((el) => el.click());
+}; // our dropdown (components/Select.tsx)
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 const wav = (secs) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * 37) % 3000, 44 + i * 2); return d; };
 const LINES = ["Ich gehe jeden Morgen zur Arbeit", "Du hast mich gefragt und ich hab nichts gesagt", "Wir fahren mit dem Zug zum Bahnhof", "Die Sonne scheint über der Stadt", "Ich liebe meine kleine Wohnung sehr", "Der Mond steht hoch am Himmel heute", "Wir tanzen durch die ganze Nacht", "Das Leben ist schön und wir singen"];
