@@ -106,11 +106,11 @@ export const centerOffset = (viewportHeight: number, lineTop: number, lineHeight
   Math.round(viewportHeight / 2 - (lineTop + lineHeight / 2));
 
 /**
- * Keep the lyrics from scrolling past their own ends: near the start the first line sits at the top (not in the
- * middle of an empty window), near the end the last line sits at the bottom. A short song just stays at the top.
+ * The line the lyric window follows: the song's own line, except while the player answers AHEAD of the song (`ahead`: the last answer
+ * was for a line the song had not reached). Then it is the line of the next question, until the song catches up with it.
  */
-export const clampShift = (shift: number, viewportHeight: number, trackHeight: number): number =>
-  Math.max(Math.min(0, viewportHeight - trackHeight), Math.min(0, shift));
+export const followLine = (current: number, focusedLine: number, ahead: boolean): number =>
+  ahead && focusedLine > current ? focusedLine : current;
 
 export const timecode = (seconds: number | null): string => {
   if (seconds === null) return "";

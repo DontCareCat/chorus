@@ -24,7 +24,7 @@ export function QueueBar({ phone }: { phone: boolean }) {
   const active = q.items.length > 0;
   const bar = useExitTransition(active, 220);
   const el = useRef<HTMLDivElement>(null);
-  useSwipe(el, { directions: ["left", "right"], onSwipe: (dir) => (dir === "left" ? store.advance() : store.back()), enabled: phone && bar.mounted && !Q.finished(q) }); // `mounted`: the bar's element only exists while the queue is in use
+  useSwipe(el, { directions: q.cursor > 0 ? ["left", "right"] : ["left"], carousel: true, onSwipe: (dir) => (dir === "left" ? store.advance() : store.back()), enabled: phone && bar.mounted && !Q.finished(q) }); // `mounted`: the bar's element only exists while the queue is in use
   const songs = useAsync(() => (active ? api.songs() : Promise.resolve([])), [active]);
   const [listOpen, setListOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,26 +46,37 @@ export function QueueBar({ phone }: { phone: boolean }) {
   };
 
   if (!bar.mounted) return null;
-  const face = (
-    <>
-      {nextSong ? <Cover songId={nextSong.id} title={nextSong.title} hasCover={nextSong.has_cover} size="row" /> : <span className="cover-ph" aria-hidden="true" />}
-      <span className="queue-bar-text">
-        <strong><Marquee>{done ? en.queue.finishedTitle : nextSong ? en.queue.nextUp(nextSong.title) : "…"}</Marquee></strong>
-        <small><Marquee>{store.message ?? (done ? en.queue.finishedSub(q.items.length) : `${en.queue.position(q.cursor + 1, q.items.length)}${nextSong ? ` · ${nextSong.artist}` : ""}`)}</Marquee></small>
-        {error && <small className="queue-error" role="alert">{error}</small>}
-      </span>
-    </>
-  );
+  /** What the bar shows when the queue's cursor is at `c`: the song that comes next (or the end). */
+  const face = (c: number, live: boolean) => {
+    const item = q.items[c];
+    const song = item ? byId.get(item.songId) : undefined;
+    const over = c >= q.items.length;
+    return (
+      <>
+        {song ? <Cover songId={song.id} title={song.title} hasCover={song.has_cover} size="row" /> : <span className="cover-ph" aria-hidden="true" />}
+        <span className="queue-bar-text">
+          <strong><Marquee>{over ? en.queue.finishedTitle : song ? en.queue.nextUp(song.title) : "…"}</Marquee></strong>
+          <small><Marquee>{(live && store.message) || (over ? en.queue.finishedSub(q.items.length) : `${en.queue.position(c + 1, q.items.length)}${song ? ` · ${song.artist}` : ""}`)}</Marquee></small>
+          {live && error && <small className="queue-error" role="alert">{error}</small>}
+        </span>
+      </>
+    );
+  };
   return (
     <>
       <div className="queue-bar" ref={el} data-state={bar.state} data-done={done} role="region" aria-label={en.queue.bar}>
-        {phone && <div className="swipe-reveal prev" aria-hidden="true"><Icon name="skipNext" />{en.queue.swipeBack}</div>}
-        {phone && <div className="swipe-reveal skip" aria-hidden="true">{en.queue.swipeSkip}<Icon name="skipNext" /></div>}
-        <div className="queue-bar-row" data-swipe-face onClick={phone ? (e) => { if (!(e.target as HTMLElement).closest("button")) setListOpen(true); } : undefined}>
+        <div className="queue-bar-row" onClick={phone ? (e) => { if (!(e.target as HTMLElement).closest("button")) setListOpen(true); } : undefined}>
         {phone ? (
-          <button type="button" className="queue-bar-face" aria-label={en.queue.openList} onClick={() => setListOpen(true)}>{face}</button>
+          // the songs before and after sit beside the one in view, so a swipe slides them in (the face is `data-swipe-face`: only it moves, not the Play button)
+          <div className="queue-bar-view">
+            <div className="queue-bar-strip" data-swipe-face>
+              {q.cursor > 0 && <div className="qb-panel before" aria-hidden="true">{face(q.cursor - 1, false)}</div>}
+              <button type="button" className="queue-bar-face qb-panel" aria-label={en.queue.openList} onClick={() => setListOpen(true)}>{face(q.cursor, true)}</button>
+              {!done && <div className="qb-panel after" aria-hidden="true">{face(q.cursor + 1, false)}</div>}
+            </div>
+          </div>
         ) : (
-          <div className="queue-bar-face">{face}</div>
+          <div className="queue-bar-face">{face(q.cursor, true)}</div>
         )}
         <div className="queue-bar-actions">
           {!phone && <button type="button" className="ib" aria-label={en.queue.openList} title={en.queue.openList} onClick={() => setListOpen(true)}><Icon name="queue" /></button>}

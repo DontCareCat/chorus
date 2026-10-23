@@ -10,7 +10,7 @@ import { useQueue } from "../hooks/useQueue";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { clearArrival, fadeOutAndRelease, peekArrival } from "../lib/handoff";
 import * as Q from "../lib/queue";
-import { buildWindowLines, currentLineIndex, reuseLines, timecode } from "../game/lyric-window";
+import { buildWindowLines, currentLineIndex, followLine, reuseLines } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
@@ -153,13 +153,20 @@ function GameScreen({ game }: { game: GameDto }) {
   }, [game.lines, game.lyrics_offset, g.quiz, g.results, focusedQ?.id]);
   // the question dots only change with the answers, not with the playhead: computed apart so the progress bar can skip redrawing them ten times a second
   const ticks = useMemo(() => computeRunway({ duration, currentTime: 0, questions: g.syncQs, answered: g.answeredSet }).ticks, [duration, g.syncQs, g.answeredSet]);
+  // The lyrics follow the song. Answering AHEAD of it (a line it has not reached) moves them on to the next question, until the song catches up.
+  const [ahead, setAhead] = useState(false);
+  const aheadRef = useRef(ahead);
+  aheadRef.current = ahead;
+  const [pulse, setPulse] = useState(0); // every answer takes a reader who scrolled the lyrics away back to the followed line
   const focusedLine = focusedQ ? windowLines.findIndex((l) => l.lineId === focusedQ.lineId) : -1;
   const currentLine = currentLineIndex(windowLines, time, g.synced, focusedLine);
+  useEffect(() => { if (aheadRef.current && focusedLine <= currentLine) setAhead(false); }, [focusedLine, currentLine]); // caught up (only when set: see the note on nested updates)
   const status = describeStatus({ short: layout === "phone", state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
 
   /** Choosing a line from the lyric sheet (far below the question) also brings its question into view. */
   const focusFromSheet = useCallback((id: number) => {
     setManualFocus(id);
+    setAhead(false); // the reader chose this line: the window stays where it is
     requestAnimationFrame(() =>
       document.querySelector(".prompt-wrap")?.scrollIntoView({
         block: "center",
@@ -178,11 +185,13 @@ function GameScreen({ game }: { game: GameDto }) {
       const after = g.quiz.slice(g.quiz.indexOf(q) + 1).find((x) => !g.answeredSet.has(x.id) && x.id !== q.id);
       const next = after ?? g.quiz.find((x) => !g.answeredSet.has(x.id) && x.id !== q.id) ?? null;
       setManualFocus(next ? next.id : q.id);
+      setAhead(windowLines.findIndex((l) => l.lineId === q.lineId) > currentLine); // answered a line the song has not reached: the lyrics move on to the next question
+      setPulse((n) => n + 1);
       setLastAnswered(q.id);
       clearTimeout(lastTimer.current);
       lastTimer.current = setTimeout(() => setLastAnswered(null), LAST_ANSWER_MS);
     },
-    [g, playback, engine],
+    [g, playback, engine, windowLines, currentLine],
   );
 
   // Keyboard: 1–4 answer, Space plays/pauses, arrows seek, ↑/↓ volume, M mutes.
@@ -255,20 +264,7 @@ function GameScreen({ game }: { game: GameDto }) {
   const phone = layout === "phone";
   // the record turns while the music is audible
   const spinning = playback.state.name === "PLAYING" || playback.state.name === "FADING_IN" || playback.state.name === "FADING_OUT";
-  // Phone: the lyric window follows the audio. Answering ahead puts the question's line far from it: a chip says so
-  // and, when tapped, holds the window on that line until the audio gets there or the question changes.
-  const [pinned, setPinned] = useState(false);
-  const pinnedRef = useRef(pinned);
-  pinnedRef.current = pinned;
-  // Only when it is pinned: a setState that changes nothing still schedules a render, and one such effect per answer, with the answers
-  // coming fast, adds up to "Maximum update depth exceeded" (React counts them until a commit comes along with none).
-  useEffect(() => { if (pinnedRef.current) setPinned(false); }, [focusedQ?.id]);
-  useEffect(() => {
-    if (pinned && focusedLine >= 0 && currentLine >= focusedLine) setPinned(false);
-  }, [pinned, currentLine, focusedLine]);
-  const centerOn = phone && pinned && focusedLine >= 0 ? focusedLine : currentLine;
-  const farFromFocus = phone && focusedLine >= 0 && Math.abs(focusedLine - currentLine) > 3;
-  const chip = !phone || g.finished ? null : pinned ? { text: en.game.backToAudio, dir: "" } : farFromFocus ? { text: en.game.yourQuestion(timecode(windowLines[focusedLine]?.startTime ?? null)), dir: focusedLine > currentLine ? "down" : "up" } : null;
+  const centerOn = followLine(currentLine, focusedLine, ahead && !!focusedQ && !g.answeredSet.has(focusedQ.id)); // nothing left to answer ahead: the song again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   const stateText = phone ? (hint ?? last.text) || status.text : status.text;
 
@@ -316,13 +312,7 @@ function GameScreen({ game }: { game: GameDto }) {
   );
   const lyricWindow = (
     <div className="game-side">
-      <LyricWindow lines={windowLines} current={centerOn} synced={g.synced} onFocus={focusFromSheet} />
-      {chip && (
-        <button type="button" className="chip-float" data-dir={chip.dir} onClick={() => setPinned((v) => !v)}>
-          {chip.text}
-          {chip.dir && <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={chip.dir === "down" ? "M6 9l6 6 6-6" : "M6 15l6-6 6 6"} /></svg>}
-        </button>
-      )}
+      <LyricWindow lines={windowLines} current={centerOn} synced={g.synced} onFocus={focusFromSheet} pulse={pulse} />
     </div>
   );
 

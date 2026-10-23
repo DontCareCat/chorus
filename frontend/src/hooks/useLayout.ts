@@ -78,6 +78,9 @@ export function useKeyboardFit(active: boolean): void {
     const root = document.documentElement;
     const apply = () => {
       const fit = keyboardFit(window.innerHeight, vv);
+      // What can really be seen (browser bars, a system navigation bar): the screen is never taller than that, even where 100dvh is (see .shell[data-route="game"])
+      if (vv.scale <= 1.01) root.style.setProperty("--vv-fit", `${vv.height}px`);
+      else root.style.removeProperty("--vv-fit");
       root.classList.toggle("kb-open", fit.open);
       if (fit.open) {
         root.style.setProperty("--vv-h", `${fit.height}px`);
@@ -88,7 +91,12 @@ export function useKeyboardFit(active: boolean): void {
     vv.addEventListener("resize", apply);
     vv.addEventListener("scroll", apply);
     window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    const poll = window.setInterval(apply, 1000); // browsers do not always report a bar sliding in or out: never stay wrong for long
     return () => {
+      window.clearInterval(poll);
+      window.removeEventListener("orientationchange", apply);
+      root.style.removeProperty("--vv-fit");
       vv.removeEventListener("resize", apply);
       vv.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);

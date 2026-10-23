@@ -151,8 +151,14 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   }
   const bx = await ph.locator(".queue-bar").boundingBox(), by = bx.y + bx.height / 2;
   const cur0 = await cursor();
-  await bt("touchStart", 300); for (let i = 1; i <= 8; i++) { await bt("touchMove", 300 - i * 25); await ph.waitForTimeout(20); } await bt("touchEnd", 100); await ph.waitForTimeout(300);
+  await bt("touchStart", 300); for (let i = 1; i <= 5; i++) { await bt("touchMove", 300 - i * 25); await ph.waitForTimeout(20); }
+  const mid = await ph.evaluate(() => { const v = document.querySelector(".queue-bar-view").getBoundingClientRect(), a = document.querySelector(".qb-panel.after"), r = a.getBoundingClientRect(); return { shown: r.left < v.right - 20 && r.left > v.left, text: a.textContent, bar: document.querySelector(".queue-bar").textContent }; });
+  ok(mid.shown && mid.text.includes(`Qc ${stamp}`), "while the finger moves, the next song slides in beside the current one: " + mid.text.slice(0, 40));
+  ok(!/Next song|Previous song/.test(mid.bar), "with no extra label about it");
+  for (let i = 6; i <= 8; i++) { await bt("touchMove", 300 - i * 25); await ph.waitForTimeout(20); }
+  await bt("touchEnd", 100); await ph.waitForTimeout(450);
   ok((await cursor()) === cur0 + 1, "a swipe left on the bar skips to the next song");
+  ok((await ph.locator(".queue-bar-strip").evaluate((e) => e.style.transform)) === "" && (await ph.locator(".queue-bar .qb-panel").first().innerText()).length > 0, "and the strip is back at rest showing the new song");
   await bt("touchStart", 60); for (let i = 1; i <= 8; i++) { await bt("touchMove", 60 + i * 25); await ph.waitForTimeout(20); } await bt("touchEnd", 260); await ph.waitForTimeout(300);
   ok((await cursor()) === cur0, "a swipe right takes it back");
   await ph.tap(".queue-bar-face"); await ph.waitForSelector(".queue-row");

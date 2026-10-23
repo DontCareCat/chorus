@@ -345,8 +345,8 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 
 /* lyric window: the song's lines sliding past a fixed viewport, the current line in the middle */
 .lw-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin: 12px 0 8px; }
-.lyric-window { position: relative; flex: 1; min-height: 8rem; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
-.lw-track { position: absolute; left: 0; right: 0; top: 0; padding: 3rem 0; transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); will-change: transform; }
+.lyric-window { position: relative; flex: 1; min-height: 8rem; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
+.lw-track { padding: 3rem 0; }
 .lw-line { display: grid; grid-template-columns: 4rem 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 15px; line-height: 1.35; color: var(--text-3); transition: color 0.3s, font-size 0.3s; }
 .lw-line time { font-size: 13px; color: var(--text-4); font-variant-numeric: tabular-nums; opacity: 0.7; }
 .lw-line[data-d="1"] { font-size: 16px; color: var(--text-2); }
@@ -448,7 +448,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 /* No fixed height on html/body: on Android "100%" stays at the bars-showing height and the body then CLIPPED the
    player once the bars hid. body is as tall as the game screen; overflow only stops the page from scrolling. */
 .game-lock, .game-lock body { overflow: hidden; overscroll-behavior: none; }
-.shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; height: min(100dvh, var(--vv-fit, 100dvh)); display: flex; flex-direction: column; overflow: hidden; }
 /* Keyboard open (see useKeyboardFit): the screen is exactly the visible area, wherever the browser panned it. */
 .kb-open .shell[data-route="game"] { position: fixed; top: var(--vv-top); left: 0; right: 0; height: var(--vv-h); } /* fixed, not a transform: body's overflow:hidden would clip a moved screen at the body's own height */
 .shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
@@ -541,6 +541,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .game-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 6px; padding-top: 4px; padding-bottom: 8px; }
 [data-layout="phone"] .game-main { justify-content: flex-end; }
 [data-layout="phone"] .game .lw-title { display: none; }
+[data-layout="phone"] .game .lyric-window { scrollbar-width: none; }
 [data-layout="phone"] .game .lyric-window { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent); }
 [data-layout="phone"] .lw-line { grid-template-columns: 34px 1fr; gap: 6px; padding: 5px 6px; font-size: 14px; }
 [data-layout="phone"] .lw-line time { font-size: 11px; }
@@ -966,10 +967,13 @@ nav.library-tabs { --thumb-bg: var(--text); gap: 4px; padding: 4px; border-radiu
 .queue-bar-row { position: relative; display: flex; align-items: center; gap: 14px; min-height: 58px; padding: 8px 14px; background: var(--surface); }
 .queue-bar-face { flex: 1; min-width: 0; display: flex; align-items: center; gap: inherit; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
 button.queue-bar-face { cursor: pointer; }
-.queue-bar .swipe-reveal.prev { background: var(--surface-2); color: var(--text); }
-.queue-bar .swipe-reveal.skip { justify-content: flex-end; background: var(--fill); color: var(--on-fill); }
-.queue-bar .swipe-reveal.prev .icon { transform: scaleX(-1); }
-[data-swipe="right"] > .swipe-reveal.prev, [data-swipe="left"] > .swipe-reveal.skip { opacity: 1; }
+/* phone: the song in view with its neighbours beside it (a swipe slides them in, like a phone's music player bar); only this strip moves */
+.queue-bar-view { flex: 1; min-width: 0; overflow: hidden; }
+.queue-bar-strip { position: relative; }
+.qb-panel { display: flex; align-items: center; gap: 14px; width: 100%; box-sizing: border-box; }
+.qb-panel.before, .qb-panel.after { position: absolute; top: 0; bottom: 0; }
+.qb-panel.before { left: calc(-100% - 14px); } /* 14px = CAROUSEL_GAP in useSwipe.ts */
+.qb-panel.after { left: calc(100% + 14px); }
 /* a text that does not fit runs round as a looped strip */
 .marquee { display: block; overflow: hidden; min-width: 0; }
 .marquee-track { display: inline-flex; gap: 40px; width: max-content; max-width: 100%; }

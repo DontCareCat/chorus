@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, clampShift, currentLineIndex, reuseLines, timecode } from "./lyric-window";
+import { buildWindowLines, centerOffset, currentLineIndex, followLine, reuseLines, timecode } from "./lyric-window";
 import type { WindowLine } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
@@ -94,11 +94,12 @@ describe("helpers", () => {
     expect(centerOffset(300, 0, 40)).toBe(130);
     expect(centerOffset(300, 400, 40)).toBe(-270);
   });
-  it("does not scroll past the ends of the lyrics", () => {
-    expect(clampShift(130, 300, 1000)).toBe(0); // near the start: first line at the top
-    expect(clampShift(-270, 300, 1000)).toBe(-270);
-    expect(clampShift(-900, 300, 1000)).toBe(-700); // near the end: last line at the bottom
-    expect(clampShift(50, 300, 200)).toBe(0); // shorter than the window: stays at the top
+  it("follows the song, or the next question while the player answers ahead of it", () => {
+    expect(followLine(3, 6, false)).toBe(3); // after a line is filled in time the window goes on with the song
+    expect(followLine(3, 6, true)).toBe(6); // answering ahead: the next question's line
+    expect(followLine(6, 6, true)).toBe(6); // the song has caught up
+    expect(followLine(8, 6, true)).toBe(8); // ... and is past it: the song again
+    expect(followLine(3, -1, true)).toBe(3); // no open question
   });
   it("formats timecodes", () => {
     expect([null, 0, 59.9, 61, 3599].map(timecode)).toEqual(["", "0:00", "0:59", "1:01", "59:59"]);
