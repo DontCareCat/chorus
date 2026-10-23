@@ -53,7 +53,7 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   await page.click(".song-main >> nth=1 >> .kebab");
   await page.waitForSelector(".song-menu");
   const items = await page.$$eval(".song-menu .mi", (e) => e.map((x) => x.textContent.trim()));
-  ok(items.join("|") === ["Find lyrics", "Change cover", "Change language", "Edit title, artist, album", "Check lyrics timing", "Remove from library"].join("|") || items.length === 6, "menu items: " + items.join(" | "));
+  ok(items.join("|") === ["Find lyrics", "Change cover", "Change language", "Edit title, artist, album", "Check lyrics timing", "Add to queue", "Add to playlist", "Remove from library"].join("|") || items.length === 8, "menu items: " + items.join(" | "));
   await page.click('.song-menu >> text="Change language"');
   await page.waitForSelector(".tool-dialog");
   ok(page.url().endsWith("/#/") || !/songs\//.test(page.url()), "the dialog opens on top of the library (no navigation): " + page.url());

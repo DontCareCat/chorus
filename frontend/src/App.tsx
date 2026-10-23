@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
 import { useExitTransition } from "./hooks/useExitTransition";
-import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
+import { useGameLock, useInlineNav, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { useThumb } from "./hooks/useThumb";
 import { swallowNextClick } from "./lib/swallow-click";
 import { useTheme } from "./hooks/useTheme";
@@ -33,6 +33,8 @@ export function App() {
 
   const layout = useLayout();
   const phone = layout === "phone";
+  const wide = useInlineNav();
+  const inlineNav = phone && wide;
   const isGame = route.name === "game";
   useGameLock(isGame);
   useKeyboardFit(isGame);
@@ -111,13 +113,16 @@ export function App() {
             {en.appName}
           </a>
           {phone ? (
+            <>
+            {inlineNav && nav}
             <button type="button" className="menu-btn" ref={burgerRef} aria-expanded={menuOpen} aria-label={en.nav.menu} onClick={() => setMenuOpen((v) => !v)}>
               <svg className="burger" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path className="b1" d="M4 7h16" /><path className="b2" d="M4 12h16" /><path className="b3" d="M4 17h16" /></svg>
             </button>
+            </>
           ) : (
             <>{nav}<div className="top-right">{account}{themeSwitch}</div></>
           )}
-          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{nav}{account}{themeSwitch}</div>}
+          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{!inlineNav && nav}{account}{themeSwitch}</div>}
         </header>
       )}
       {!isGame && !needsSignIn && route.name !== "login" && <QueueBar phone={phone} />}

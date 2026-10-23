@@ -997,3 +997,9 @@ nav.library-tabs { --thumb-bg: var(--text); gap: 4px; padding: 4px; border-radiu
 .queue-levels button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; }
 .queue-levels .level-stars, .queue-levels .level-bars { flex: none; }
 [data-layout="phone"] .queue-actions { order: 4; }
+
+/* tablets: the phone layout with the full top menu when it fits (guide section 11) */
+[data-layout="phone"] .topbar > nav { margin-left: 12px; margin-right: auto; }
+[data-layout="phone"] .topbar > nav a { padding: 6px 12px; }
+.select-bar .btn { gap: 6px; }
+[data-layout="phone"] .select-bar .bar-label { display: none; } /* an icon alone on a phone: the bar has no room for the words (the button keeps its aria-label) */

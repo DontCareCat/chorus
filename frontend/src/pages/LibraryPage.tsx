@@ -299,7 +299,7 @@ export function LibraryPage() {
             onChange={() => (selection.picked.size === shown.length ? selection.clear() : selection.selectAll(shown.map((x) => x.id)))}
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
-          <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])}>{en.playlists.addTo}</button>
+          <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])} aria-label={en.playlists.addTo} title={en.playlists.addTo}><Icon name="playlistAdd" /><span className="bar-label">{en.playlists.addTo}</span></button>
           <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>

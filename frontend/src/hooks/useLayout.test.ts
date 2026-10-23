@@ -2,12 +2,13 @@
 import { describe, expect, it } from "vitest";
 import { layoutFor, typing } from "./useLayout";
 
-const device = (width: number, height: number) => (q: string) => {
+const device = (width: number, height: number, touch = false) => (q: string) => {
   const portrait = height > width;
   const parts = q.split(/,(?![^(]*\))/).map((p) => p.trim());
   const test = (p: string): boolean =>
     p.split(" and ").every((c) => {
       if (c === "(orientation: portrait)") return portrait;
+      if (c === "(pointer: coarse)" || c === "(hover: none)") return touch;
       const m = /\((max-width|max-height): (\d+)px\)/.exec(c);
       if (!m) return false;
       return (m[1] === "max-width" ? width : height) <= Number(m[2]);
@@ -25,6 +26,11 @@ describe("layout modes", () => {
   it("tablets on their side and small laptops are compact", () => {
     expect(layoutFor(device(1280, 690))).toBe("compact");
     expect(layoutFor(device(1180, 820))).toBe("compact");
+  });
+  it("any touch screen gets the phone layout, whatever its size", () => {
+    expect(layoutFor(device(1180, 820, true))).toBe("phone"); // an iPad on its side
+    expect(layoutFor(device(1366, 1024, true))).toBe("phone"); // the biggest iPad
+    expect(layoutFor(device(1440, 900, false))).toBe("desktop"); // the same size with a mouse
   });
   it("desktops are desktops", () => {
     expect(layoutFor(device(1440, 900))).toBe("desktop");
