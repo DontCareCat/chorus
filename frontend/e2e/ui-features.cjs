@@ -123,7 +123,7 @@ async function newGame(page, level) {
   console.log("[remove a song]");
   const n = (await page.$$(".song")).length;
   const row = page.locator(".song", { hasText: "Deep Three" });
-  await row.getByRole("button", { name: /Remove/ }).click();
+  await row.locator(".kebab").click(); await page.locator(".song-menu").getByText("Remove from library").click();
   await page.waitForFunction((c) => document.querySelectorAll(".song").length === c - 1, n, { timeout: 5000 });
   ok(/Removed "Deep Three"/.test(await page.textContent(".notice.ok")), "the song disappears and the page confirms: " + (await page.textContent(".notice.ok")));
   await page.reload(); await page.waitForSelector(".song");

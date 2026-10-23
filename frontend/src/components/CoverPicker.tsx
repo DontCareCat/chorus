@@ -9,10 +9,12 @@ interface Props {
   song: SongDto;
   /** The song changed (a cover was saved or removed). */
   onChanged: () => void;
+  /** inside a dialog: no panel box and no heading of its own */
+  bare?: boolean;
 }
 
 /** Cover tools on the song page: where the cover comes from, a search that lists candidates to choose from, an upload. */
-export function CoverPicker({ song, onChanged }: Props) {
+export function CoverPicker({ song, onChanged, bare = false }: Props) {
   const [candidates, setCandidates] = useState<CoverCandidateDto[] | null>(null);
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
@@ -59,8 +61,8 @@ export function CoverPicker({ song, onChanged }: Props) {
   const removable = source === "online" || source === "custom";
 
   return (
-    <section className="panel cover-picker">
-      <h2>{en.cover.title}</h2>
+    <section className={bare ? "cover-picker" : "panel cover-picker"}>
+      {!bare && <h2>{en.cover.title}</h2>}
       <div className="cover-now">
         <Cover songId={song.id} title={song.title} hasCover={song.has_cover} size="large" version={version} />
         <p className="muted">{status}</p>

@@ -12,11 +12,11 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.screenshot({ path: "/tmp/settings-select.png" });
   await page.goto(B); await page.waitForSelector(".song");
   const before = await page.locator(".song").count();
-  await page.click("text=Select >> nth=0");
-  await page.click("text=/Select all/");
-  ok((await page.locator(".pick:checked").count()) === before, "select all ticks every shown song");
-  await page.uncheck(".pick >> nth=0");
-  await page.click("text=/^Remove \\d+/");
+  await page.evaluate(() => document.querySelector(".song-main .pick").click()); // a phone viewport: the boxes show only while selecting
+  await page.check(".select-all"); // the summary checkbox selects everything the filter shows
+  ok((await page.locator(".song-main .pick:checked").count()) === before, "select all ticks every shown song");
+  await page.uncheck(".song-main .pick >> nth=0");
+  await page.click(".select-bar >> text=Remove");
   await page.waitForFunction((n) => document.querySelectorAll(".song").length === n - (n - 1), before, { timeout: 8000 }).catch(() => {});
   ok((await page.locator(".song").count()) === 1, "the ticked songs are gone, the unticked one stays");
   await browser.close();

@@ -76,7 +76,7 @@ const audit = () => {
 
   const pages = [
     ["library", "", ".song", async () => { await page.click(".play-btn >> nth=0").catch(() => {}); }],
-    ["library (select mode)", "", ".song", async () => { await page.click("text=Select >> nth=0"); await page.check(".pick >> nth=0"); }],
+    ["library (select mode)", "", ".song", async () => { await page.evaluate(() => document.querySelector(".song-main .pick").click()); }],
     ["dictionary (row open)", "#/dictionary", ".word", async () => { await page.click(".word-main >> nth=0"); await page.waitForSelector(".example"); }],
     ["review start", "#/dictionary/review", ".review-start", async () => {}],
     ["scores", "#/scores", "h1", async () => {}],

@@ -1,5 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
+import { CoverPicker } from "../components/CoverPicker";
+import { Dialog } from "../components/Dialog";
+import { Icon } from "../components/Icon";
+import { SongMenu, type SongAction } from "../components/SongMenu";
+import { Details, Finder } from "../components/SongTools";
+import { StatusBadge } from "../components/StatusBadge";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
@@ -9,6 +15,10 @@ import { facetCounts, visibleSongs } from "../lib/library-facets";
 import { buildMatcher } from "../lib/search";
 import { noAutofill } from "../lib/noAutofill";
 import { useAsync } from "../hooks/useAsync";
+import { useLayout } from "../hooks/useLayout";
+import { useLongPress } from "../hooks/useLongPress";
+import { useSelection } from "../hooks/useSelection";
+import { songStatus } from "../lib/lyrics-status";
 import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
@@ -41,8 +51,10 @@ export function LibraryPage() {
   const [regex, setRegex] = usePref("lib_regex", false, isBool);
   const [language, setLanguage] = usePref("lib_language", "all", isString);
   const [browsing, setBrowsing] = useState(false);
-  const [selecting, setSelecting] = useState(false);
-  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const selection = useSelection();
+  const phone = useLayout() === "phone";
+  const [menu, setMenu] = useState<{ id: number; anchor: HTMLElement } | null>(null);
+  const [tool, setTool] = useState<{ kind: "lyrics" | "cover" | "language" | "metadata"; id: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -109,17 +121,17 @@ export function LibraryPage() {
     });
   };
 
-  const stopSelecting = () => { setSelecting(false); setPicked(new Set()); };
-  const toggle = (id: number) => setPicked((p) => { const n = new Set(p); if (!n.delete(id)) n.add(id); return n; });
   const removePicked = async () => {
-    const ids = [...picked];
+    const ids = [...selection.picked];
     if (ids.length === 0 || !window.confirm(en.library.removeManyLibrary(ids.length))) return;
     await run(async () => {
       const r = await api.deleteSongs(ids);
-      stopSelecting();
+      selection.clear();
       return en.library.removedMany(r.hidden + r.deleted);
     });
   };
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const closeTool = useCallback(() => setTool(null), []);
 
   const all = songs.data ?? [];
   const duplicates = useMemo(() => findDuplicates(all), [all]);
@@ -132,6 +144,23 @@ export function LibraryPage() {
     const list = visibleSongs(all, facetOptions);
     return filter === "duplicates" ? [...list].sort((a, b) => (copies.keeper.get(a.id) ?? 0) - (copies.keeper.get(b.id) ?? 0) || a.id - b.id) : list; // copies of one song sit together
   }, [all, facetOptions, filter, copies]);
+  // only what is on screen stays selected, so "N selected" is what Remove deletes
+  useEffect(() => selection.keepOnly(new Set(shown.map((x) => x.id))), [shown, selection.keepOnly]);
+  useEffect(() => {
+    if (!selection.active) return;
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !tool && !menu) selection.clear(); };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [selection, tool, menu]);
+  // lyrics are looked up in the background: while any song is still searching, look at the list again every few seconds
+  const reload = useRef(songs.reload);
+  reload.current = songs.reload;
+  const searching = all.some((x) => x.lyrics_status === "pending");
+  useEffect(() => {
+    if (!searching) return;
+    const t = setInterval(() => { if (!document.hidden) reload.current(); }, 3000);
+    return () => clearInterval(t);
+  }, [searching]);
   // the last duplicate was removed: do not leave the list on an empty filter
   useEffect(() => { if (songs.data && filter === "duplicates" && copies.extras.size === 0) setFilter("all"); }, [songs.data, filter, copies]);
 
@@ -152,9 +181,6 @@ export function LibraryPage() {
           <div className="count">{en.library.count(all.length)}</div>
         </div>
         <div className="page-actions">
-          <button type="button" className="btn secondary" onClick={() => (selecting ? stopSelecting() : setSelecting(true))} aria-pressed={selecting} disabled={all.length === 0}>
-            {selecting ? en.library.selectDone : en.library.select}
-          </button>
           <button type="button" className="btn secondary scan-top" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
           <button type="button" className="btn" onClick={() => setAddOpen((v) => !v)} aria-expanded={addOpen}>
             <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{addOpen ? "×" : "+"}</span>
@@ -263,52 +289,102 @@ export function LibraryPage() {
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}
       {all.length > 0 && shown.length === 0 && <p className="empty">{en.library.noMatch}</p>}
-      {selecting && (
-        <div className="select-bar" role="toolbar" aria-label={en.library.select}>
-          <strong>{en.library.selectedCount(picked.size)}</strong>
-          <button type="button" className="btn quiet small" onClick={() => setPicked(new Set(shown.map((s) => s.id)))} disabled={shown.length === 0}>{en.library.selectAll(shown.length)}</button>
-          <button type="button" className="btn quiet small" onClick={() => setPicked(new Set())} disabled={picked.size === 0}>{en.library.selectNone}</button>
-          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={picked.size === 0 || busy}>{en.library.removeSelected(picked.size)}</button>
+      {selection.active && (
+        <div className="select-bar" role="toolbar" aria-label={en.library.selectedCount(selection.picked.size)}>
+          <input
+            type="checkbox" className="pick select-all" aria-label={en.library.selectAll(shown.length)} title={en.library.selectAll(shown.length)}
+            checked={selection.picked.size > 0 && selection.picked.size === shown.length} ref={(el) => { if (el) el.indeterminate = selection.picked.size > 0 && selection.picked.size < shown.length; }}
+            onChange={() => (selection.picked.size === shown.length ? selection.clear() : selection.selectAll(shown.map((x) => x.id)))}
+          />
+          <strong>{en.library.selectedCount(selection.picked.size)}</strong>
+          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
+          <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
       )}
-      <ul className="songs">
-        {shown.map((s) => (
-          <SongRow
-            key={s.id} song={s} selecting={selecting} picked={picked.has(s.id)} onPick={() => toggle(s.id)} duplicate={copies.reasons.get(s.id)} open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)}
-            onToggle={() => setOpen(open === s.id ? null : s.id)} onRemove={() => void remove(s)}
-          />
-        ))}
+      <ul className="songs" data-selecting={selection.active}>
+        {shown.map((s) => {
+          const keeper = copies.keeper.get(s.id);
+          return (
+            <SongRow
+              key={s.id} song={s} phone={phone} selectionActive={selection.active} picked={selection.has(s.id)} onPick={() => selection.toggle(s.id)} onLongPress={() => selection.add(s.id)}
+              copyOf={keeper !== undefined ? all.find((x) => x.id === keeper)?.title : undefined} duplicate={copies.reasons.get(s.id)}
+              open={open === s.id} games={(games.data ?? []).filter((g) => g.song_id === s.id)} menuOpen={menu?.id === s.id}
+              onToggle={() => setOpen(open === s.id ? null : s.id)} onMenu={(anchor) => setMenu(menu?.id === s.id ? null : { id: s.id, anchor })}
+              onFix={() => { const st = songStatus(s); if (st.fix === "lyrics") setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") void remove(s); }}
+            />
+          );
+        })}
       </ul>
+      {menu && (() => {
+        const s = all.find((x) => x.id === menu.id);
+        return s ? (
+          <SongMenu
+            song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu}
+            onPick={(a: SongAction) => { setMenu(null); if (a === "remove") void remove(s); else setTool({ kind: a, id: s.id }); }}
+          />
+        ) : null;
+      })()}
+      {tool && (() => {
+        const s = all.find((x) => x.id === tool.id);
+        if (!s) return null;
+        return (
+          <Dialog title={en.songMenu.titles[tool.kind] ?? ""} subtitle={`${s.title} · ${s.artist}`} onClose={closeTool}>
+            {tool.kind === "lyrics" && <Finder bare song={s} hasLyrics={s.lyrics_status === "found"} onAttached={songs.reload} />}
+            {tool.kind === "cover" && <CoverPicker bare song={s} onChanged={songs.reload} />}
+            {tool.kind === "language" && <Details bare part="language" song={s} onSaved={songs.reload} />}
+            {tool.kind === "metadata" && <Details bare part="metadata" song={s} onSaved={songs.reload} />}
+          </Dialog>
+        );
+      })()}
     </>
   );
 }
 
-function SongRow({ song: s, selecting, picked, onPick, duplicate, open, games, onToggle, onRemove }: { song: SongDto; selecting: boolean; picked: boolean; onPick: () => void; duplicate?: DuplicateReason[]; open: boolean; games: GameSummaryDto[]; onToggle: () => void; onRemove: () => void }) {
+interface RowProps {
+  song: SongDto;
+  phone: boolean;
+  selectionActive: boolean;
+  picked: boolean;
+  onPick: () => void;
+  onLongPress: () => void;
+  duplicate?: DuplicateReason[];
+  copyOf?: string;
+  open: boolean;
+  games: GameSummaryDto[];
+  menuOpen: boolean;
+  onToggle: () => void;
+  onMenu: (anchor: HTMLElement) => void;
+  onFix: () => void;
+}
+
+function SongRow({ song: s, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available;
-  const label = s.available ? en.lyricsStatus[s.lyrics_status] : en.library.fileMissing;
+  const status = songStatus(s);
+  const press = useLongPress({ onLongPress });
+  const dots = useRef<HTMLButtonElement>(null);
+  const rowClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, label")) return;
+    if (press.consumeClick()) return;
+    if (selectionActive) onPick();
+    else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
+  };
   return (
     <li className="song">
-      <div className="song-main" data-picked={selecting && picked}>
-        {selecting && <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} />}
-        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} />
+      <div className="song-main" data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone ? press.handlers : {})}>
+        <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} />
+        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
         <div className="song-text">
           <div className="song-title" title={s.title}>{s.title}</div>
           <div className="song-meta">
             <span title={s.artist}>{s.artist}</span>
             <span className="lang">{s.language}</span>
             <span>{mmss(s.duration)}</span>
-            {duplicate && <span className="dup-tag" title={en.library.duplicateHint}>{duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}</span>}
+            {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
           </div>
         </div>
-        <div className="status">
-          <span className="dot" data-s={s.available ? s.lyrics_status : "not_found"} aria-hidden="true" />
-          {label}
-        </div>
-        <div className="song-actions">
-          <button type="button" className="btn quiet danger small" onClick={onRemove} aria-label={`${en.library.remove} ${s.title}`}>{en.library.remove}</button>
-          <a className="btn secondary small" href={paths.song(s.id)}>{s.lyrics_status === "found" ? en.library.lyrics : en.library.findLyrics}</a>
-        </div>
-        <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />
+        <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={onFix} /></div>
+        {!phone && <button type="button" className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
+        <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && onMenu(dots.current)}><Icon name="more" /></button>
       </div>
       {open && <StartPanel song={s} games={games} />}
     </li>

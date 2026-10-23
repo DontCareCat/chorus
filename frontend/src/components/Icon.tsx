@@ -7,6 +7,16 @@ import volumeDown from "@material-symbols/svg-400/outlined/volume_down.svg?raw";
 import volumeMute from "@material-symbols/svg-400/outlined/volume_mute.svg?raw";
 import volumeOff from "@material-symbols/svg-400/outlined/volume_off.svg?raw";
 import volumeUp from "@material-symbols/svg-400/outlined/volume_up.svg?raw";
+import close from "@material-symbols/svg-400/outlined/close.svg?raw";
+import deleteIcon from "@material-symbols/svg-400/outlined/delete.svg?raw";
+import edit from "@material-symbols/svg-400/outlined/edit.svg?raw";
+import image from "@material-symbols/svg-400/outlined/image.svg?raw";
+import language from "@material-symbols/svg-400/outlined/language.svg?raw";
+import moreVert from "@material-symbols/svg-400/outlined/more_vert.svg?raw";
+import progress from "@material-symbols/svg-400/outlined/progress_activity.svg?raw";
+import schedule from "@material-symbols/svg-400/outlined/schedule.svg?raw";
+import search from "@material-symbols/svg-400/outlined/search.svg?raw";
+import warning from "@material-symbols/svg-400/outlined/warning-fill.svg?raw";
 
 const pathOf = (svg: string): string => /<path d="([^"]+)"/.exec(svg)?.[1] ?? "";
 
@@ -19,6 +29,16 @@ const PATHS = {
   volumeDown: pathOf(volumeDown),
   volumeMute: pathOf(volumeMute),
   volumeOff: pathOf(volumeOff),
+  close: pathOf(close),
+  trash: pathOf(deleteIcon),
+  edit: pathOf(edit),
+  image: pathOf(image),
+  language: pathOf(language),
+  more: pathOf(moreVert),
+  spinner: pathOf(progress),
+  clock: pathOf(schedule),
+  search: pathOf(search),
+  warning: pathOf(warning),
 } as const;
 
 export type IconName = keyof typeof PATHS;

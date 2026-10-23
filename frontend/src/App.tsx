@@ -92,7 +92,7 @@ export function App() {
               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d={menuOpen ? "M6 6l12 12M18 6L6 18" : "M4 7h16M4 12h16M4 17h16"} /></svg>
             </button>
           ) : (
-            <div className="top-right">{nav}{account}{themeSwitch}</div>
+            <>{nav}<div className="top-right">{account}{themeSwitch}</div></>
           )}
           {phone && menuOpen && <div className="menu-panel">{nav}{account}{themeSwitch}</div>}
         </header>
