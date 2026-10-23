@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { swallowNextClick } from "../lib/swallow-click";
 import { Icon } from "./Icon";
+import type { IconName } from "./Icon";
 import { Sheet } from "./Sheet";
 import type { SheetApi } from "./Sheet";
 
@@ -26,6 +27,8 @@ interface Props<V extends string | number> {
   sheetOnPhone?: boolean;
   /** a chip-shaped button of a fixed width (design guide section 19) instead of a text field */
   chip?: boolean;
+  /** the button shows only this icon (the list still opens as usual); the label goes to aria-label and the tooltip */
+  icon?: IconName;
 }
 
 /**
@@ -33,7 +36,7 @@ interface Props<V extends string | number> {
  * (44 px items, 14 px inner padding, the chosen item ticked, hover/keyboard highlight) instead of the browser's own menu.
  * Popover under the button on PCs; a bottom sheet on phones. Arrow keys, Home/End, type-ahead, Enter/Space, Esc.
  */
-export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true, chip = false }: Props<V>) {
+export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true, chip = false, icon }: Props<V>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; max: number } | null>(null);
@@ -117,10 +120,10 @@ export function Select<V extends string | number>({ value, onChange, options, id
   return (
     <>
       <button
-        type="button" id={id} ref={button} className={`select-btn${chip ? " chip-select" : ""}`} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
-        aria-label={ariaLabel} disabled={disabled} onClick={() => (open ? close() : show())} onKeyDown={onKey} data-placeholder={current < 0}
+        type="button" id={id} ref={button} className={`select-btn${chip ? " chip-select" : ""}${icon ? " icon-select" : ""}`} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
+        aria-label={ariaLabel} title={icon ? ariaLabel : undefined} disabled={disabled} onClick={() => (open ? close() : show())} onKeyDown={onKey} data-placeholder={current < 0}
       >
-        <span>{current >= 0 ? options[current]!.node ?? options[current]!.label : placeholder ?? ""}</span>
+        {icon ? <Icon name={icon} /> : <span>{current >= 0 ? options[current]!.node ?? options[current]!.label : placeholder ?? ""}</span>}
       </button>
       {/* in the body, not beside the button: a click inside a <label> would otherwise be forwarded to the button and reopen the list */}
       {open && createPortal(phone ? <Sheet ref={sheet} label={ariaLabel ?? placeholder ?? ""} className="select-sheet" onClose={() => setOpen(false)}>{items}</Sheet> : items, document.body)}

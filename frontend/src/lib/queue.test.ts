@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { add, advance, finished, moveToTop, next, removeAt, reorderUpcoming, setAllUpcoming, setItem, shared, shuffled, start, upcoming } from "./queue";
+import { add, advance, back, finished, moveToTop, next, removeAt, reorderUpcoming, setAllUpcoming, setItem, shared, shuffled, start, upcoming } from "./queue";
 
 const D = { difficulty: "progressive", mode: "choice" } as const;
 const ids = (q: { items: { songId: number }[] }) => q.items.map((i) => i.songId);
 
 describe("queue", () => {
+  it("goes one song back, but not before the first", () => {
+    let q = advance(advance(start([1, 2, 3], D, null)));
+    expect(next(back(q))?.songId).toBe(2);
+    q = back(back(q));
+    expect(next(q)?.songId).toBe(1);
+    expect(back(q)).toBe(q);
+    expect(next(back(advance(advance(advance(start([1, 2], D, null)))))) ?.songId).toBe(2); // out of a finished queue too
+  });
   it("adds songs once each, in order", () => {
     const q = add(add(start([1, 2], D, null), [3, 2, 3], D), [], D);
     expect(ids(q)).toEqual([1, 2, 3]);

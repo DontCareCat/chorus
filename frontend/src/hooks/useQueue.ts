@@ -50,6 +50,7 @@ export function useQueue() {
     },
     set,
     advance: () => set(Q.advance(state)),
+    back: () => set(Q.back(state)),
     clear: () => set(Q.EMPTY),
     reorder: (ids: number[]) => set(Q.reorderUpcoming(state, ids)),
     removeAt: (i: number) => set(Q.removeAt(state, i)),

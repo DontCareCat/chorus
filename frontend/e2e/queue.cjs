@@ -138,10 +138,36 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   ok((await ph.evaluate(() => JSON.parse(sessionStorage.getItem("chorus_queue")).items.length)) === 1, "past the threshold the song is added");
   await ph.waitForTimeout(300);
   ok(!(await row.getAttribute("data-swipe")), "and the row springs back");
+  const barBtns = await ph.locator(".queue-bar button").evaluateAll((bs) => bs.map((b) => b.getAttribute("aria-label")));
+  ok(barBtns.includes("Play next") && !barBtns.includes("Stop queue") && !barBtns.includes("Skip to next"), "the phone bar keeps Play only (no stop or skip button): " + barBtns.join(", "));
+  const bt = (type, x) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y: by }] });
+  const cursor = () => ph.evaluate(() => JSON.parse(sessionStorage.getItem("chorus_queue")).cursor);
+  { // a second song, added by swiping its row (the store keeps the queue in memory, so sessionStorage cannot be edited behind its back)
+    const other = ph.locator(".song", { hasText: `Qc ${stamp}` });
+    await other.scrollIntoViewIfNeeded(); await ph.waitForTimeout(200);
+    const ob = await other.boundingBox(), oy = ob.y + 30;
+    const ot = (type, x) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y: oy }] });
+    await ot("touchStart", 60); for (let i = 1; i <= 8; i++) { await ot("touchMove", 60 + i * 25); await ph.waitForTimeout(20); } await ot("touchEnd", 260); await ph.waitForTimeout(400);
+  }
+  const bx = await ph.locator(".queue-bar").boundingBox(), by = bx.y + bx.height / 2;
+  const cur0 = await cursor();
+  await bt("touchStart", 300); for (let i = 1; i <= 8; i++) { await bt("touchMove", 300 - i * 25); await ph.waitForTimeout(20); } await bt("touchEnd", 100); await ph.waitForTimeout(300);
+  ok((await cursor()) === cur0 + 1, "a swipe left on the bar skips to the next song");
+  await bt("touchStart", 60); for (let i = 1; i <= 8; i++) { await bt("touchMove", 60 + i * 25); await ph.waitForTimeout(20); } await bt("touchEnd", 260); await ph.waitForTimeout(300);
+  ok((await cursor()) === cur0, "a swipe right takes it back");
+  await ph.tap(".queue-bar-face"); await ph.waitForSelector(".queue-row");
+  ok(true, "a tap on the bar opens the queue");
+  await ph.keyboard.press("Escape"); await ph.waitForTimeout(400);
+  if (await ph.locator(".queue-row").count()) await ph.evaluate(() => document.querySelector(".sheet .grab, .dialog-scrim")?.click());
+  await ph.waitForTimeout(400);
+  const sortBtn = await ph.locator(".sort-control .select-btn").evaluate((b) => ({ text: b.textContent.trim(), w: b.getBoundingClientRect().width, hasSvg: !!b.querySelector("svg") }));
+  ok(sortBtn.text === "" && sortBtn.hasSvg && sortBtn.w <= 48, "on a phone the sort button is an icon: " + JSON.stringify(sortBtn));
+  const line = await ph.evaluate(() => { const a = document.querySelector(".queue-actions").getBoundingClientRect(), s = document.querySelector(".sort-control").getBoundingClientRect(); return { sameLine: Math.abs((a.top + a.bottom) / 2 - (s.top + s.bottom) / 2) < 8, fits: s.right <= innerWidth }; });
+  ok(line.sameLine && line.fits, "and it sits on the line of Play all and Shuffle: " + JSON.stringify(line));
   await ph.click('.queue-bar button[aria-label="Open queue"]');
   await ph.waitForSelector(".queue-row");
   ok((await ph.locator(".queue-row .grip").count()) === 0 && (await ph.locator(".queue-level").count()) === 0, "touch rows have no grip and no dropdown (the ⋮ sheet instead)");
-  await ph.locator(".queue-row .kebab").click();
+  await ph.locator(".queue-row .kebab").first().click();
   await ph.waitForSelector(".song-sheet");
   ok((await ph.locator(".song-sheet [role=menuitem]").allInnerTexts()).some((t) => /Difficulty/.test(t)), "the row sheet has Difficulty");
   await browser.close();

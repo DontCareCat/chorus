@@ -36,6 +36,9 @@ export const withPlaying = (q: QueueState, publicId: string): QueueState => ({ .
 /** The queue moves on: the next song was started or skipped. */
 export const advance = (q: QueueState): QueueState => (q.cursor < q.items.length ? { ...q, cursor: q.cursor + 1 } : q);
 
+/** One song back: the previous song becomes the next one to play again (a skip taken back). */
+export const back = (q: QueueState): QueueState => (q.cursor > 0 ? { ...q, cursor: q.cursor - 1 } : q);
+
 /** Remove the song at `index`; the cursor keeps pointing at the same upcoming song. */
 export function removeAt(q: QueueState, index: number): QueueState {
   if (index < 0 || index >= q.items.length) return q;

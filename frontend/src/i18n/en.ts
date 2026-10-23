@@ -145,6 +145,8 @@ export const en = {
     removed: (title: string) => `${title} removed from the queue`,
     swipeAdd: "Add to queue",
     swipeRemove: "Remove",
+    swipeSkip: "Next song",
+    swipeBack: "Previous song",
     nowPlaying: "Started",
     dragHandle: "Drag to reorder the queue",
   },

@@ -53,7 +53,7 @@ const audit = () => {
   }
   // dropdowns: never the browser's select; our button keeps room for its arrow (same distance from the right edge as the text from the left)
   if (document.querySelector("select")) stretched.push("a native select is on the page (use components/Select.tsx)");
-  for (const el of document.querySelectorAll(".select-btn")) {
+  for (const el of document.querySelectorAll(".select-btn:not(.icon-select)")) { // an icon-only dropdown (the sort button on phones) has no arrow
     const cs = getComputedStyle(el); if (!el.getBoundingClientRect().width) continue;
     if (parseFloat(cs.paddingRight) < parseFloat(cs.paddingLeft) + 20 || cs.backgroundImage === "none") stretched.push("dropdown arrow has no room beside its text");
   }
