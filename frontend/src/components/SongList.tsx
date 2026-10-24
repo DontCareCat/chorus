@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "./Cover";
 import { CoverPicker } from "./CoverPicker";
 import { Dialog } from "./Dialog";
@@ -9,6 +9,7 @@ import { Details, Finder } from "./SongTools";
 import { StatusBadge } from "./StatusBadge";
 import { useAsync } from "../hooks/useAsync";
 import { useLongPress } from "../hooks/useLongPress";
+import { useNearViewport } from "../hooks/useNearViewport";
 import type { useSelection } from "../hooks/useSelection";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { useReorder } from "../hooks/useReorder";
@@ -87,19 +88,41 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
     return () => { cancelAnimationFrame(first); clearTimeout(later); };
   }, [phone, open]);
 
+  // The rows are memoised, so what they are given must not change from one render to the next unless the row itself changed:
+  // the handlers go through a ref, and every song's games come from one map.
+  const act = useRef({ queue, setOpen, setMenu, setTool, onRemove, selection });
+  act.current = { queue, setOpen, setMenu, setTool, onRemove, selection };
+  const handlers = useMemo<RowHandlers>(() => ({
+    queue: (s) => void act.current.queue.add([s.id]),
+    pick: (s) => act.current.selection?.toggle(s.id),
+    longPress: (s) => act.current.selection?.add(s.id),
+    toggle: (s) => act.current.setOpen((o) => (o === s.id ? null : s.id)),
+    menu: (s, anchor) => act.current.setMenu((m) => (m?.id === s.id ? null : { id: s.id, anchor })),
+    fix: (s) => { const st = songStatus(s); if (st.fix === "lyrics") act.current.setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") act.current.onRemove(s); },
+  }), []);
+  const gamesBySong = useMemo(() => {
+    const m = new Map<number, GameSummaryDto[]>();
+    for (const g of games) (m.get(g.song_id) ?? m.set(g.song_id, []).get(g.song_id)!).push(g);
+    return m;
+  }, [games]);
+  const selecting = selection?.active ?? false;
+  // the height of a row that is not drawn yet is guessed from one that is (it depends on the layout: cover size, density)
+  useEffect(() => {
+    const row = ul.current?.querySelector<HTMLElement>("li.song:not([data-lazy]):not(:has(.expand))");
+    if (row && row.offsetHeight > 0) ul.current?.style.setProperty("--row-estimate", `${row.offsetHeight}px`);
+  }, [songs.length, listKey, phone]);
+
   return (
     <>
-      <ul className="songs" key={listKey} ref={ul} data-selecting={selection?.active ?? false} data-orderable={!!reorder}>
-        {songs.map((s) => {
+      <ul className="songs" key={listKey} ref={ul} data-selecting={selecting} data-orderable={!!reorder}>
+        {songs.map((s, i) => {
           const dup = duplicate?.(s);
           return (
             <SongRow
-              key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selection?.active ?? false} picked={selection?.has(s.id) ?? false}
-              onQueue={() => void queue.add([s.id])} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder} onPick={() => selection?.toggle(s.id)} onLongPress={() => selection?.add(s.id)}
+              key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selecting} picked={selection?.has(s.id) ?? false}
+              handlers={handlers} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder} first={i < EAGER_ROWS}
               copyOf={dup?.copyOf} duplicate={dup?.reasons} gone={removed?.(s) ?? false}
-              open={open === s.id} games={games.filter((g) => g.song_id === s.id)} menuOpen={menu?.id === s.id}
-              onToggle={() => setOpen(open === s.id ? null : s.id)} onMenu={(anchor) => setMenu(menu?.id === s.id ? null : { id: s.id, anchor })}
-              onFix={() => { const st = songStatus(s); if (st.fix === "lyrics") setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") onRemove(s); }}
+              open={open === s.id} games={gamesBySong.get(s.id) ?? NO_GAMES} menuOpen={menu?.id === s.id}
             />
           );
         })}
@@ -131,10 +154,24 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
   );
 }
 
+const NO_GAMES: GameSummaryDto[] = [];
+/** The rows at the top of a list are rendered at once; the others as they come near the screen (see useNearViewport). */
+const EAGER_ROWS = 24;
+
+interface RowHandlers {
+  queue: (s: SongDto) => void;
+  pick: (s: SongDto) => void;
+  longPress: (s: SongDto) => void;
+  toggle: (s: SongDto) => void;
+  menu: (s: SongDto, anchor: HTMLElement) => void;
+  fix: (s: SongDto) => void;
+}
+
 interface RowProps {
   song: SongDto;
   sortKey: SortChoice["key"] | null;
-  onQueue: () => void;
+  handlers: RowHandlers;
+  first: boolean;
   selectable: boolean;
   orderable: boolean;
   reorderRow: boolean;
@@ -142,25 +179,25 @@ interface RowProps {
   phone: boolean;
   selectionActive: boolean;
   picked: boolean;
-  onPick: () => void;
-  onLongPress: () => void;
   duplicate?: DuplicateReason[];
   copyOf?: string;
   open: boolean;
   games: GameSummaryDto[];
   menuOpen: boolean;
-  onToggle: () => void;
-  onMenu: (anchor: HTMLElement) => void;
-  onFix: () => void;
 }
 
-function SongRow({ song: s, sortKey, onQueue, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, onPick, onLongPress, duplicate, copyOf, open, games, menuOpen, onToggle, onMenu, onFix }: RowProps) {
+const SongRow = memo(function SongRow({ song: s, sortKey, handlers, first, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
-  const press = useLongPress({ onLongPress });
+  const onPick = () => handlers.pick(s);
+  const onToggle = () => handlers.toggle(s);
+  const press = useLongPress({ onLongPress: () => handlers.longPress(s) });
   const li = useRef<HTMLLIElement>(null);
-  useSwipe(li, { directions: ["right"], onSwipe: onQueue, enabled: phone && ready });
+  useSwipe(li, { directions: ["right"], onSwipe: () => handlers.queue(s), enabled: phone && ready });
   const dots = useRef<HTMLButtonElement>(null);
+  // a row far from the screen is an empty box of the height it had (a hand-ordered list is short and measured by the drag: always whole)
+  const height = useRef<number | null>(null);
+  const near = useNearViewport(li, { initially: first, enabled: !reorderRow && !open && !menuOpen, onLeave: (el) => { height.current = el.offsetHeight; } });
   const rowClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, a, input, label")) return;
     if (press.consumeClick()) return;
@@ -168,29 +205,33 @@ function SongRow({ song: s, sortKey, onQueue, selectable, orderable, reorderRow,
     else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
   };
   return (
-    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
-      <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
-      <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
-        {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
-        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
-        <div className="song-text">
-          <div className="song-title" title={s.title}>{s.title}{gone && <span className="dup-tag">{en.playlists.removedTag}</span>}</div>
-          <div className="song-meta">
-            <span title={s.artist}>{s.artist}</span>
-            <span className="lang">{s.language}</span>
-            <span>{mmss(s.duration)}</span>
-            {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
-            {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
+    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined} data-lazy={near ? undefined : true} style={near ? undefined : { height: height.current ?? "var(--row-estimate, 120px)" }}>
+      {near && (
+        <>
+          <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
+          <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
+            {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
+            <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
+            <div className="song-text">
+              <div className="song-title" title={s.title}>{s.title}{gone && <span className="dup-tag">{en.playlists.removedTag}</span>}</div>
+              <div className="song-meta">
+                <span title={s.artist}>{s.artist}</span>
+                <span className="lang">{s.language}</span>
+                <span>{mmss(s.duration)}</span>
+                {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
+                {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
+              </div>
+            </div>
+            <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} /></div>
+            {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
+            <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && handlers.menu(s, dots.current)}><Icon name="more" /></button>
           </div>
-        </div>
-        <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={onFix} /></div>
-        {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
-        <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && onMenu(dots.current)}><Icon name="more" /></button>
-      </div>
-      {open && <div className="expand"><StartPanel song={s} games={games} /></div>}
+          {open && <div className="expand"><StartPanel song={s} games={games} /></div>}
+        </>
+      )}
     </li>
   );
-}
+});
 
 function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] }) {
   const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("medium");

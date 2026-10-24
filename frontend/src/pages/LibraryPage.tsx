@@ -11,6 +11,7 @@ import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
 import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
+import { keepUnchanged } from "../lib/keep-unchanged";
 import { facetCounts, visibleSongs } from "../lib/library-facets";
 import { buildMatcher } from "../lib/search";
 import { SORT_KEYS, sortSongs } from "../lib/library-sort";
@@ -30,7 +31,9 @@ const AUDIO_RE = /\.(mp3|m4a|flac|ogg|opus|wav)$/i;
 type Filter = "all" | "ready" | "missing" | "duplicates";
 
 export function LibraryPage() {
-  const songs = useAsync(() => api.songs(), []);
+  const previous = useRef<SongDto[]>([]);
+  // a reload gives back the very objects of the songs that did not change, so the list re-renders only the rows that did
+  const songs = useAsync(() => api.songs().then((next) => (previous.current = keepUnchanged(previous.current, next))), []);
   const games = useAsync(() => api.myGames(), []);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
