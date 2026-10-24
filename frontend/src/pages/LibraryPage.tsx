@@ -166,11 +166,24 @@ export function LibraryPage() {
   const loading = useRef(false);
   loading.current = songs.loading;
   const searching = all.some((x) => x.lyrics_status === "pending");
+  // the list is asked again every few seconds while lookups run; when an answer brings nothing new the wait doubles (up to 30 s), so
+  // lookups that make no progress (the service is down) cost next to nothing
+  const lastSeen = useRef<SongDto[] | null>(null);
+  const wait = useRef(3000);
   useEffect(() => {
     if (!searching) return;
-    const t = setInterval(() => { if (!document.hidden && !loading.current) reload.current(); }, 3000); // never ask again while the last answer is still on its way
-    return () => clearInterval(t);
-  }, [searching]);
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      if (!document.hidden && !loading.current) {
+        wait.current = lastSeen.current === songs.data ? Math.min(30000, wait.current * 2) : 3000;
+        lastSeen.current = songs.data;
+        reload.current();
+      }
+      timer = setTimeout(tick, wait.current);
+    };
+    timer = setTimeout(tick, wait.current);
+    return () => clearTimeout(timer);
+  }, [searching, songs.data]);
   // the last duplicate was removed: do not leave the list on an empty filter
   useEffect(() => { if (songs.data && filter === "duplicates" && copies.extras.size === 0) setFilter("all"); }, [songs.data, filter, copies]);
 
@@ -315,7 +328,7 @@ export function LibraryPage() {
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
           <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])} aria-label={en.playlists.addTo} title={en.playlists.addTo}><Icon name="playlistAdd" /><span className="bar-label">{en.playlists.addTo}</span></button>
-          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy}>{en.library.findLyrics}</button>
+          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy} aria-label={en.library.findLyrics} title={en.library.findLyrics}><Icon name="search" /><span className="bar-label">{en.library.findLyrics}</span></button>
           <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>

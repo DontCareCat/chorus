@@ -728,7 +728,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .start-panel { padding-left: calc(var(--pick-col) + var(--row-gap) + var(--cover-row) + var(--row-gap) - var(--row-pad) + 14px); }
 .dup-tag { font-size: 12px; font-weight: 600; padding: 0 8px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line-strong); color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.select-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 8px var(--row-pad) 8px calc(var(--row-pad) + 2px); margin: 0 calc(-1 * var(--row-pad)) 12px; border-radius: 16px; background: var(--raised); }
+.select-bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 14px; padding: 8px var(--row-pad) 8px calc(var(--row-pad) + 2px); margin: 0 calc(-1 * var(--row-pad)) 12px; border-radius: 16px; background: var(--raised); flex-wrap: wrap; } /* wraps rather than running off a narrow screen */
 .select-bar strong { margin-right: auto; font-size: 18px; }
 .btn.danger { background: var(--wrong); border-color: var(--wrong); color: var(--bg); }
 
