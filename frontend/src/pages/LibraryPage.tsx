@@ -328,8 +328,8 @@ export function LibraryPage() {
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
           <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])} aria-label={en.playlists.addTo} title={en.playlists.addTo}><Icon name="playlistAdd" /><span className="bar-label">{en.playlists.addTo}</span></button>
-          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy} aria-label={en.library.findLyrics} title={en.library.findLyrics}><Icon name="search" /><span className="bar-label">{en.library.findLyrics}</span></button>
-          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
+          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy || selection.picked.size === 0} aria-label={en.library.findLyrics} title={en.library.findLyrics}><Icon name="search" /><span className="bar-label">{en.library.findLyrics}</span></button>
+          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy || selection.picked.size === 0}>{en.library.removeSelected}</button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
       )}
