@@ -787,7 +787,8 @@ html.dialog-open { overflow: hidden; }
 [data-layout="phone"] .status-btn { width: 32px; height: 32px; padding: 0; margin: 0; justify-content: center; }
 [data-layout="phone"] .song-title { font-size: 18px; }
 [data-layout="phone"] .start-panel { padding: 0 0 16px; }
-[data-layout="phone"] .select-bar { top: 0; padding-left: var(--row-pad); }
+[data-layout="phone"] .select-bar { top: 0; padding-left: var(--row-pad); gap: var(--gap-actions); }
+[data-layout="phone"] .select-bar strong { font-size: 16px; white-space: nowrap; }
 
 /* top menu bar on PCs and tablets: wordmark, links beside it, account and theme at the right edge */
 .topbar > nav { margin-right: auto; }
