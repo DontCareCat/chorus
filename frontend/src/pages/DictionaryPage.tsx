@@ -19,6 +19,15 @@ export function headword(e: DictEntryDto): string {
   return e.article ? (e.article.endsWith("'") ? `${e.article}${w}` : `${e.article} ${w}`) : w;
 }
 
+/** What stands where a word's translation goes: the translation, or why there is none. */
+export function translationText(e: DictEntryDto): string {
+  if (e.translation) return e.translation;
+  if (e.enrich_status === "pending") return en.dictionary.translating;
+  if (e.enrich_status === "failed") return en.dictionary.lookupFailed;
+  if (e.translation_language && e.translation_language === e.language) return en.dictionary.sameLanguage;
+  return en.dictionary.noTranslation;
+}
+
 export function DictionaryPage() {
   const statusThumb = useThumb();
   const langThumb = useThumb();
@@ -134,7 +143,7 @@ export function DictionaryPage() {
               <span className="word-text">
                 <span className="word-head" lang={e.language}>{headword(e)}</span>
                 <span className="word-tr">
-                  {e.translation ?? (e.enrich_status === "pending" ? en.dictionary.translating : e.enrich_status === "failed" ? en.dictionary.lookupFailed : en.dictionary.noTranslation)}
+                  {translationText(e)}
                 </span>
               </span>
               <span className="word-meta">

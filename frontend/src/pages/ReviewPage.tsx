@@ -9,7 +9,7 @@ import { isOneOf, isString, readPref, usePref, writePref } from "../lib/prefs";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { DictStatus, RatedDto, Rating, ReviewNextDto, ReviewScope, ReviewSummaryDto } from "../services/api";
-import { headword } from "./DictionaryPage";
+import { headword, translationText } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
 const SIZES = [20, 40, 60] as const;
@@ -248,7 +248,7 @@ export function ReviewPage() {
         <div className="review-card review-back">
           <p className="review-word" lang={back.language}>{headword(back)}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
-          <p className="review-tr">{back.translation ?? (back.enrich_status === "pending" ? en.dictionary.translating : back.enrich_status === "failed" ? en.dictionary.lookupFailed : en.dictionary.noTranslation)}</p>
+          <p className="review-tr">{translationText(back)}</p>
           <ul className="examples">
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>

@@ -19,6 +19,7 @@ export const en = {
     lookupFailed: "Could not look this up.",
     lookupAgain: "Look up again",
     noTranslation: "No translation yet",
+    sameLanguage: "Already in your translation language. Change that language in Settings to see translations.",
     asSung: (w: string) => `as sung: ${w}`,
     sentences: (n: number) => `${n} ${n === 1 ? "sentence" : "sentences"}`,
     play: "Play this line",
