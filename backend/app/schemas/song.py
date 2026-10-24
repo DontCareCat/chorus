@@ -37,6 +37,14 @@ class SongPatch(BaseModel):
     lyrics_offset: float | None = Field(None, ge=-60, le=60)
 
 
+class RetryRequest(BaseModel):
+    ids: list[int] | None = Field(None, max_length=100_000)
+
+
+class RetryOut(BaseModel):
+    queued: int
+
+
 class ImportRequest(BaseModel):
     path: str
 

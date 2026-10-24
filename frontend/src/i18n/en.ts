@@ -248,6 +248,8 @@ export const en = {
     selectAll: (n: number) => `Select all ${n} songs in this filter`,
     cancelSelection: "Cancel selection",
     removeSelected: "Remove",
+    findMissingLyrics: (n: number) => `Find missing lyrics (${n})`,
+    lyricsQueued: (n: number) => (n === 0 ? "Nothing to look for." : `Looking for lyrics for ${n} song${n === 1 ? "" : "s"} in the background.`),
     pick: (title: string) => `Select ${title}`,
     copyOf: (title: string) => `Copy of “${title}”`,
     removeManyLibrary: (n: number) => `Remove ${n} songs from the library? Your audio files stay where they are; songs you uploaded or imported as copies are deleted with their lyrics and games.`,

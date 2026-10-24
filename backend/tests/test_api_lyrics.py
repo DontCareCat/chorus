@@ -234,3 +234,15 @@ def test_games_on_the_old_lyrics_survive_a_replacement(api, tmp_path):
     seen = " ".join(l["text"] or q["question_text"] for l in new["lines"] for q in new["questions"] if q["line_id"] == l["line_id"])
     assert "Nacht" in " ".join(l["text"] or "" for l in new["lines"]) or "____" in seen
     assert PLAIN.split("\n")[0] not in " ".join(l["text"] or "" for l in new["lines"])
+
+
+def test_retry_looks_again_for_songs_without_lyrics(api, lrclib, tmp_path):
+    s = add_song(api, tmp_path)  # nothing at LRCLIB yet
+    assert status(api, s["id"]) == "not_found"
+    lrclib.get_result = lrclib_json(duration=2.0)
+    lrclib.search_result = [lrclib_json(duration=2.0)]
+    api.delete("/api/lyrics/cache")  # the earlier "nothing" is not remembered
+    assert api.post("/api/songs/lyrics/retry", json={}).json() == {"queued": 1}
+    assert status(api, s["id"]) == "found"
+    assert api.post("/api/songs/lyrics/retry", json={}).json() == {"queued": 0}  # found songs are left alone
+    assert api.post("/api/songs/lyrics/retry", json={"ids": [s["id"]]}).json() == {"queued": 0}

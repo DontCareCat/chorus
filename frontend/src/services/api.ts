@@ -340,6 +340,8 @@ export const api = {
   importPath: (path: string, recursive: boolean, copyFiles: boolean) =>
     request<ScanDto>("/api/library/import", json("POST", { path, recursive, copy_files: copyFiles })),
   health: () => request<{ status: string; app: string; version: string }>("/api/health"),
+  /** Looks for lyrics again, in the background: for these songs, or (no ids) for every song that has none yet. */
+  retryLyrics: (ids?: number[]) => request<{ queued: number }>("/api/songs/lyrics/retry", json("POST", ids ? { ids } : {})),
   deleteSongs: (ids: number[]) =>
     request<{ hidden: number; deleted: number; missing: number }>("/api/songs/bulk-delete", json("POST", { ids })),
   playlists: () => request<PlaylistDto[]>("/api/playlists"),

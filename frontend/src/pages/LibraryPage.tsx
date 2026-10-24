@@ -129,7 +129,16 @@ export function LibraryPage() {
     });
   };
 
+  const retryLyrics = async (ids?: number[]) => {
+    await run(async () => {
+      const r = await api.retryLyrics(ids);
+      selection.clear();
+      return en.library.lyricsQueued(r.queued);
+    });
+  };
+
   const all = songs.data ?? [];
+  const missingLyrics = all.filter((s) => s.lyrics_status === "not_found" || s.lyrics_status === "pending").length;
   const duplicates = useMemo(() => findDuplicates(all), [all]);
   const copies = useMemo(() => extraCopies(duplicates), [duplicates]); // the Duplicates filter lists the copies; the oldest song of a group stays out
   const matcher = useMemo(() => buildMatcher(query, regex), [query, regex]);
@@ -208,6 +217,7 @@ export function LibraryPage() {
                 {en.library.uploadFolder}
                 <input ref={folderRef} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
               </label>
+              {missingLyrics > 0 && <button type="button" className="btn secondary small" onClick={() => void retryLyrics()} disabled={busy}>{en.library.findMissingLyrics(missingLyrics)}</button>}
               <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
@@ -300,6 +310,7 @@ export function LibraryPage() {
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
           <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])} aria-label={en.playlists.addTo} title={en.playlists.addTo}><Icon name="playlistAdd" /><span className="bar-label">{en.playlists.addTo}</span></button>
+          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy}>{en.library.findLyrics}</button>
           <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy}>{en.library.removeSelected}</button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>

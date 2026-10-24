@@ -12,8 +12,8 @@ from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.models.types import utcnow
 from app.db.database import get_session
-from app.db.models import Game, Lyrics, Song, SongSource, User
-from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, ScanOut, SongOut, SongPatch
+from app.db.models import Game, Lyrics, LyricsStatus, Song, SongSource, User
+from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, RetryOut, RetryRequest, ScanOut, SongOut, SongPatch
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
 from app.services.library.storage import check_extension, save_upload
@@ -155,6 +155,22 @@ def scan(
         background.add_task(discover_for_songs, factory, client, result.new_song_ids)
         background.add_task(fetch_covers_for_songs, factory, covers, result.new_song_ids)
     return ScanOut(**{k: getattr(result, k) for k in ("added", "skipped", "unavailable", "errors")})
+
+
+@router.post("/songs/lyrics/retry", response_model=RetryOut)
+def retry_lyrics(
+    body: RetryRequest, background: BackgroundTasks, session: Session = Depends(get_session),
+    factory: sessionmaker = Depends(get_session_factory), client: LrclibClient = Depends(get_lrclib_client),
+):
+    """Look for lyrics again, in the background: for the given songs, or (no `ids`) for every song that has none yet
+    because the first try found nothing or never finished (a big import can hit the service's limits)."""
+    query = select(Song.id).where(Song.removed.is_(False), Song.lyrics_status.in_([LyricsStatus.not_found, LyricsStatus.pending]))
+    if body.ids is not None:
+        query = select(Song.id).where(Song.removed.is_(False), Song.id.in_(body.ids), Song.lyrics_status != LyricsStatus.found)
+    ids = list(session.scalars(query))
+    if ids:
+        background.add_task(discover_for_songs, factory, client, ids)
+    return RetryOut(queued=len(ids))
 
 
 @router.patch("/songs/{song_id}", response_model=SongOut)
