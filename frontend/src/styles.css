@@ -745,6 +745,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .status-btn[data-kind="error"] .icon { color: var(--wrong); }
 .status-slot[data-kind="pending"] .icon { font-size: 22px; }
 .spin { display: inline-grid; animation: chorus-spin 1s linear infinite; }
+.spin[data-still] { animation: none; } /* many spinners turning at once keep the phone redrawing and slow every call to the database down */
 @keyframes chorus-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 3s; } }
 .status-tip { display: none; position: absolute; right: 0; bottom: calc(100% + 8px); width: 320px; z-index: 20; padding: 12px 14px; border-radius: 14px; background: var(--text); color: var(--bg); font-size: 15px; line-height: 1.4; box-shadow: 0 10px 30px color-mix(in oklch, var(--text) 25%, transparent); }

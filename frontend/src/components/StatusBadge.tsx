@@ -9,6 +9,8 @@ interface Props {
   phone: boolean;
   /** open the dialog (or do the action) that fixes the problem */
   onFix: () => void;
+  /** the spinner stands still: a screenful of turning spinners keeps the phone redrawing, which slows everything else down (the list lets only a few turn) */
+  still?: boolean;
 }
 
 const BUBBLE_W = 288;
@@ -20,7 +22,7 @@ const MARGIN = 12;
  * PC: the short message beside the icon, the full message on hover, a click opens the fix. Phone: a tap on the icon opens a
  * bubble right above it, with the message and a highlighted fix button; any tap outside it, a scroll or Esc closes it.
  */
-export function StatusBadge({ status, phone, onFix }: Props) {
+export function StatusBadge({ status, phone, onFix, still = false }: Props) {
   const [open, setOpen] = useState(false);
   const [box, setBox] = useState<{ left: number; bottom: number; arrow: number } | null>(null);
   const icon = useRef<HTMLButtonElement>(null);
@@ -50,7 +52,7 @@ export function StatusBadge({ status, phone, onFix }: Props) {
   if (status.kind === "pending") {
     return (
       <div className="status-slot" data-kind="pending" role="status">
-        <span className="spin"><Icon name="spinner" /></span>
+        <span className="spin" data-still={still || undefined}><Icon name="spinner" /></span>
         {!phone && <span className="status-text">{status.short}</span>}
         {phone && <span className="sr-only">{status.short}</span>}
       </div>
