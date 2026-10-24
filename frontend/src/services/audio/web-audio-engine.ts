@@ -64,7 +64,11 @@ export class WebAudioPlaybackEngine implements GameEngine {
     on("pause", () => emit(audio.ended ? "ended" : "paused"));
     on("waiting", () => emit("buffering"));
     on("ended", () => emit("ended"));
-    on("error", () => this.errorCbs.forEach((cb) => cb(audio.error?.message || "audio error")));
+    on("error", () => {
+      console.warn("audio error", audio.error?.code, audio.error?.message || "", audio.currentSrc.replace(/\/[0-9a-f]{24,}\//, "/…/"));
+      this.errorCbs.forEach((cb) => cb(audio.error?.message || "audio error"));
+    });
+    for (const type of ["loadstart", "canplay", "waiting", "stalled"]) on(type, () => console.debug("audio", type, Math.round(audio.currentTime * 10) / 10)); // detailed log only
   }
 
   async play(): Promise<void> {
