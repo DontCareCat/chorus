@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
-import { formatInterval } from "../lib/interval";
+import { formatInterval, nextIntervals } from "../lib/interval";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { isOneOf, isString, readPref, usePref, writePref } from "../lib/prefs";
 import { paths } from "../router";
@@ -13,6 +13,11 @@ import { headword } from "./DictionaryPage";
 
 const RATINGS: Rating[] = ["again", "hard", "good", "easy"];
 const SIZES = [20, 40, 60] as const;
+/** A card rated Again or Hard comes back after this many other cards (at once when no other card is left). */
+const RETRY_GAP = 3;
+
+interface Retry { id: number; word: string; language: string; interval: number; wait: number }
+interface Session { target: number; shown: number[]; done: number; retry: Retry[] }
 
 /** The filters the Dictionary page has on (remembered in cookies): the review uses only the words they show. */
 const dictionaryScope = (): ReviewScope => ({
@@ -32,7 +37,8 @@ const describeScope = (scope: ReviewScope): string | null => {
 
 /**
  * Spaced review in sessions of 20, 40 or 60 words. A session always has its words, whether or not their time has come:
- * the ones that are due first, then new words, then the ones due soonest. Each word is shown once per session.
+ * the ones that are due first, then new words, then the ones due soonest. A word rated Again or Hard comes back a few
+ * cards later; the session lasts until every word has been rated Good or Easy.
  */
 export function ReviewPage() {
   const sizeThumb = useThumb();
@@ -40,7 +46,8 @@ export function ReviewPage() {
   const scopeText = describeScope(scope);
   const [summary, setSummary] = useState<ReviewSummaryDto | null>(null);
   const [size, setSize] = usePref<number>("review_size", 20, isOneOf(...SIZES));
-  const [session, setSession] = useState<{ target: number; shown: number[] } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const lastRating = useRef<Rating | null>(null);
   const [next, setNext] = useState<ReviewNextDto | null>(null);
   const [back, setBack] = useState<RatedDto | null>(null);
   const [rated, setRated] = useState(0);
@@ -70,7 +77,7 @@ export function ReviewPage() {
     if (!summary) return;
     const r = await fetchNext([]);
     if (r?.card) {
-      setSession({ target: Math.min(size, summary.available, summary.left_today ?? size), shown: [r.card.id] });
+      setSession({ target: Math.min(size, summary.available, summary.left_today ?? size), shown: [r.card.id], done: 0, retry: [] });
       setRated(0);
     }
   }, [summary, size, fetchNext]);
@@ -90,6 +97,7 @@ export function ReviewPage() {
     setBusy(true);
     try {
       setBack(await api.rate(card.id, rating));
+      lastRating.current = rating;
       setRated((n) => n + 1);
     } catch (e) {
       fail(e);
@@ -118,19 +126,32 @@ export function ReviewPage() {
   }, [back]);
 
   const proceed = useCallback(async () => {
-    if (!session || busyRef.current) return;
-    if (session.shown.length >= session.target) { // the session is complete
-      setNext(null);
+    if (!session || !back || busyRef.current) return;
+    snippets.stop();
+    const again = lastRating.current === "again" || lastRating.current === "hard";
+    const retry: Retry[] = session.retry.map((c) => ({ ...c, wait: c.wait - 1 }));
+    if (again) retry.push({ id: back.id, word: back.surface, language: back.language, interval: back.interval_seconds, wait: RETRY_GAP });
+    const finished = session.done + (again ? 0 : 1);
+    const ask = (c: Retry) => {
+      setNext({ card: { id: c.id, word: c.word, language: c.language, intervals: nextIntervals(c.interval) }, summary: next?.summary ?? summary! });
       setBack(null);
-      setSession(null);
-      loadSummary();
-      setDone(true);
-      return;
+      setError(null);
+      setSession({ ...session, done: finished, retry: retry.filter((x) => x !== c) });
+    };
+    const fresh = session.shown.length < session.target;
+    const due = retry.find((c) => c.wait <= 0);
+    if (due || (!fresh && retry.length)) return ask(due ?? retry[0]!);
+    if (fresh) {
+      const r = await fetchNext(session.shown);
+      if (r?.card) return setSession({ ...session, shown: [...session.shown, r.card.id], done: finished, retry });
+      if (retry.length) return ask(retry[0]!); // no new word is left
     }
-    const r = await fetchNext(session.shown);
-    if (r?.card) setSession({ ...session, shown: [...session.shown, r.card.id] });
-    else { setSession(null); setDone(true); loadSummary(); }
-  }, [session, fetchNext, loadSummary]);
+    setNext(null);
+    setBack(null);
+    setSession(null);
+    loadSummary();
+    setDone(true);
+  }, [session, back, next, summary, fetchNext, loadSummary, snippets]);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -160,7 +181,7 @@ export function ReviewPage() {
   const top = (
     <div className="review-top">
       <a href={paths.dictionary()}>{en.dictionary.showInLibrary}</a>
-      {session ? <span className="muted" aria-label="Progress">{en.dictionary.progress(Math.min(session.shown.length, session.target), session.target)}</span>
+      {session ? <span className="muted" aria-label="Progress">{en.dictionary.progress(Math.min(session.done + 1, session.target), session.target)}</span>
         : <span className="muted">{en.dictionary.reviewLeft(summary.due, summary.new)}{summary.left_today !== null ? ` · ${en.dictionary.leftToday(summary.left_today)}` : ""}</span>}
     </div>
   );
@@ -234,7 +255,7 @@ export function ReviewPage() {
           <div className="review-actions">
             <button type="button" className="btn secondary large" onClick={() => void goBack()} disabled={busy} title={en.dictionary.backHelp} aria-label={en.dictionary.backHelp}>{en.dictionary.back}</button>
             <button type="button" className="btn inverse large" onClick={() => void proceed()} disabled={busy} autoFocus>
-              {session.shown.length >= session.target ? en.dictionary.finish : en.dictionary.nextCard}
+              {session.shown.length >= session.target && !session.retry.length && lastRating.current !== "again" && lastRating.current !== "hard" ? en.dictionary.finish : en.dictionary.nextCard}
             </button>
           </div>
         </div>

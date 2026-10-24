@@ -16,3 +16,17 @@ export function formatInterval(seconds: number): string {
 export function formatWait(ms: number): string {
   return ms <= 0 ? "now" : `in ${formatInterval(Math.max(MIN, Math.round(ms / 1000)))}`;
 }
+
+const MAX_INTERVAL = 365 * DAY;
+
+/** What each review button would set for a card whose interval is now `current` seconds (the same rule as the server's). */
+export function nextIntervals(current: number): Record<"again" | "hard" | "good" | "easy", number> {
+  const small = current < DAY;
+  const cap = (n: number) => Math.min(n, MAX_INTERVAL);
+  return {
+    again: MIN,
+    hard: cap(small ? Math.max(10 * MIN, Math.floor(current * 1.5)) : Math.floor(current * 1.2)),
+    good: cap(small ? DAY : Math.floor(current * 2.5)),
+    easy: cap(small ? 4 * DAY : current * 4),
+  };
+}

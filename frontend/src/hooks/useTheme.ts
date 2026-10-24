@@ -1,31 +1,35 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Theme = "light" | "dark";
+/** What the player picked; "system" follows the device (and lets it change while the page is open). */
+export type Theme = "system" | "light" | "dark";
 const KEY = "chorus-theme";
 
-const stored = (): Theme | null => {
+const stored = (): Theme => {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : null;
+    return v === "light" || v === "dark" ? v : "system";
   } catch {
-    return null; // blocked storage: follow the system
+    return "system"; // blocked storage: follow the system
   }
 };
-const system = (): Theme => (window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 
-/** Light / dark switch. Until the player chooses, the system setting decides; the choice is remembered. */
+const apply = (t: Theme) => {
+  if (t === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+};
+
+/** Light / dark / system switch. Until the player chooses, the system setting decides; the choice is remembered. */
 export function useTheme(): { theme: Theme; setTheme: (t: Theme) => void } {
-  const [theme, set] = useState<Theme>(() => stored() ?? system());
-  useEffect(() => {
-    if (stored()) document.documentElement.dataset.theme = theme;
-  }, [theme]);
+  const [theme, set] = useState<Theme>(stored);
+  useEffect(() => apply(theme), [theme]);
   const setTheme = useCallback((t: Theme) => {
     try {
-      localStorage.setItem(KEY, t);
+      if (t === "system") localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, t);
     } catch {
       /* the choice just lasts for this visit */
     }
-    document.documentElement.dataset.theme = t;
+    apply(t);
     set(t);
   }, []);
   return { theme, setTheme };

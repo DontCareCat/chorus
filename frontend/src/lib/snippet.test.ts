@@ -36,12 +36,12 @@ describe("SnippetPlayer", () => {
     const { audio, player, changes } = setup();
     await player.toggle("a", { songId: 1, start: 10, end: 12 });
     expect(audio.src).toBe(url(1));
-    expect(audio.currentTime).toBe(10);
+    expect(audio.currentTime).toBeCloseTo(10 - FADE_IN);
     expect(audio.paused).toBe(false);
-    audio.currentTime = 11.9;
+    audio.currentTime = 12.2; // the line is over, its tail is fading
     vi.advanceTimersByTime(20);
     expect(audio.paused).toBe(false);
-    audio.currentTime = 12.02;
+    audio.currentTime = 12 + FADE_OUT + 0.02;
     vi.advanceTimersByTime(20);
     expect(audio.paused).toBe(true);
     expect(changes).toEqual(["a", null]);
@@ -63,7 +63,7 @@ describe("SnippetPlayer", () => {
     audio.src = "kept";
     await player.toggle("b", { songId: 1, start: 20, end: 25 });
     expect(audio.src).toBe("kept");
-    expect(audio.currentTime).toBe(20);
+    expect(audio.currentTime).toBeCloseTo(20 - FADE_IN);
     expect(changes).toEqual(["a", null, "b"]);
     await player.toggle("c", { songId: 2, start: 1, end: 2 });
     expect(audio.src).toBe(url(2));
@@ -91,32 +91,31 @@ describe("SnippetPlayer", () => {
 });
 
 describe("fades", () => {
-  it("fadeGain ramps in at the start and out at the end of the line", () => {
-    expect(fadeGain(10, 10, 14)).toBe(0);
-    expect(fadeGain(10 + FADE_IN / 2, 10, 14)).toBeCloseTo(0.5);
-    expect(fadeGain(12, 10, 14)).toBe(1);
-    expect(fadeGain(14 - FADE_OUT / 2, 10, 14)).toBeCloseTo(0.5);
-    expect(fadeGain(14, 10, 14)).toBe(0);
+  it("fadeGain is full inside the line and ramps just outside it", () => {
+    expect(fadeGain(10 - FADE_IN, 10, 14)).toBe(0);
+    expect(fadeGain(10 - FADE_IN / 2, 10, 14)).toBeCloseTo(0.5);
+    expect(fadeGain(10, 10, 14)).toBeCloseTo(1);
+    expect(fadeGain(14, 10, 14)).toBeCloseTo(1); // the last word is not quieter
+    expect(fadeGain(14 + FADE_OUT / 2, 10, 14)).toBeCloseTo(0.5);
+    expect(fadeGain(14 + FADE_OUT, 10, 14)).toBe(0);
   });
-  it("a very short line still fades, each way within 40 % of its length", () => {
-    expect(fadeGain(10.2, 10, 10.5)).toBeCloseTo(1);
-    expect(fadeGain(10.075, 10, 10.5)).toBeCloseTo(0.5);
-    expect(fadeGain(10.4, 10, 10.5)).toBeCloseTo(0.5);
+  it("a very short line is full volume while it is sung", () => {
+    expect(fadeGain(10.25, 10, 10.5)).toBe(1);
   });
-  it("the player starts silent, rises, falls before the end and leaves the volume at 1", async () => {
+  it("the player starts silent, rises into the line, falls after it and leaves the volume at 1", async () => {
     const { audio, player } = setup();
     await player.toggle("a", { songId: 1, start: 10, end: 14 });
     expect(audio.volume).toBe(0);
-    audio.currentTime = 10.075;
+    audio.currentTime = 10 - FADE_IN / 2;
     vi.advanceTimersByTime(20);
     expect(audio.volume).toBeCloseTo(0.5);
-    audio.currentTime = 12;
+    audio.currentTime = 13.95;
     vi.advanceTimersByTime(20);
     expect(audio.volume).toBe(1);
-    audio.currentTime = 13.85;
+    audio.currentTime = 14 + FADE_OUT / 2;
     vi.advanceTimersByTime(20);
     expect(audio.volume).toBeCloseTo(0.5);
-    audio.currentTime = 14.01;
+    audio.currentTime = 14 + FADE_OUT + 0.01;
     vi.advanceTimersByTime(20);
     expect(audio.paused).toBe(true);
     expect(audio.volume).toBe(1);

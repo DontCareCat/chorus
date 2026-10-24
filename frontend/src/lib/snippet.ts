@@ -14,16 +14,17 @@ export interface Snippet {
   end: number;
 }
 
-/** Seconds a sentence takes to fade in and out (never more than 40 % of its length each, so short lines still fade). */
-export const FADE_IN = 0.15;
+/**
+ * The fades happen just outside the line, so none of its words is quieter: playing begins FADE_IN seconds before the line
+ * and rises to full volume as it starts; after its end the sound goes on for FADE_OUT seconds while it falls to silence.
+ */
+export const FADE_IN = 0.12;
 export const FADE_OUT = 0.3;
 
-/** The volume (0..1) at `time` for a sentence from `start` to `end`: a linear fade in at its start and out at its end. */
+/** The volume (0..1) at `time` for a sentence from `start` to `end`: full inside the line, a linear ramp just before and after it. */
 export function fadeGain(time: number, start: number, end: number): number {
-  const len = Math.max(0.001, end - start);
-  const fin = Math.min(FADE_IN, len * 0.4), fout = Math.min(FADE_OUT, len * 0.4);
-  const up = fin > 0 ? (time - start) / fin : 1;
-  const down = fout > 0 ? (end - time) / fout : 1;
+  const up = (time - (start - FADE_IN)) / FADE_IN;
+  const down = (end + FADE_OUT - time) / FADE_OUT;
   return Math.min(1, Math.max(0, Math.min(up, down)));
 }
 
@@ -76,7 +77,8 @@ export class SnippetPlayer {
       this.loaded = snippet.songId;
     }
     this.audio.volume = 0; // fades in from silence: a line cut out of a song must not start with a click
-    this.audio.currentTime = Math.max(0, snippet.start);
+    const from = Math.max(0, snippet.start - FADE_IN);
+    this.audio.currentTime = from;
     this.set(key);
     try {
       await this.audio.play();
@@ -87,7 +89,7 @@ export class SnippetPlayer {
     if (this.key !== key) return true; // stopped or replaced while the browser was starting
     const tick = () => {
       const t = this.audio.currentTime;
-      if (t >= snippet.end) this.stop();
+      if (t >= snippet.end + FADE_OUT) this.stop();
       else this.audio.volume = fadeGain(t, snippet.start, snippet.end);
     };
     tick();

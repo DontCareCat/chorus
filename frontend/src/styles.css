@@ -1018,6 +1018,9 @@ button.queue-bar-face { cursor: pointer; }
 .toast { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--text); color: var(--bg); }
 .toast .btn { color: var(--bg); }
 .song { position: relative; touch-action: pan-y; } /* sideways movement belongs to the swipe, not to the browser's pan */
+/* a long library: rows off the screen are not laid out or painted (the browser remembers each real height once seen). It is the row itself, not .song, that has the bleed into the gutter, so nothing is clipped; the reorderable rows are measured by the drag and are left alone. */
+.song:not([data-reorder-id]) > .song-main { content-visibility: auto; contain-intrinsic-size: auto 120px; }
+[data-layout="phone"] .song:not([data-reorder-id]) > .song-main { contain-intrinsic-size: auto 112px; }
 .song[data-swiping="true"] { overflow: hidden; }
 .song [data-swipe-face], .song-main[data-swipe-face] { background: var(--bg); }
 @media (prefers-reduced-motion: reduce) { .queue-bar, .queue-bar[data-state="closing"] { animation: none; } .queue-list[data-reordering="true"] > li:not([data-dragging]) { transition: none; } }

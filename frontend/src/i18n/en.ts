@@ -80,7 +80,7 @@ export const en = {
     top: "Top scores",
     yourRank: (rank: number) => `You are number ${rank} on this song.`,
   },
-  theme: { label: "Theme", light: "Light", dark: "Dark" },
+  theme: { label: "Theme", system: "System", light: "Light", dark: "Dark" },
   account: {
     signIn: "Sign in",
     signOut: "Sign out",

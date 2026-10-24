@@ -7,6 +7,8 @@ export interface Snippets {
   /** The key of the sentence that is playing, or null. */
   playing: string | null;
   toggle: (key: string, snippet: Snippet) => void;
+  /** Stops whatever is playing. */
+  stop: () => void;
   /** Set when the browser refused to play (so the page can say so). */
   blocked: boolean;
 }
@@ -34,6 +36,7 @@ export function useSnippets(): Snippets {
   return {
     playing,
     blocked,
+    stop: () => player.current?.stop(),
     toggle: (key, snippet) => {
       void player.current?.toggle(key, snippet).then((ok) => setBlocked(!ok));
     },

@@ -99,7 +99,7 @@ export function App() {
   );
   const themeSwitch = (
     <div className="theme-switch thumbs" role="group" aria-label={en.theme.label} ref={themeThumb}>
-      {(["light", "dark"] as const).map((t) => (
+      {(["system", "light", "dark"] as const).map((t) => (
         <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{en.theme[t]}</button>
       ))}
     </div>
