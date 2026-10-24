@@ -4,6 +4,7 @@ Both are reached through small clients that can be replaced in tests (`deps.get_
 both identify themselves, retry on server errors and keep a cache table so each text is sent out only once.
 """
 import hashlib
+import html
 import json
 import re
 import threading
@@ -65,7 +66,7 @@ class Translator(_Http):
             raise LookupUnavailable(f"translation service returned HTTP {r.status_code}")
         try:
             data = r.json()
-            out = str(data["responseData"]["translatedText"]).strip()
+            out = html.unescape(str(data["responseData"]["translatedText"])).strip()  # MyMemory answers with HTML entities (&#39;, &quot;)
             status = int(data.get("responseStatus", 200))
         except (ValueError, KeyError, TypeError):
             raise LookupUnavailable("unreadable answer from the translation service")

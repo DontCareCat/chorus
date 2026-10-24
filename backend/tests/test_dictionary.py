@@ -75,6 +75,11 @@ def test_translator_retries_server_errors_and_reads_the_answer(dictionary):
     assert dictionary.calls.count("tr:de|en:Haus") == 4  # one good call + three tries
 
 
+def test_translator_decodes_html_entities_in_the_answer(dictionary):
+    dictionary.translations["Haus"] = "it&#39;s a &quot;house&quot; &amp; home"
+    assert dictionary.translator().translate("Haus", "de", "en") == 'it\'s a "house" & home'
+
+
 def test_translator_reports_the_free_quota_as_unavailable(dictionary):
     dictionary.quota = True
     with pytest.raises(LookupUnavailable, match="MYMEMORY"):
