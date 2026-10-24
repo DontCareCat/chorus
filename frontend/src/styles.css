@@ -851,6 +851,7 @@ html.dialog-open { overflow: hidden; }
 @keyframes rowIn { from { opacity: 0; transform: translateY(6px); } }
 @keyframes countIn { from { opacity: 0; } }
 .songs > li, .words > li { animation: rowIn 0.16s var(--ease-out); }
+.songs > li.songs-gap { animation: none; list-style: none; } /* the empty stand-in for rows that are not drawn */
 .chip small { animation: countIn var(--dur-base) ease; }
 
 /* popovers and windows */

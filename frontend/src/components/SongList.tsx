@@ -9,7 +9,6 @@ import { Details, Finder } from "./SongTools";
 import { StatusBadge } from "./StatusBadge";
 import { useAsync } from "../hooks/useAsync";
 import { useLongPress } from "../hooks/useLongPress";
-import { useNearViewport } from "../hooks/useNearViewport";
 import type { useSelection } from "../hooks/useSelection";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { useReorder } from "../hooks/useReorder";
@@ -106,26 +105,75 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
     return m;
   }, [games]);
   const selecting = selection?.active ?? false;
-  // the height of a row that is not drawn yet is guessed from one that is (it depends on the layout: cover size, density)
+  // A long list draws only the rows near the screen, with an empty gap of the right height for the others: a few thousand rows in the
+  // page made every call to the phone's database (each one comes back as a script run in the page) wait for the page to lay out again.
+  const windowed = !reorder && songs.length > WINDOW_FROM;
+  const heights = useRef(new Map<number, number>());
+  const estimate = useRef(phone ? 112 : 120);
+  const [range, setRange] = useState({ from: 0, to: 40 });
+  const [measured, setMeasured] = useState(0);
+  const cumulative = useMemo(() => {
+    const out = new Array<number>(songs.length + 1);
+    out[0] = 0;
+    for (let i = 0; i < songs.length; i++) out[i + 1] = out[i]! + (heights.current.get(songs[i]!.id) ?? estimate.current);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songs, measured]);
+  const place = useCallback(() => {
+    const el = ul.current;
+    if (!windowed || !el) return;
+    const top = el.getBoundingClientRect().top; // where the list starts, relative to the screen
+    const from = firstBelow(cumulative, -top - WINDOW_MARGIN);
+    const to = firstBelow(cumulative, -top + window.innerHeight + WINDOW_MARGIN);
+    setRange((r) => (r.from === from && r.to === to ? r : { from, to }));
+  }, [windowed, cumulative]);
   useEffect(() => {
-    const row = ul.current?.querySelector<HTMLElement>("li.song:not([data-lazy]):not(:has(.expand))");
-    if (row && row.offsetHeight > 0) ul.current?.style.setProperty("--row-estimate", `${row.offsetHeight}px`);
-  }, [songs.length, listKey, phone]);
+    place();
+    window.addEventListener("scroll", place, { passive: true });
+    window.addEventListener("resize", place);
+    return () => { window.removeEventListener("scroll", place); window.removeEventListener("resize", place); };
+  }, [place]);
+  // remember the real height of every row that is drawn (the gaps are made of them)
+  useEffect(() => {
+    if (!windowed || !ul.current) return;
+    let changed = false;
+    for (const li of ul.current.querySelectorAll<HTMLElement>("li.song")) {
+      const id = Number(li.dataset.songId), h = li.offsetHeight;
+      if (h > 0 && Math.abs((heights.current.get(id) ?? 0) - h) > 1) { heights.current.set(id, h); changed = true; }
+    }
+    if (changed) setMeasured((n) => n + 1);
+  });
+  const forced = useMemo(() => new Set(songs.flatMap((s, i) => (s.id === open || s.id === menu?.id ? [i] : []))), [songs, open, menu?.id]);
 
   return (
     <>
       <ul className="songs" key={listKey} ref={ul} data-selecting={selecting} data-orderable={!!reorder}>
-        {songs.map((s, i) => {
-          const dup = duplicate?.(s);
-          return (
-            <SongRow
-              key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selecting} picked={selection?.has(s.id) ?? false}
-              handlers={handlers} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder} first={i < EAGER_ROWS}
-              copyOf={dup?.copyOf} duplicate={dup?.reasons} gone={removed?.(s) ?? false}
-              open={open === s.id} games={gamesBySong.get(s.id) ?? NO_GAMES} menuOpen={menu?.id === s.id}
-            />
-          );
-        })}
+        {(() => {
+          const out: React.ReactNode[] = [];
+          let gapFrom = -1;
+          const closeGap = (end: number) => {
+            if (gapFrom >= 0) out.push(<li key={`gap-${gapFrom}`} className="songs-gap" aria-hidden="true" style={{ height: cumulative[end]! - cumulative[gapFrom]! }} />);
+            gapFrom = -1;
+          };
+          songs.forEach((s, i) => {
+            if (windowed && (i < range.from || i > range.to) && !forced.has(i)) {
+              if (gapFrom < 0) gapFrom = i;
+              return;
+            }
+            closeGap(i);
+            const dup = duplicate?.(s);
+            out.push(
+              <SongRow
+                key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selecting} picked={selection?.has(s.id) ?? false}
+                handlers={handlers} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder}
+                copyOf={dup?.copyOf} duplicate={dup?.reasons} gone={removed?.(s) ?? false}
+                open={open === s.id} games={gamesBySong.get(s.id) ?? NO_GAMES} menuOpen={menu?.id === s.id}
+              />,
+            );
+          });
+          closeGap(songs.length);
+          return out;
+        })()}
       </ul>
       <div className="sr-only" role="status" aria-live="polite">{moved}</div>
       {menu && (() => {
@@ -155,8 +203,20 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
 }
 
 const NO_GAMES: GameSummaryDto[] = [];
-/** The rows at the top of a list are rendered at once; the others as they come near the screen (see useNearViewport). */
-const EAGER_ROWS = 24;
+/** Lists longer than this draw only the rows near the screen. */
+const WINDOW_FROM = 80;
+/** How far above and below the screen rows are drawn (a quick scroll meets rows that are already there). */
+const WINDOW_MARGIN = 1200;
+
+/** The index of the row that contains `y` (offsets from the top of the list), within the list. */
+function firstBelow(cumulative: number[], y: number): number {
+  let lo = 0, hi = cumulative.length - 2;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (cumulative[mid]! <= y) lo = mid; else hi = mid - 1;
+  }
+  return Math.max(0, lo);
+}
 
 interface RowHandlers {
   queue: (s: SongDto) => void;
@@ -171,7 +231,6 @@ interface RowProps {
   song: SongDto;
   sortKey: SortChoice["key"] | null;
   handlers: RowHandlers;
-  first: boolean;
   selectable: boolean;
   orderable: boolean;
   reorderRow: boolean;
@@ -186,7 +245,7 @@ interface RowProps {
   menuOpen: boolean;
 }
 
-const SongRow = memo(function SongRow({ song: s, sortKey, handlers, first, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
+const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
   const onPick = () => handlers.pick(s);
@@ -195,9 +254,6 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, first, selec
   const li = useRef<HTMLLIElement>(null);
   useSwipe(li, { directions: ["right"], onSwipe: () => handlers.queue(s), enabled: phone && ready });
   const dots = useRef<HTMLButtonElement>(null);
-  // a row far from the screen is an empty box of the height it had (a hand-ordered list is short and measured by the drag: always whole)
-  const height = useRef<number | null>(null);
-  const near = useNearViewport(li, { initially: first, enabled: !reorderRow && !open && !menuOpen, onLeave: (el) => { height.current = el.offsetHeight; } });
   const rowClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button, a, input, label")) return;
     if (press.consumeClick()) return;
@@ -205,9 +261,8 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, first, selec
     else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
   };
   return (
-    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined} data-lazy={near ? undefined : true} style={near ? undefined : { height: height.current ?? "var(--row-estimate, 120px)" }}>
-      {near && (
-        <>
+    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
+      <>
           <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
           <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
             {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
@@ -227,8 +282,7 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, first, selec
             <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && handlers.menu(s, dots.current)}><Icon name="more" /></button>
           </div>
           {open && <div className="expand"><StartPanel song={s} games={games} /></div>}
-        </>
-      )}
+      </>
     </li>
   );
 });
