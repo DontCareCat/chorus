@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { Icon } from "../components/Icon";
+import { ActionMenu } from "../components/ActionMenu";
+import { LookupBar } from "../components/LookupBar";
 import { AddToPlaylist } from "../components/AddToPlaylist";
 import { LibraryTabs } from "../components/LibraryTabs";
 import { SongList } from "../components/SongList";
@@ -51,6 +53,8 @@ export function LibraryPage() {
   const sort: SortChoice = { key: sortKey, dir: sortDir };
   const [browsing, setBrowsing] = useState(false);
   const queue = useQueueActions();
+  const [barMenu, setBarMenu] = useState(false);
+  const barMenuBtn = useRef<HTMLButtonElement>(null);
   const [playlistFor, setPlaylistFor] = useState<number[] | null>(null);
   const selection = useSelection();
   const statusThumb = useThumb();
@@ -141,6 +145,7 @@ export function LibraryPage() {
   };
 
   const all = songs.data ?? [];
+  const waiting = all.filter((s) => s.lyrics_status === "pending" && !s.lyrics_stalled).length;
   const missingLyrics = all.filter((s) => s.lyrics_status === "not_found" || s.lyrics_status === "pending").length;
   const duplicates = useMemo(() => findDuplicates(all), [all]);
   const copies = useMemo(() => extraCopies(duplicates), [duplicates]); // the Duplicates filter lists the copies; the oldest song of a group stays out
@@ -315,6 +320,7 @@ export function LibraryPage() {
           ))}
         </div>
       )}
+      <LookupBar waiting={waiting} busy={busy} onRetry={() => void retryLyrics()} />
       {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}
@@ -327,11 +333,17 @@ export function LibraryPage() {
             onChange={() => (selection.picked.size === shown.length ? selection.clear() : selection.selectAll(shown.map((x) => x.id)))}
           />
           <strong>{en.library.selectedCount(selection.picked.size)}</strong>
-          <button type="button" className="btn secondary small" onClick={() => setPlaylistFor([...selection.picked])} aria-label={en.playlists.addTo} title={en.playlists.addTo}><Icon name="playlistAdd" /><span className="bar-label">{en.playlists.addTo}</span></button>
-          <button type="button" className="btn secondary small" onClick={() => void retryLyrics([...selection.picked])} disabled={busy || selection.picked.size === 0} aria-label={en.library.findLyrics} title={en.library.findLyrics}><Icon name="search" /><span className="bar-label">{en.library.findLyrics}</span></button>
-          <button type="button" className="btn danger small" onClick={() => void removePicked()} disabled={busy || selection.picked.size === 0}>{en.library.removeSelected}</button>
+          <button type="button" className="icon-btn" ref={barMenuBtn} onClick={() => setBarMenu((v) => !v)} aria-haspopup="menu" aria-expanded={barMenu} aria-label={en.library.moreActions} title={en.library.moreActions} disabled={selection.picked.size === 0}><Icon name="more" /></button>
+          <button type="button" className="icon-btn danger" onClick={() => void removePicked()} disabled={busy || selection.picked.size === 0} aria-label={en.library.removeSelected} title={en.library.removeSelected}><Icon name="trash" /></button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
         </div>
+      )}
+      {barMenu && (
+        <ActionMenu
+          label={en.library.selectedCount(selection.picked.size)} phone={phone} anchor={barMenuBtn.current} onClose={() => setBarMenu(false)}
+          items={[{ id: "playlist", icon: "playlistAdd", label: en.playlists.addTo }, { id: "lyrics", icon: "search", label: en.library.findLyrics }]}
+          onPick={(id) => { if (id === "playlist") setPlaylistFor([...selection.picked]); else void retryLyrics([...selection.picked]); }}
+        />
       )}
       <SongList
         songs={shown} games={games.data ?? []} phone={phone} sortKey={filter === "duplicates" ? null : sortKey} listKey={`${filter}|${language}|${sortKey}|${sortDir}`}

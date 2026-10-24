@@ -62,6 +62,14 @@ export function SettingsPage() {
       setNotice({ kind: "error", text: msg(e) });
     }
   };
+  const retryLyrics = async () => {
+    try {
+      const r = await api.retryLyrics();
+      setNotice({ kind: "ok", text: en.library.lyricsQueued(r.queued) });
+    } catch (e) {
+      setNotice({ kind: "error", text: msg(e) });
+    }
+  };
   const clear = async () => {
     if (!window.confirm(en.settings.clearConfirm)) return;
     const r = await api.clearCache();
@@ -82,6 +90,12 @@ export function SettingsPage() {
             <input type="checkbox" checked={form.auto_fetch_lyrics} onChange={(e) => set("auto_fetch_lyrics", e.target.checked)} />
             <span><strong>{en.settings.autoFetch}</strong></span>
           </label>
+          <div className="field">
+            <div className="page-actions">
+              <button type="button" className="btn secondary" onClick={() => void retryLyrics()}>{en.settings.retryLyrics}</button>
+            </div>
+            <small>{en.settings.retryLyricsHelp}</small>
+          </div>
           <div className="field">
             <span>{en.settings.lyricsTimeout}</span>
             <input type="number" min={1} max={1440} value={form.lyrics_timeout_minutes} onChange={(e) => set("lyrics_timeout_minutes", Math.min(1440, Math.max(1, Number(e.target.value) || 1)))} aria-label={en.settings.lyricsTimeout} style={{ maxWidth: "12rem" }} />
@@ -216,10 +230,10 @@ export function SettingsPage() {
         )}
         <AudioPanel />
 
-        <div className="page-actions">
+        <div className="save-bar">
+          {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
           <button type="submit" className="btn large">{en.settings.save}</button>
         </div>
-        {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
       </form>
 
       {user && !user.is_guest && (
