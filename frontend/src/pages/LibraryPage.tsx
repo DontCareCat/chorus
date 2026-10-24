@@ -160,10 +160,12 @@ export function LibraryPage() {
   // lyrics are looked up in the background: while any song is still searching, look at the list again every few seconds
   const reload = useRef(songs.reload);
   reload.current = songs.reload;
+  const loading = useRef(false);
+  loading.current = songs.loading;
   const searching = all.some((x) => x.lyrics_status === "pending");
   useEffect(() => {
     if (!searching) return;
-    const t = setInterval(() => { if (!document.hidden) reload.current(); }, 3000);
+    const t = setInterval(() => { if (!document.hidden && !loading.current) reload.current(); }, 3000); // never ask again while the last answer is still on its way
     return () => clearInterval(t);
   }, [searching]);
   // the last duplicate was removed: do not leave the list on an empty filter
