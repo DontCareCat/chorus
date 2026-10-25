@@ -178,7 +178,7 @@ function GameScreen({ game }: { game: GameDto }) {
   const answer = useCallback(
     (q: (typeof g.quiz)[number], given: Answer) => {
       // The server scores the answer: "ahead" from where the audio is, the multiplier from how long the game waited.
-      g.answer(q.id, given, { position: engine?.getCurrentTime() ?? 0, waited: waited.current }, () => playback.markAnswered(q.id));
+      g.answer(q.id, given, { position: playback.controller?.positionForAnswer() ?? engine?.getCurrentTime() ?? 0, waited: waited.current }, () => playback.markAnswered(q.id));
       waited.current = 0;
       // The next open question (after this one, else the first open one) appears at once; the result of this
       // answer shows in a line of its own and in the lyric sheet. With nothing left, this question stays up.

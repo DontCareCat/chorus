@@ -158,8 +158,19 @@ export class PlaybackController {
       grace: this.grace,
     });
     if (decision.kind === "recover") {
+      this.duePosition = this.o.engine.getCurrentTime(); // where the song was when the question fell due, before the game rewinds
       this.dispatch({ type: "OVERDUE", questionId: decision.question.id, target: decision.target, ended: false });
     }
+  }
+
+  /**
+   * Where the song is, for scoring an answer. While the game waits for an answer it has rewound to the previous line, but the answer
+   * is not "ahead of the song": it counts from where the song was when the question fell due.
+   */
+  positionForAnswer(): number {
+    const { name } = this.state;
+    const waiting = name === "FADING_OUT" || name === "SEEKING" || name === "PAUSED_FOR_QUESTION";
+    return waiting && this.duePosition !== null ? this.duePosition : this.o.engine.getCurrentTime();
   }
 
   /** Call when the engine reports the end of the audio. */
@@ -176,6 +187,7 @@ export class PlaybackController {
         })
       : ({ kind: "ok" } as const);
     if (decision.kind === "recover") {
+      this.duePosition = this.o.engine.getCurrentTime();
       this.dispatch({ type: "OVERDUE", questionId: decision.question.id, target: decision.target, ended: true });
     } else {
       this.dispatch({ type: "ENDED" });
@@ -203,6 +215,8 @@ export class PlaybackController {
     const at = s.name === "SEEKING" ? (s.target ?? 0) : this.o.engine.getCurrentTime();
     return isOverdue(at, q, this.grace) ? { questionId: q.id, target: getRecoveryPosition(q) } : null;
   }
+
+  private duePosition: number | null = null;
 
   private dispatch(event: MachineEvent): void {
     const { state, effects } = transition(this.state, event);

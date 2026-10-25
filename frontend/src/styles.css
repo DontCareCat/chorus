@@ -316,9 +316,9 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .countdown { position: absolute; left: 18px; right: 18px; bottom: 4px; height: 3px; border-radius: 2px; background: var(--line); overflow: hidden; }
 .countdown i { display: block; height: 100%; background: var(--wrong); transform-origin: left; }
 .countdown[hidden] { display: none; }
-.gain { position: absolute; right: 18px; top: 8px; font-weight: 800; font-size: 20px; color: var(--correct); animation: gain-pop 2s ease-out forwards; } /* inside the panel: above it the number left the screen before it could be read */
+.gain { position: absolute; right: 18px; top: -14px; font-weight: 800; font-size: 20px; color: var(--correct);animation: gain-pop 1.4s ease-out forwards; }
 .gain[data-ok="false"] { color: var(--wrong); }
-@keyframes gain-pop { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: translateY(0); } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(-4px); } }
+@keyframes gain-pop { 0% { opacity: 0; transform: translateY(8px); } 15% { opacity: 1; transform: translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
 
 /* timeline */
 .state-line { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); min-height: 1.6em; }
@@ -544,7 +544,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .game .multiplier { min-width: 0; gap: 3px; }
 [data-layout="phone"] .game .pips i { width: 8px; height: 3px; }
 [data-layout="phone"] .game .countdown { left: 14px; right: 14px; bottom: 3px; }
-[data-layout="phone"] .game .gain { top: 6px; font-size: 16px; }
+[data-layout="phone"] .game .gain { top: -12px; font-size: 16px; }
 [data-layout="phone"] .game .state-line { font-size: 12px; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-layout="phone"] .game-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 6px; padding-top: 4px; padding-bottom: 8px; }
 [data-layout="phone"] .game-main { justify-content: flex-end; }
