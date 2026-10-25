@@ -761,6 +761,7 @@ button.fs-name:hover { background: var(--surface-2); }
 @keyframes ch-out { to { opacity: 0; transform: translateY(-4px); filter: blur(2px); } }
 @keyframes ch-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .lookup-bar .btn { position: relative; z-index: 1; }
+[data-layout="phone"] .lookup-text { font-size: 15px; }
 @media (prefers-reduced-motion: reduce) { .lookup-slot, .lookup-bar, .lookup-ring, .lookup-tick, .lookup-wave, .lookup-text .ch { transition: none !important; animation-duration: 1ms !important; } }
 .btn.danger { background: var(--wrong); border-color: var(--wrong); color: var(--bg); }
 

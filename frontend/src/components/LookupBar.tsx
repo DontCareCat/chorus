@@ -64,7 +64,7 @@ export function LookupBar({ songs, busy, onRetry }: Props) {
       later(SWEEP_MS, () => { setText(resultText(latest.current, ids.current)); setPhase("in"); });
       later(SWEEP_MS + ARRIVE_MS, () => setPhase("hold"));
       later(SWEEP_MS + ARRIVE_MS + HOLD_MS, () => setPhase("leaving"));
-      later(SWEEP_MS + ARRIVE_MS + HOLD_MS + SLIDE_MS, () => { setPhase("hidden"); ids.current = new Set(); });
+      later(SWEEP_MS + ARRIVE_MS + HOLD_MS + SLIDE_MS, () => { setPhase("hidden"); setText(""); ids.current = new Set(); });
     }
   }, [waiting, songs]);
 
@@ -82,7 +82,7 @@ export function LookupBar({ songs, busy, onRetry }: Props) {
             <svg className="lookup-tick" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="10" fill="currentColor" /><path d="M6.5 11.5l3 3 6-6.5" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
           <span className={`lookup-text ${motion}`} aria-label={text}>
-            {chars.map((c, i) => <span key={`${text}-${i}`} className="ch" style={{ animationDelay: `${c.delay}ms` }} aria-hidden="true">{c.ch}</span>)}
+            {motion ? chars.map((c, i) => <span key={`${text}-${i}`} className="ch" style={{ animationDelay: `${c.delay}ms` }} aria-hidden="true">{c.ch}</span>) : text}
           </span>
           {phase === "running" && <button type="button" className="btn secondary small" onClick={onRetry} disabled={busy}>{en.library.lookupRetry}</button>}
         </div>
