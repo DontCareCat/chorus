@@ -109,15 +109,17 @@ describe("full recovery cycle", () => {
     expect(r.states).toEqual(["PLAYING", "FADING_OUT", "SEEKING", "PAUSED_FOR_QUESTION", "FADING_IN", "PLAYING"]);
   });
 
-  it("an answer given while the game waits is scored from where the song was when the question fell due, not from the rewound line", async () => {
+  it("an answer given while the game waits is scored from the furthest point played, not from the rewound line", async () => {
     await overrun(r);
     await r.run(500);
     expect(r.c.state.name).toBe("PAUSED_FOR_QUESTION");
-    expect(r.engine.time).toBe(45.3); // rewound: before the question's own line (Q19 starts at 52.1 or later)
-    expect(r.c.positionForAnswer()).toBeGreaterThan(55); // where the song really was: not "ahead"
+    expect(r.engine.time).toBe(45.3); // rewound: before the question's own line
+    expect(r.c.positionForAnswer()).toBeGreaterThan(55); // not "ahead" of the song
+    r.engine.time = 30; // ⟲ or a seek back does not lower it either
+    expect(r.c.positionForAnswer()).toBeGreaterThan(55);
     r.answer(19);
     await r.run(500);
-    expect(r.c.positionForAnswer()).toBe(r.engine.time); // playing again: simply the playhead
+    expect(r.c.positionForAnswer()).toBeGreaterThanOrEqual(r.engine.time); // playing again: the playhead (or further)
   });
 
   it("the process repeats for later questions (Q19 answered, Q20 then overruns)", async () => {

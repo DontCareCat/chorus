@@ -149,6 +149,7 @@ export class PlaybackController {
   /** Poll hook (~150 ms). Reads the real position; does nothing unless audio is actually running. */
   tick(): void {
     if (!this.gating) return;
+    this.noteReached();
     const { name } = this.state;
     if (name !== "PLAYING" && name !== "FADING_IN") return;
     const decision = updateSynchronization({
@@ -158,19 +159,22 @@ export class PlaybackController {
       grace: this.grace,
     });
     if (decision.kind === "recover") {
-      this.duePosition = this.o.engine.getCurrentTime(); // where the song was when the question fell due, before the game rewinds
       this.dispatch({ type: "OVERDUE", questionId: decision.question.id, target: decision.target, ended: false });
     }
   }
 
   /**
-   * Where the song is, for scoring an answer. While the game waits for an answer it has rewound to the previous line, but the answer
-   * is not "ahead of the song": it counts from where the song was when the question fell due.
+   * Where the song is, for scoring an answer: the furthest point played, never lowered. While the game waits for an answer it has
+   * rewound to the previous line (and ⟲5 s goes back too), but an answer given then is not "ahead of the song".
    */
   positionForAnswer(): number {
+    this.noteReached();
+    return this.maxReached;
+  }
+
+  private noteReached(): void {
     const { name } = this.state;
-    const waiting = name === "FADING_OUT" || name === "SEEKING" || name === "PAUSED_FOR_QUESTION";
-    return waiting && this.duePosition !== null ? this.duePosition : this.o.engine.getCurrentTime();
+    if (name === "PLAYING" || name === "FADING_IN" || name === "FADING_OUT") this.maxReached = Math.max(this.maxReached, this.o.engine.getCurrentTime());
   }
 
   /** Call when the engine reports the end of the audio. */
@@ -187,7 +191,6 @@ export class PlaybackController {
         })
       : ({ kind: "ok" } as const);
     if (decision.kind === "recover") {
-      this.duePosition = this.o.engine.getCurrentTime();
       this.dispatch({ type: "OVERDUE", questionId: decision.question.id, target: decision.target, ended: true });
     } else {
       this.dispatch({ type: "ENDED" });
@@ -216,7 +219,7 @@ export class PlaybackController {
     return isOverdue(at, q, this.grace) ? { questionId: q.id, target: getRecoveryPosition(q) } : null;
   }
 
-  private duePosition: number | null = null;
+  private maxReached = 0; // the furthest the song has played (see positionForAnswer)
 
   private dispatch(event: MachineEvent): void {
     const { state, effects } = transition(this.state, event);
