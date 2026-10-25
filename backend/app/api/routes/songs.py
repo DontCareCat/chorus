@@ -169,7 +169,7 @@ def retry_lyrics(
         query = select(Song.id).where(Song.removed.is_(False), Song.id.in_(body.ids), Song.lyrics_status != LyricsStatus.found)
     ids = list(session.scalars(query))
     if ids:
-        background.add_task(discover_for_songs, factory, client, ids)
+        background.add_task(discover_for_songs, factory, client, ids, True)
     return RetryOut(queued=len(ids))
 
 

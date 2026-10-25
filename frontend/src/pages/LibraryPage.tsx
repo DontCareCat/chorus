@@ -145,7 +145,6 @@ export function LibraryPage() {
   };
 
   const all = songs.data ?? [];
-  const waiting = all.filter((s) => s.lyrics_status === "pending" && !s.lyrics_stalled).length;
   const missingLyrics = all.filter((s) => s.lyrics_status === "not_found" || s.lyrics_status === "pending").length;
   const duplicates = useMemo(() => findDuplicates(all), [all]);
   const copies = useMemo(() => extraCopies(duplicates), [duplicates]); // the Duplicates filter lists the copies; the oldest song of a group stays out
@@ -320,7 +319,7 @@ export function LibraryPage() {
           ))}
         </div>
       )}
-      <LookupBar waiting={waiting} busy={busy} onRetry={() => void retryLyrics()} />
+      <LookupBar songs={all} busy={busy} onRetry={() => void retryLyrics()} />
       {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}

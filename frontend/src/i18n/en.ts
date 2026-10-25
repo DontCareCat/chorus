@@ -251,7 +251,10 @@ export const en = {
     removeSelected: "Remove",
     moreActions: "More actions",
     lookup: (n: number) => `Looking up lyrics for ${n} song${n === 1 ? "" : "s"}`,
-    lookupHelp: "Songs wait their turn; you can use the app meanwhile. Songs you pick and ask for first go to the front.",
+    lookupDone: (found: number, choose: number, none: number) => {
+      const parts = [found ? `${found} found` : "", choose ? `${choose} need${choose === 1 ? "s" : ""} a choice` : "", none ? `${none} not found` : ""].filter(Boolean);
+      return parts.length ? `Done: ${parts.join(", ")}` : "Done";
+    },
     lookupRetry: "Retry now",
     findMissingLyrics: (n: number) => `Find missing lyrics (${n})`,
     lyricsQueued: (n: number) => (n === 0 ? "Nothing to look for." : `Looking for lyrics for ${n} song${n === 1 ? "" : "s"} in the background.`),

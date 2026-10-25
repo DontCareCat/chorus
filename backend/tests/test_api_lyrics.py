@@ -241,7 +241,6 @@ def test_retry_looks_again_for_songs_without_lyrics(api, lrclib, tmp_path):
     assert status(api, s["id"]) == "not_found"
     lrclib.get_result = lrclib_json(duration=2.0)
     lrclib.search_result = [lrclib_json(duration=2.0)]
-    api.delete("/api/lyrics/cache")  # the earlier "nothing" is not remembered
     assert api.post("/api/songs/lyrics/retry", json={}).json() == {"queued": 1}
     assert status(api, s["id"]) == "found"
     assert api.post("/api/songs/lyrics/retry", json={}).json() == {"queued": 0}  # found songs are left alone

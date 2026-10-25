@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "./Cover";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
@@ -37,6 +37,13 @@ export function QueuePanel({ songs, games, phone, onClose }: Props) {
   const list = useRef<HTMLUListElement>(null);
   const moved = useReorder(list, { ids: waiting.map((i) => i.songId), enabled: waiting.length > 1, mode: phone ? "press" : "grip", onReorder: store.reorder });
   const [menu, setMenu] = useState<"root" | "difficulty" | "mode" | null>(null);
+  const menuAnchor = useRef<HTMLDivElement>(null);
+  useEffect(() => { // a tap outside the menu closes it
+    if (!menu) return;
+    const down = (e: PointerEvent) => { if (!menuAnchor.current?.contains(e.target as Node)) setMenu(null); };
+    document.addEventListener("pointerdown", down, true);
+    return () => document.removeEventListener("pointerdown", down, true);
+  }, [menu]);
   const [undo, setUndo] = useState<{ label: string; prev: Q.QueueState } | null>(null);
   const remember = (label: string, next: Q.QueueState) => { setUndo({ label, prev: q }); store.set(next); };
   const resolved = (i: QueueItem): Level => progressiveLevel(games, i.songId, i.mode);
@@ -83,9 +90,11 @@ export function QueuePanel({ songs, games, phone, onClose }: Props) {
     <div className="queue-body">
       <div className="queue-toolbar">
         <span className="muted">{en.queue.waiting(waiting.length)}</span>
-        <button type="button" className="icon-btn" aria-haspopup="menu" aria-expanded={menu !== null} aria-label={en.queue.menu} onClick={() => setMenu(menu ? null : "root")}><Icon name="more" /></button>
+        <div className="queue-menu-anchor" ref={menuAnchor}>
+          <button type="button" className="icon-btn" aria-haspopup="menu" aria-expanded={menu !== null} aria-label={en.queue.menu} onClick={() => setMenu(menu ? null : "root")}><Icon name="more" /></button>
+          {menuPanel}
+        </div>
       </div>
-      {menuPanel}
         {waiting.length === 0 && <p className="muted">{en.queue.empty}</p>}
         <ul className="queue-list" ref={list} data-orderable={waiting.length > 1}>
           {waiting.map((item) => {

@@ -11,7 +11,7 @@ from app.services.settings import load_settings
 log = logging.getLogger(__name__)
 
 
-def discover_for_songs(factory: sessionmaker, client: LrclibClient, song_ids: list[int]) -> None:
+def discover_for_songs(factory: sessionmaker, client: LrclibClient, song_ids: list[int], refresh: bool = False) -> None:
     """Background task: automatic lyrics discovery for newly added songs (own DB session)."""
     for song_id in song_ids:
         with factory() as session:
@@ -22,6 +22,6 @@ def discover_for_songs(factory: sessionmaker, client: LrclibClient, song_ids: li
             if song is None:
                 continue
             try:
-                discover_lyrics(session, song, CachedLrclib(client, session, cfg.lyrics_cache_ttl_days), cfg, skip_if_has_lyrics=True)
+                discover_lyrics(session, song, CachedLrclib(client, session, cfg.lyrics_cache_ttl_days, refresh=refresh), cfg, skip_if_has_lyrics=True)
             except Exception:
                 log.exception("lyrics discovery failed for song %s", song_id)

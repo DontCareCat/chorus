@@ -105,7 +105,6 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
     return m;
   }, [games]);
   const selecting = selection?.active ?? false;
-  const manyWaiting = useMemo(() => songs.filter((x) => x.lyrics_status === "pending").length > MAX_TURNING, [songs]);
   // A long list draws only the rows near the screen, with an empty gap of the right height for the others: a few thousand rows in the
   // page made every call to the phone's database (each one comes back as a script run in the page) wait for the page to lay out again.
   const windowed = !reorder && songs.length > WINDOW_FROM;
@@ -166,7 +165,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
             out.push(
               <SongRow
                 key={s.id} song={s} phone={phone} sortKey={sortKey} selectionActive={selecting} picked={selection?.has(s.id) ?? false}
-                handlers={handlers} still={manyWaiting} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder}
+                handlers={handlers} selectable={!!selection} orderable={!!reorder && !phone} reorderRow={!!reorder}
                 copyOf={dup?.copyOf} duplicate={dup?.reasons} gone={removed?.(s) ?? false}
                 open={open === s.id} games={gamesBySong.get(s.id) ?? NO_GAMES} menuOpen={menu?.id === s.id}
               />,
@@ -204,8 +203,6 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
 }
 
 const NO_GAMES: GameSummaryDto[] = [];
-/** With more songs than this waiting for lyrics, their spinners stand still. */
-const MAX_TURNING = 3;
 /** Lists longer than this draw only the rows near the screen. */
 const WINDOW_FROM = 80;
 /** How far above and below the screen rows are drawn (a quick scroll meets rows that are already there). */
@@ -234,8 +231,6 @@ interface RowProps {
   song: SongDto;
   sortKey: SortChoice["key"] | null;
   handlers: RowHandlers;
-  /** this row's "looking for lyrics" spinner does not turn */
-  still: boolean;
   selectable: boolean;
   orderable: boolean;
   reorderRow: boolean;
@@ -250,7 +245,7 @@ interface RowProps {
   menuOpen: boolean;
 }
 
-const SongRow = memo(function SongRow({ song: s, sortKey, handlers, still, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
+const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
   const onPick = () => handlers.pick(s);
@@ -282,7 +277,7 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, still, selec
                 {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
               </div>
             </div>
-            <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} still={still} /></div>
+            <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} /></div>
             {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
             <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && handlers.menu(s, dots.current)}><Icon name="more" /></button>
           </div>

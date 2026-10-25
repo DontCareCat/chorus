@@ -17,15 +17,16 @@ def _norm(s: str) -> str:
 class CachedLrclib:
     """LRCLIB lookups cached in the DB. ttl_days == 0 keeps entries forever; stale entries are served if LRCLIB is down."""
 
-    def __init__(self, client: LrclibClient, session: Session, ttl_days: int, now=utcnow):
-        self.client, self.session, self.ttl_days, self.now = client, session, ttl_days, now
+    def __init__(self, client: LrclibClient, session: Session, ttl_days: int, now=utcnow, refresh: bool = False):
+        # refresh: ask LRCLIB again whatever the cache holds (a retry the person asked for must not be answered by the old "nothing found")
+        self.client, self.session, self.ttl_days, self.now, self.refresh = client, session, ttl_days, now, refresh
 
     def _fresh(self, fetched_at: datetime) -> bool:
         return self.ttl_days == 0 or self.now() - fetched_at < timedelta(days=self.ttl_days)
 
     def _cached(self, key: str, fetch):
         row = self.session.query(LyricsCache).filter_by(cache_key=key).one_or_none()
-        if row is not None and self._fresh(row.fetched_at):
+        if row is not None and not self.refresh and self._fresh(row.fetched_at):
             return json.loads(row.payload)
         try:
             data = fetch()
