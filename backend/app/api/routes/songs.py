@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, path_access
@@ -169,6 +169,8 @@ def retry_lyrics(
         query = select(Song.id).where(Song.removed.is_(False), Song.id.in_(body.ids), Song.lyrics_status != LyricsStatus.found)
     ids = list(session.scalars(query))
     if ids:
+        session.execute(update(Song).where(Song.id.in_(ids)).values(lyrics_status=LyricsStatus.pending))  # shown as waiting again (the lookup bar, the clock) until the answer is in
+        session.commit()
         background.add_task(discover_for_songs, factory, client, ids, True)
     return RetryOut(queued=len(ids))
 
