@@ -256,6 +256,13 @@ export const en = {
       return parts.length ? `Done: ${parts.join(", ")}` : "Done";
     },
     lookupRetry: "Retry now",
+    lookupShort: "Lyrics",
+    lookupMid: "Looking up lyrics",
+    lookupCountShort: (done: number | string, total: number | string) => `${done}/${total}`,
+    lookupCount: (done: number | string, total: number | string) => `${done} of ${total}`,
+    lookupDoneMid: (found: number, choose: number, none: number) => [found ? `${found} found` : "", choose ? `${choose} to choose` : "", none ? `${none} not found` : ""].filter(Boolean).join(" · ") || "Done",
+    lookupDoneShort: "Done",
+    lookupStatus: (done: number, total: number) => `Looking up lyrics: ${done} of ${total} songs done`,
     findMissingLyrics: (n: number) => `Find missing lyrics (${n})`,
     lyricsQueued: (n: number) => (n === 0 ? "Nothing to look for." : `Looking for lyrics for ${n} song${n === 1 ? "" : "s"} in the background.`),
     pick: (title: string) => `Select ${title}`,

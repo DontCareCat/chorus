@@ -76,6 +76,7 @@ const audit = () => {
 
   const pages = [
     ["library", "", ".song", async () => { await page.click(".play-btn >> nth=0").catch(() => {}); }],
+    ["library (lookup bar)", "", ".lookup-bar", async () => {}], // songs waiting for lyrics: the bar, its counter and its tier
     ["library (select mode)", "", ".song", async () => { await page.evaluate(() => document.querySelector(".song-main .pick").click()); }],
     ["dictionary (row open)", "#/dictionary", ".word", async () => { await page.click(".word-main >> nth=0"); await page.waitForSelector(".example"); }],
     ["review start", "#/dictionary/review", ".review-start", async () => {}],
@@ -83,7 +84,7 @@ const audit = () => {
     ["settings", "#/settings", "text=Save settings", async () => {}],
     ["song page", `#/songs/${song.id}`, ".lyric-line", async () => {}],
   ];
-  for (const [w, h, label] of [[390, 844, "phone"], [820, 1100, "tablet"], [1280, 900, "desktop"]]) {
+  for (const [w, h, label] of [[320, 700, "narrow phone"], [390, 844, "phone"], [820, 1100, "tablet"], [1280, 900, "desktop"]]) {
     await page.setViewportSize({ width: w, height: h });
     console.log(`[${label} ${w}px]`);
     for (const [name, hash, sel, prep] of pages) {
@@ -91,6 +92,10 @@ const audit = () => {
       await prep(); await page.waitForTimeout(250);
       const r = await page.evaluate(audit);
       ok(r.out.length === 0 && r.stretched.length === 0, `${name}: ${r.out.length + r.stretched.length ? [...r.out, ...r.stretched].join(" | ") : "no box has content touching its edge"}`);
+      if (name === "library (lookup bar)") { // the counter has a slot of its own and is never cut; the bar fits the screen and shows the tier its width calls for
+        const lb = await page.evaluate(() => { const bar = document.querySelector(".lookup-bar"); if (!bar) return null; const c = bar.querySelector(".lookup-count"); const r = bar.getBoundingClientRect(); return { tier: bar.dataset.tier, width: r.width, inside: r.left >= -13 && r.right <= innerWidth + 13, counter: c ? c.scrollWidth <= c.clientWidth + 1 && c.textContent.length > 0 : true }; });
+        ok(lb === null || (lb.inside && lb.counter && lb.tier === (lb.width < 340 ? "S" : lb.width < 600 ? "M" : "L")), `lookup bar: tier ${lb && lb.tier} at ${lb && Math.round(lb.width)} px, inside the screen, counter whole`);
+      }
     }
     // an open dropdown: items are at least 44 px tall with 12+ px inner padding and the list stays on screen
     await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn"); await page.click(".select-btn >> nth=0"); await page.waitForSelector(".select-list");
