@@ -12,10 +12,11 @@ describe("StatusBadge", () => {
     const { container } = render(<StatusBadge status={status("found")} phone={false} onFix={() => undefined} />);
     expect(container.firstChild).toBeNull();
   });
-  it("shows only the spinner on a phone while lyrics load, with the words on a PC", () => {
+  it("shows a still waiting icon (no spinner near the songs) on a phone while lyrics load, with the words on a PC", () => {
     const { container, rerender } = render(<StatusBadge status={status("pending")} phone onFix={() => undefined} />);
     expect(container.querySelector(".status-text")).toBeNull();
-    expect(container.querySelector(".spin")).not.toBeNull();
+    expect(container.querySelector(".wait")).not.toBeNull();
+    expect(container.querySelector(".spin")).toBeNull();
     rerender(<StatusBadge status={status("pending")} phone={false} onFix={() => undefined} />);
     expect(container.querySelector(".status-text")?.textContent).toBe("Looking for lyrics");
   });
