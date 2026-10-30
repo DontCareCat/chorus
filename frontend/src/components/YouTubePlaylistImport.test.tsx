@@ -19,6 +19,7 @@ vi.mock("../services/api", async (orig) => {
   return {
     ...real,
     api: {
+      youtubePlaylistTitle: async () => ({ title: "tool" }),
       importYouTubeVideos: async (batch: string[]) => {
         calls.push(batch);
         if (failAt === calls.length) throw new real.ApiError("boom", "The server is busy", 500);
@@ -49,7 +50,7 @@ describe("YouTubePlaylistImport", () => {
     await click("Add 45 songs");
     expect(calls.map((c) => c.length)).toEqual([20, 20, 5]);
     expect(host.textContent).toContain("45 added");
-    expect(host.textContent).toContain("Playlist “YouTube playlist” made");
+    expect(host.textContent).toContain("Playlist “tool” made");
     const { api } = await import("../services/api");
     expect(api.addToPlaylist).toHaveBeenCalledWith(7, expect.arrayContaining([1, 45]));
     expect(api.retryLyrics).toHaveBeenCalledTimes(1);
@@ -66,7 +67,7 @@ describe("YouTubePlaylistImport", () => {
     expect(host.textContent).toContain("25 are not added yet");
     await click("Add the rest");
     expect(host.textContent).toContain("45 added");
-    expect(host.textContent).toContain("Playlist “YouTube playlist” made");
+    expect(host.textContent).toContain("Playlist “tool” made");
   });
 
   it("names a playlist again when the name is taken", async () => {
@@ -75,6 +76,6 @@ describe("YouTubePlaylistImport", () => {
     await act(async () => root.render(<YouTubePlaylistImport listId="PLx0000000000" onAdded={() => undefined} />));
     await flush();
     await click("Add 45 songs");
-    expect(host.textContent).toContain("Playlist “YouTube playlist (2)” made");
+    expect(host.textContent).toContain("Playlist “tool (2)” made");
   });
 });

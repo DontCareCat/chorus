@@ -169,6 +169,10 @@ export function SettingsPage() {
             <small>{en.settings.dailyLimitHelp}</small>
           </label>
           <label className="check">
+            <input type="checkbox" checked={form.auto_pick_closest} onChange={(e) => set("auto_pick_closest", e.target.checked)} />
+            <span><strong>{en.settings.autoPickClosest}</strong><small>{en.settings.autoPickClosestHelp}</small></span>
+          </label>
+          <label className="check">
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />
             <span><strong>{en.settings.translationEnabled}</strong><small>{en.settings.translationEnabledHelp}</small></span>
           </label>

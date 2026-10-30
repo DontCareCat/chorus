@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
+import { ClearableInput } from "./ClearableInput";
 import { IMPORT_BATCH } from "../lib/youtube-add";
 import { api, ApiError } from "../services/api";
 import { loadPlaylistVideoIds } from "../services/audio/youtube-player";
@@ -30,6 +31,7 @@ export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onA
     fresh.current = [];
     setState({ step: "reading" });
     if (!host.current) return;
+    api.youtubePlaylistTitle(listId).then((r) => { if (!abort.signal.aborted && r.title) setName((n) => (n === en.library.plNameDefault ? r.title : n)); }, () => undefined); // the original name is the suggested one
     loadPlaylistVideoIds(host.current, listId, abort.signal).then(
       (ids) => { if (!abort.signal.aborted) setState({ step: "found", ids }); },
       (e: Error) => { if (!abort.signal.aborted) setState({ step: "error", message: e.message }); },
@@ -107,7 +109,7 @@ export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onA
             <input type="checkbox" checked={makeList} onChange={(e) => setMakeList(e.target.checked)} />
             <span>{en.library.plMakePlaylist}</span>
           </label>
-          {makeList && <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("youtube-playlist-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>}
+          {makeList && <label className="field"><span>{en.library.plName}</span><ClearableInput type="text" {...noAutofill("youtube-playlist-name")} value={name} onValue={setName} style={{ fontSize: 15 }} /></label>}
           <button type="button" className="btn inverse" onClick={() => { if (running.current) return; running.current = true; void run(s.ids, { added: 0, existing: 0, failed: 0 }).finally(() => { running.current = false; }); }}>{en.library.plAdd(s.ids.length)}</button>
         </div>
       )}

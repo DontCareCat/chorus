@@ -245,3 +245,20 @@ def test_retry_looks_again_for_songs_without_lyrics(api, lrclib, tmp_path):
     assert status(api, s["id"]) == "found"
     assert api.post("/api/songs/lyrics/retry", json={}).json() == {"queued": 0}  # found songs are left alone
     assert api.post("/api/songs/lyrics/retry", json={"ids": [s["id"]]}).json() == {"queued": 0}
+
+
+def test_pick_the_closest_automatically_when_asked_and_not_too_far(api, lrclib, tmp_path):
+    lrclib.get_result = lrclib_json(duration=200.0)
+    lrclib.search_result = [lrclib_json(id=1, duration=200), lrclib_json(id=2, duration=7.0)]
+    api.put("/api/settings", json={**api.get("/api/settings").json(), "auto_pick_closest": True})
+    s = add_song(api, tmp_path)  # a 2 s song: the 7 s lyrics are 5 s off, the 200 s ones are not close
+    assert status(api, s["id"]) == "found"
+    assert api.get(f"/api/songs/{s['id']}/lyrics").json()["external_id"] == "2"
+
+
+def test_the_automatic_pick_refuses_what_is_far_off(api, lrclib, tmp_path):
+    lrclib.get_result = lrclib_json(duration=200.0)
+    lrclib.search_result = [lrclib_json(id=1, duration=200), lrclib_json(id=2, duration=90.0)]
+    api.put("/api/settings", json={**api.get("/api/settings").json(), "auto_pick_closest": True})
+    s = add_song(api, tmp_path)
+    assert status(api, s["id"]) == "needs_choice"

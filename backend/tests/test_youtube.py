@@ -306,3 +306,10 @@ def test_import_gives_up_after_its_time_and_reports_the_rest(api, yt, monkeypatc
     monkeypatch.setattr(songs_route, "IMPORT_SECONDS", -1)
     r = api.post("/api/songs/youtube/import", json={"video_ids": [VID, "9bZkp7q19f0"]}).json()
     assert r["not_tried"] == [VID, "9bZkp7q19f0"] and r["added"] == 0
+
+
+def test_playlist_title_comes_from_oembed_or_is_empty(api, yt):
+    assert api.get("/api/songs/youtube/playlist-title", params={"list": "PLAw_8IRmyA1I"}).json() == {"title": "Rammstein - Du Hast (Official Video)"}  # the fake answers like a video
+    yt.status = 404
+    assert api.get("/api/songs/youtube/playlist-title", params={"list": "PLAw_8IRmyA1I"}).json() == {"title": ""}
+    assert api.get("/api/songs/youtube/playlist-title", params={"list": "bad id"}).status_code == 422

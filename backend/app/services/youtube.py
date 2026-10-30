@@ -79,6 +79,14 @@ class YouTubeClient:
     def __init__(self, http: httpx.Client | None = None):
         self.http = http or httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=10)
 
+    def playlist_title(self, list_id: str) -> str:
+        """The title of a public playlist (oEmbed), or '' when YouTube does not say: the name is only a suggestion."""
+        try:
+            r = self.http.get(OEMBED_URL, params={"url": f"https://www.youtube.com/playlist?list={list_id}", "format": "json"})
+            return str(r.json().get("title") or "").strip() if r.status_code == 200 else ""
+        except (httpx.HTTPError, ValueError):
+            return ""
+
     def info(self, video_id: str) -> VideoInfo:
         try:
             r = self.http.get(OEMBED_URL, params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"})

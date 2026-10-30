@@ -30,6 +30,7 @@ import add from "@material-symbols/svg-400/outlined/add.svg?raw";
 import sortIcon from "@material-symbols/svg-400/outlined/sort.svg?raw";
 import tune from "@material-symbols/svg-400/outlined/tune.svg?raw";
 import undo from "@material-symbols/svg-400/outlined/undo.svg?raw";
+import contentPaste from "@material-symbols/svg-400/outlined/content_paste.svg?raw";
 
 const pathOf = (svg: string): string => /<path d="([^"]+)"/.exec(svg)?.[1] ?? "";
 
@@ -65,6 +66,7 @@ const PATHS = {
   sortIcon: pathOf(sortIcon),
   tune: pathOf(tune),
   undo: pathOf(undo),
+  paste: pathOf(contentPaste),
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
+import { ClearableInput } from "./ClearableInput";
 import { parseTrackList, TRACK_LIST_MAX } from "../lib/track-list";
 import type { TrackRow } from "../lib/track-list";
 import { youtubeSearchUrl } from "../lib/youtube-add";
@@ -95,7 +96,7 @@ export function TrackListImport({ spotify, onMade }: { spotify: boolean; onMade:
       {list && <p role="status"><strong>{en.library.tlSummary(list.tracks.length, have)}</strong>{list.tracks.length >= TRACK_LIST_MAX && <small> {en.library.tlLimit(TRACK_LIST_MAX)}</small>}</p>}
       {s.step === "ready" && (have > 0 ? (
         <div className="yt-found">
-          <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("track-list-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>
+          <label className="field"><span>{en.library.plName}</span><ClearableInput type="text" {...noAutofill("track-list-name")} value={name} onValue={setName} style={{ fontSize: 15 }} /></label>
           <button type="button" className="btn inverse" disabled={busy} onClick={() => void make(s.list)}>{en.library.tlMake(have)}</button>
         </div>
       ) : <p className="muted">{en.library.tlNoneMatched}</p>)}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
+import { ClearableInput } from "./ClearableInput";
 import { youtubeSearchUrl } from "../lib/youtube-add";
 import { api, ApiError } from "../services/api";
 import type { SpotifyPlaylistDto } from "../services/api";
@@ -83,7 +84,7 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
       {list && <p role="status">{en.library.spSummary(list.tracks.length, haveCount)}{list.tracks.length >= 100 && <small> {en.library.spLimit}</small>}</p>}
       {s.step === "ready" && haveCount > 0 && (
         <div className="yt-found">
-          <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("spotify-playlist-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>
+          <label className="field"><span>{en.library.plName}</span><ClearableInput type="text" {...noAutofill("spotify-playlist-name")} value={name} onValue={setName} style={{ fontSize: 15 }} /></label>
           <button type="button" className="btn inverse" disabled={busy} onClick={() => void make(s.list)}>{en.library.spMakeOnly(haveCount)}</button>
         </div>
       )}

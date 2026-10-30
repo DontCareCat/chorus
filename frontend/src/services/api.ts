@@ -163,6 +163,7 @@ export interface SettingsDto {
   auto_fetch_lyrics: boolean;
   auto_fetch_covers: boolean;
   auto_detect_language: boolean;
+  auto_pick_closest: boolean;
   default_language: string;
   library_dirs: string[];
   translation_enabled: boolean;
@@ -374,6 +375,7 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
+  youtubePlaylistTitle: (listId: string) => request<{ title: string }>(`/api/songs/youtube/playlist-title?list=${encodeURIComponent(listId)}`),
   spotifyPlaylist: (url: string) => request<SpotifyPlaylistDto>(`/api/spotify/playlist?url=${encodeURIComponent(url)}`),
   spotifyTrack: (url: string) => request<SpotifyTrackDto>(`/api/spotify/track?url=${encodeURIComponent(url)}`),
   matchTracks: (tracks: { title: string; artist: string; duration: number }[]) => request<TrackMatchDto>("/api/tracks/match", json("POST", { tracks })),

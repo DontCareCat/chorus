@@ -15,6 +15,7 @@ from app.services.settings import RuntimeSettings
 
 log = logging.getLogger(__name__)
 CONFIDENT_DURATION_DIFF = 2.0
+AUTO_CLOSEST_SECONDS = 15.0  # 'pick the closest automatically' still refuses a candidate whose length is further off than this
 MAX_LYRICS_BYTES = 1_000_000
 
 
@@ -138,6 +139,11 @@ def discover_lyrics(
             return DiscoveryResult(LyricsStatus.found)
     usable = rank(song, [c for c in found if is_usable(c, cfg)])
     hidden += sum(1 for c in found if not c.instrumental and not c.is_synced and c.plain_lyrics and not is_usable(c, cfg))
+    if cfg.auto_pick_closest and usable and not _has_active_lyrics(session, song):
+        best = usable[0]  # the list is ordered by how close the length is
+        if song.duration <= 0 or abs(best.duration - song.duration) <= AUTO_CLOSEST_SECONDS:
+            lyrics, norm = attach_candidate(session, song, best, cfg)
+            return DiscoveryResult(LyricsStatus.found, lyrics, warnings=norm.warnings)
     status = LyricsStatus.needs_choice if usable else LyricsStatus.not_found
     if not _has_active_lyrics(session, song):  # a song that has lyrics stays 'found' even if nothing better turns up
         song.lyrics_status = status

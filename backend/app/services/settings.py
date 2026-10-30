@@ -18,6 +18,7 @@ class RuntimeSettings(BaseModel):
     queue_fade: bool = False  # fade between songs: one fades out while the next fades in
     queue_fade_seconds: int = Field(4, ge=1, le=12)  # how long that fade lasts
     lyrics_timeout_minutes: int = Field(10, ge=1, le=1440)  # a song still searching for lyrics after this long gets a warning
+    auto_pick_closest: bool = False  # when several lyrics could fit, take the one whose length is closest to the song's (instead of asking)
     auto_detect_language: bool = True  # set a new song's language from its lyrics
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)
     translation_enabled: bool = True  # dictionary: look up translations and articles online (the words and sentences are sent to the translation service and Wiktionary)

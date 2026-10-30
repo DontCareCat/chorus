@@ -1353,3 +1353,15 @@ button.queue-bar-face { cursor: pointer; }
 .yt-hit-text strong, .yt-hit-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 [data-layout="phone"] .yt-hits li { grid-template-columns: auto minmax(0, 1fr); }
 [data-layout="phone"] .yt-hits li > :last-child { grid-column: 1 / -1; justify-self: start; }
+
+/* a field with a clear cross, and the paste icon button (Add music) */
+.clearable { position: relative; display: flex; flex: 1 1 auto; min-width: 0; }
+.clearable > input { flex: 1 1 auto; min-width: 0; width: 100%; padding-right: 40px; }
+.clear-x { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; display: grid; place-items: center; border: none; border-radius: 50%; background: transparent; color: var(--text-3); font-size: 18px; cursor: pointer; }
+.clear-x:hover { background: var(--surface-2); color: var(--text); }
+.yt-field .icon-btn.paste { flex: none; width: 44px; height: 44px; border: 1px solid var(--line-strong); border-radius: 10px; font-size: 22px; }
+.yt-add, .yt-playlist, .yt-found, .yt-result, .yt-field, .yt-preview { max-width: 100%; min-width: 0; box-sizing: border-box; }
+.yt-add .field, .yt-found .field { min-width: 0; }
+.yt-add input[type="text"], .yt-found input[type="text"] { max-width: 100%; box-sizing: border-box; }
+.yt-field { flex-wrap: nowrap; min-width: 0; }
+.add-body, .add-panel > * { min-width: 0; max-width: 100%; }

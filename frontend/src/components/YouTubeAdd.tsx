@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
+import { readClipboardText } from "../lib/clipboard";
+import { ClearableInput } from "./ClearableInput";
+import { Icon } from "./Icon";
 import { classifyInput, cleanInput, spotifyKey, youtubeSearchUrl, isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
 import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
 import { SpotifyTrackImport } from "./SpotifyTrackImport";
@@ -9,6 +12,8 @@ import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
 import { api, ApiError } from "../services/api";
 import type { SongDto, YouTubePreviewDto } from "../services/api";
 
+/** Spotify playlists are on hold (one song at a time is too slow, and a playlist cannot be finished here yet): the flow is kept, switched off. */
+const SPOTIFY_PLAYLISTS = false;
 const CHECK_DELAY = 400; // ms after the last keystroke; a paste checks at once
 
 type Check = { state: "idle" } | { state: "checking" } | { state: "ready"; preview: YouTubePreviewDto } | { state: "error"; message: string };
@@ -23,7 +28,8 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const [addError, setAddError] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const immediate = useRef(false);
-  const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
+  const [pasteFailed, setPasteFailed] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setAddError(null);
@@ -47,10 +53,12 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const pasteNow = (text: string) => { immediate.current = true; setLink(text); };
   const paste = async () => {
     try {
-      const text = await navigator.clipboard.readText();
+      const text = await readClipboardText();
+      setPasteFailed(false);
       if (text.trim()) pasteNow(text.trim());
     } catch {
-      /* permission refused: typing still works */
+      setPasteFailed(true); // refused or not offered here: the field's own long-press Paste still works
+      field.current?.focus();
     }
   };
 
@@ -81,24 +89,25 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
       <label className="field" style={{ marginBottom: 0 }}>
         <span>{en.library.youtubeLink}</span>
         <div className="inline yt-field">
-          <input
-            type="text" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
+          <ClearableInput
+            ref={field} type="text" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onValue={(v) => { setLink(v); setPasteFailed(false); }} onPaste={() => { immediate.current = true; }}
             placeholder={en.library.ytPlaceholder} aria-invalid={!!problem || undefined} aria-describedby={problem ? "yt-problem" : undefined} style={{ fontSize: 15 }}
           />
           {kind === "search" && <button type="submit" className="btn inverse" style={{ borderRadius: 10 }}>{en.library.ytSearch}</button>}
-          {canPaste && kind !== "search" && (
-            <button type="button" className="btn secondary" onClick={() => void paste()} disabled={checking} style={{ borderRadius: 10 }}>
-              {checking ? <><span className="yt-spin" aria-hidden="true" />{en.library.ytChecking}</> : en.library.ytPaste}
-            </button>
-          )}
+          <button type="button" className="icon-btn paste" onClick={() => void paste()} disabled={checking} aria-label={en.library.ytPasteLabel} title={en.library.ytPasteLabel}>
+            {checking ? <span className="yt-spin" aria-hidden="true" /> : <Icon name="paste" />}
+          </button>
         </div>
-        {!canPaste && checking && <small role="status">{en.library.ytChecking}…</small>}
+        {checking && <small role="status">{en.library.ytChecking}…</small>}
+        {pasteFailed && <small role="status">{en.library.ytPasteFailed}</small>}
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
         {!problem && !preview && !checking && kind === "empty" && <small>{en.library.youtubeHelp}</small>}
         {kind === "search" && <small>{en.library.ytSearchHint(link.trim())}</small>}
       </label>
       {kind === "spotifyTrack" && <SpotifyTrackImport key={spotifyKey(link)} link={cleanInput(link)} onShow={onShow} />}
-      {kind === "spotify" && <SpotifyPlaylistImport key={spotifyKey(link)} link={cleanInput(link)} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />}
+      {kind === "spotify" && (SPOTIFY_PLAYLISTS
+        ? <SpotifyPlaylistImport key={spotifyKey(link)} link={cleanInput(link)} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />
+        : <p className="muted" role="status">{en.library.spOnHold}</p>)}
       {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
       {!listOpen && kind !== "playlist" && kind !== "spotify" && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}

@@ -85,6 +85,12 @@ def upload_song(
     return song
 
 
+@router.get("/songs/youtube/playlist-title")
+def youtube_playlist_title(list: str = Query(min_length=10, max_length=64, pattern="^[A-Za-z0-9_-]+$"), youtube: YouTubeClient = Depends(get_youtube_client)):
+    """The name of a public YouTube playlist (a suggestion for the Chorus playlist made from it; empty when unknown)."""
+    return {"title": youtube.playlist_title(list)}
+
+
 @router.get("/songs/youtube/preview", response_model=YouTubePreviewOut)
 def preview_youtube_song(
     url: str = Query(min_length=1, max_length=500), session: Session = Depends(get_session),
