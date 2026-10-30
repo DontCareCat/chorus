@@ -5,14 +5,17 @@ front = the headword with its article, back = the translation and the song lines
 carry a stable guid, so Anki updates them instead of duplicating them when the deck is imported again. The review schedule can travel too.
 Everything is the standard library: a zip, an SQLite file in memory-backed temp, JSON.
 """
+import csv
 import hashlib
 import html
 import io
 import json
 import os
 import re
+import shutil
 import sqlite3
 import tempfile
+import time
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -78,6 +81,7 @@ def _guid(w: ExportWord) -> str:
 
 
 def front_of(w: ExportWord) -> str:
+    """The headword with its article, as plain text."""
     return f"{w.article} {w.surface}" if w.article and not w.surface.lower().startswith(f"{w.article.lower()} ") else w.surface
 
 
@@ -126,6 +130,8 @@ _DCONF = {"1": {"id": 1, "name": "Default", "replayq": True, "lapse": {"delays":
 
 def build_apkg(words: list[ExportWord], deck_name: str, with_schedule: bool, now: datetime) -> bytes:
     """The .apkg (zip) for these words."""
+    if len(words) > MAX_NOTES:
+        raise AppError("deck_too_big", f"That is more than {MAX_NOTES} words: narrow the filters first.", 413)
     now_s = int(now.timestamp())
     crt = now_s - (now_s % DAY)  # the collection's day 0 (midnight UTC)
     fd, path = tempfile.mkstemp(suffix=".anki2")
@@ -144,11 +150,12 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
         db.execute("INSERT INTO col VALUES (1, ?, ?, ?, 11, 0, 0, 0, ?, ?, ?, ?, '{}')", (
             crt, now_s * 1000, now_s * 1000, json.dumps(_CONF), json.dumps(_model(now_s)), json.dumps(_decks(now_s, deck_name)), json.dumps(_DCONF),
         ))
-        for position, w in enumerate(words[:MAX_NOTES]):
+        for position, w in enumerate(words):
             nid = now_s * 1000 + position  # unique, ordered
             front, back = front_of(w), back_html(w)
+            front_html = html.escape(front, quote=False)
             tags = f" {w.language} chorus "
-            db.execute("INSERT INTO notes VALUES (?, ?, ?, ?, -1, ?, ?, ?, ?, 0, '')", (nid, _guid(w), MODEL_ID, now_s, tags, f"{front}{SEP}{back}", front, _csum(front)))
+            db.execute("INSERT INTO notes VALUES (?, ?, ?, ?, -1, ?, ?, ?, ?, 0, '')", (nid, _guid(w), MODEL_ID, now_s, tags, f"{front_html}{SEP}{back}", front, _csum(front_html)))
             ctype, queue, due, ivl, left = 0, 0, position + 1, 0, 0  # a new card
             if with_schedule and w.reps > 0 and w.due_at is not None:
                 if w.interval_seconds >= DAY:
@@ -175,10 +182,15 @@ CREATE INDEX ix_cards_nid on cards (nid); CREATE INDEX ix_cards_sched on cards (
 
 def build_text(words: list[ExportWord]) -> str:
     """'Notes in Plain Text' (tab separated, HTML kept) that Anki's Import dialog reads directly."""
+    if len(words) > MAX_NOTES:
+        raise AppError("deck_too_big", f"That is more than {MAX_NOTES} words: narrow the filters first.", 413)
     lines = ["#separator:tab", "#html:true", "#tags column:3"]
     for w in words:
-        cells = [front_of(w), back_html(w), f"{w.language} chorus"]
-        lines.append("\t".join(c.replace("\t", " ").replace("\n", " ") for c in cells))
+        cells = [html.escape(front_of(w), quote=False), back_html(w), f"{w.language} chorus"]
+        cells = [c.replace("\t", " ").replace("\n", " ") for c in cells]
+        if cells[0].startswith("#"):
+            cells[0] = f'"{cells[0]}"'  # not a header line
+        lines.append("\t".join(cells))
     return "\n".join(lines) + "\n"
 
 
@@ -207,28 +219,50 @@ def parse_apkg(data: bytes) -> list[ImportedNote]:
         info = z.getinfo(name)
         if info.file_size > 4 * MAX_BYTES:
             raise AppError("deck_too_big", "That deck is too big to import.", 413)
-        raw = z.read(name)
-    fd, path = tempfile.mkstemp(suffix=".anki2")
-    try:
-        with os.fdopen(fd, "wb") as f:
-            f.write(raw)
+        fd, path = tempfile.mkstemp(suffix=".anki2")
         try:
-            db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-            return _read_collection(db)
-        except sqlite3.DatabaseError as e:
-            raise AppError("not_a_deck", "That file is not an Anki deck (.apkg).", 422) from e
+            written = 0
+            with os.fdopen(fd, "wb") as f, z.open(name) as src:
+                while chunk := src.read(1 << 20):
+                    written += len(chunk)
+                    if written > 4 * MAX_BYTES:
+                        raise AppError("deck_too_big", "That deck is too big to import.", 413)
+                    f.write(chunk)
+            return _open_collection(path)
         finally:
-            try:
-                db.close()
-            except Exception:
-                pass
+            os.unlink(path)
+
+
+def _open_collection(path: str) -> list[ImportedNote]:
+    bad = AppError("not_a_deck", "That file is not an Anki deck (.apkg).", 422)
+    db = None
+    try:
+        db = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        db.execute("PRAGMA trusted_schema=OFF")
+        db.execute("PRAGMA query_only=1")
+        deadline = time.monotonic() + 20
+        db.set_progress_handler(lambda: 1 if time.monotonic() > deadline else 0, 10000)
+        kinds = {r[0] for r in db.execute("SELECT type FROM sqlite_master WHERE name IN ('col','notes','cards')")}
+        if kinds != {"table"}:
+            raise bad  # a view or trigger posing as a table
+        return _read_collection(db)
+    except AppError:
+        raise
+    except (sqlite3.Error, TypeError, ValueError, AttributeError, OverflowError, OSError) as e:
+        raise bad from e
     finally:
-        os.unlink(path)
+        if db is not None:
+            db.close()
 
 
 def _read_collection(db: sqlite3.Connection) -> list[ImportedNote]:
-    crt, models_json = db.execute("SELECT crt, models FROM col").fetchone()
-    models = json.loads(models_json or "{}")
+    row = db.execute("SELECT crt, models FROM col").fetchone()
+    if row is None:
+        raise ValueError("empty collection")
+    crt = int(row[0])
+    models = json.loads(row[1] or "{}")
+    if not isinstance(models, dict):
+        raise ValueError("models")
     notes = db.execute("SELECT id, mid, tags, flds FROM notes ORDER BY id LIMIT ?", (MAX_NOTES + 1,)).fetchall()
     if len(notes) > MAX_NOTES:
         raise AppError("deck_too_big", f"That deck has more than {MAX_NOTES} notes: split it first.", 413)
@@ -236,15 +270,19 @@ def _read_collection(db: sqlite3.Connection) -> list[ImportedNote]:
         raise AppError("deck_newer_format", NEWER_FORMAT, 422)  # Anki's placeholder in a deck made without "support older versions"
     cards: dict[int, tuple] = {}
     for nid, ctype, queue, due, ivl, reps, lapses in db.execute("SELECT nid, type, queue, due, ivl, reps, lapses FROM cards ORDER BY ord, id"):
-        cards.setdefault(nid, (ctype, queue, due, ivl, reps, lapses))
+        cards.setdefault(nid, (int(ctype), int(queue), int(due), int(ivl), int(reps), int(lapses)))
     out: list[ImportedNote] = []
     for nid, mid, tags, flds in notes:
-        fields = flds.split(SEP)
+        fields = str(flds).split(SEP)
+        tags = str(tags or "")
         names = [f.get("name", "") for f in (models.get(str(mid), {}).get("flds") or [])]
         front_i = 0
         back_i = names.index("Back") if "Back" in names else 1
         front = _plain(fields[front_i]) if fields else ""
-        back = _plain(fields[back_i]) if len(fields) > back_i else ""
+        back_raw = fields[back_i] if len(fields) > back_i else ""
+        if mid == MODEL_ID:  # our own notes: the song lines are not a translation
+            back_raw = re.sub(r'(?s)<div class="ex">.*?</div>', "", back_raw)
+        back = _plain(back_raw)
         if not front:
             continue
         note = ImportedNote(front=front.split("\n")[0].strip(), back=back, tags=[t for t in tags.split() if t])
@@ -254,7 +292,7 @@ def _read_collection(db: sqlite3.Connection) -> list[ImportedNote]:
             note.reps, note.lapses, note.suspended = reps, lapses, queue == -1
             if ctype == 2 and ivl > 0:
                 note.interval_seconds = ivl * DAY
-                note.due_at = datetime.fromtimestamp(crt, timezone.utc) + timedelta(days=due)
+                note.due_at = datetime.fromtimestamp(crt, timezone.utc) + timedelta(days=max(-36500, min(due, 36500)))
             elif ctype == 1 and due > 10**9:
                 note.interval_seconds = 600
                 note.due_at = datetime.fromtimestamp(due, timezone.utc)
@@ -267,12 +305,15 @@ def parse_text(text: str) -> list[ImportedNote]:
     lines = [l for l in text.replace("\ufeff", "").splitlines()]
     sep = None
     tag_col = None
+    html_on = True
     body = []
     for l in lines:
         if l.startswith("#"):
             m = re.match(r"#separator:(\w+|.)", l)
             if m:
                 sep = {"tab": "\t", "comma": ",", "semicolon": ";", "space": " ", "pipe": "|", "colon": ":"}.get(m.group(1), m.group(1))
+            if l.strip().lower() == "#html:false":
+                html_on = False
             m = re.match(r"#tags column:(\d+)", l)
             if m:
                 tag_col = int(m.group(1)) - 1
@@ -284,12 +325,13 @@ def parse_text(text: str) -> list[ImportedNote]:
     if sep is None:
         sep = next((s for s in ("\t", ";", ",") if s in body[0]), "\t")
     out: list[ImportedNote] = []
-    for l in body[:MAX_NOTES]:
-        cells = [c.strip().strip('"') for c in l.split(sep)]
-        front = _plain(cells[0]) if cells else ""
+    plain = (lambda t: _plain(t)) if html_on else (lambda t: t.strip())
+    for cells in csv.reader(body[:MAX_NOTES], delimiter=sep):
+        cells = [c.strip() for c in cells]
+        front = plain(cells[0]) if cells else ""
         if not front:
             continue
-        back = _plain(cells[1]) if len(cells) > 1 else ""
+        back = plain(cells[1]) if len(cells) > 1 else ""
         tags = cells[tag_col].split() if tag_col is not None and len(cells) > tag_col else []
         out.append(ImportedNote(front=front, back=back, tags=tags))
     return out

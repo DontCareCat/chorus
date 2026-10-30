@@ -311,18 +311,20 @@ def export_words(session: Session, user: User, status: str, language: str | None
     """The words the Dictionary page shows for these filters (oldest first), ready for a deck or a list."""
     from app.services.dictionary import anki
 
-    songs: dict[int, str] = {}
+    from sqlalchemy.orm import selectinload
+
+    entries = filtered(session, user, status, language, text).options(selectinload(DictionaryEntry.examples)).order_by(
+        DictionaryEntry.added_at, DictionaryEntry.id).all()
+    song_ids = {ex.song_id for e in entries for ex in e.examples}
+    songs: dict[int, str] = {sid: title for sid, title in session.query(Song.id, Song.title).filter(Song.id.in_(song_ids)).all()} if song_ids else {}
     out = []
-    for e in filtered(session, user, status, language, text).order_by(DictionaryEntry.added_at, DictionaryEntry.id).all():
+    for e in entries:
         examples, seen = [], set()
         for ex in e.examples:
             if sentence_key(ex.sentence) in seen or len(examples) >= 3:
                 continue
             seen.add(sentence_key(ex.sentence))
-            if ex.song_id not in songs:
-                song = session.get(Song, ex.song_id)
-                songs[ex.song_id] = song.title if song else ""
-            examples.append((ex.sentence, ex.translation, songs[ex.song_id]))
+            examples.append((ex.sentence, ex.translation, songs.get(ex.song_id, "")))
         out.append(anki.ExportWord(
             language=e.language, word=e.word, surface=e.surface, article=e.article, translation=e.translation, examples=examples,
             due_at=e.due_at, interval_seconds=e.interval_seconds, reps=e.reps, lapses=e.lapses, suspended=e.suspended, user_id=user.id,
@@ -338,22 +340,29 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
     lang = base_language(language)
     now = utcnow()
     added = existing = skipped = 0
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
+    known = {e.language for e in session.query(DictionaryEntry.language).filter_by(user_id=user.id).distinct()}
+    cache: dict[str, dict[str, DictionaryEntry]] = {}
     for n in notes:
-        article, headword = anki.split_article(n.front, lang)
+        # a note tagged with a language Chorus wrote (or the user already has) keeps it; the chosen language is the fallback
+        tagged = next((base_language(t) for t in n.tags if t.lower() != "chorus" and re.fullmatch(r"[a-z]{2,3}(-[A-Za-z]+)?", t) and base_language(t) in known | {lang}), None)
+        note_lang = tagged or lang
+        article, headword = anki.split_article(n.front, note_lang)
         key = word_key(headword)
-        if not key or len(headword) > 100 or key in seen:
+        if not key or len(headword) > 100 or (note_lang, key) in seen:
             skipped += 1
             continue
-        seen.add(key)
+        seen.add((note_lang, key))
+        if note_lang not in cache:
+            cache[note_lang] = {e.word: e for e in session.query(DictionaryEntry).filter_by(user_id=user.id, language=note_lang)}
         translation = (n.back.split("\n")[0].strip()[:300]) if n.back else ""
-        entry = session.query(DictionaryEntry).filter_by(user_id=user.id, language=lang, word=key).one_or_none()
+        entry = cache[note_lang].get(key)
         if entry is not None:
             if translation and not entry.translation:
                 entry.translation, entry.translation_language = translation, translation_language
             existing += 1
             continue
-        entry = DictionaryEntry(user_id=user.id, language=lang, word=key, surface=headword[:100], article=article)
+        entry = DictionaryEntry(user_id=user.id, language=note_lang, word=key, surface=headword[:100], article=article)
         if translation:
             entry.translation, entry.translation_language, entry.enrich_status = translation, translation_language, "done"
         if with_schedule and n.reps > 0 and n.due_at is not None:

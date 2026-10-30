@@ -68,7 +68,7 @@ export function DictionaryExchange({ mode, scope, shown, defaultLanguage, onClos
             )}
           </>
         )}
-        {result && <p className={`notice ${result.kind}`} role="status">{result.text}</p>}
+        {result && <p className={`notice ${result.kind}`} role={result.kind === "error" ? "alert" : "status"}>{result.text}</p>}
         <div className="confirm-actions">
           <button type="button" className="btn secondary" onClick={onClose}>{t.close}</button>
           <button type="button" className="btn inverse" disabled={busy || (mode === "import" && !file) || (mode === "export" && shown === 0)} onClick={() => void run()}>

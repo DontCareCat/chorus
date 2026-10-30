@@ -1372,3 +1372,4 @@ button.queue-bar-face { cursor: pointer; }
 .exchange .inline { align-items: center; gap: 12px; flex-wrap: wrap; }
 .exchange-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 [data-layout="phone"] .page-head .dict-actions { order: 3; flex-basis: 100%; }
+[data-layout="phone"] .dict-actions .btn { min-height: 44px; }
