@@ -696,3 +696,37 @@ def test_a_capitalised_line_start_word_that_is_no_noun_gets_a_lowercase_headword
     ask(api, g, q, "typing")
     e = entries(api)["items"][0]
     assert e["surface"] == e["surface"].lower() or e["surface"][0].isupper()  # lowercase only when the word began the line
+
+
+def test_one_card_per_base_word_and_type(api, song, session, dictionary):
+    """leiht and leihen are one card; the verb 'machen' and the noun 'Macht' are two."""
+    from app.db.models import DictionaryEntry, DictionaryExample, User
+    from app.services.dictionary import service
+    from app.services.dictionary.lookup import WordInfo
+
+    user = session.query(User).first()
+    now = service.utcnow()
+
+    def entry(word, surface, reps=0):
+        e = DictionaryEntry(user_id=user.id, language="de", word=word, surface=surface, reps=reps, enrich_status="pending", added_at=now)
+        session.add(e)
+        session.commit()
+        return e
+
+    leiht, leihen = entry("leiht", "leiht", reps=0), entry("leihen#x", "leihen", reps=4)
+    leihen.word = "leihen"
+    leihen.due_at, leihen.interval_seconds = now, 86400 * 3
+    session.commit()
+    leiht.lemma = "leihen"
+    service._settle_key(session, leiht, WordInfo(found=True, lemma="leihen", is_noun=False))
+    session.commit()
+    rows = session.query(DictionaryEntry).filter_by(user_id=user.id, language="de").all()
+    assert [(r.word, r.reps) for r in rows if r.word.startswith("leih")] == [("leihen", 4)]  # one card, the progress kept
+    macht, Macht = entry("macht", "macht"), entry("macht2", "Macht")
+    macht.lemma = "machen"
+    service._settle_key(session, macht, WordInfo(found=True, lemma="machen", is_noun=False))
+    Macht.word = "Macht"
+    service._settle_key(session, Macht, WordInfo(found=True, is_noun=True))
+    session.commit()
+    keys = {r.word for r in session.query(DictionaryEntry).filter_by(user_id=user.id, language="de")}
+    assert {"machen", "macht#n"} <= keys

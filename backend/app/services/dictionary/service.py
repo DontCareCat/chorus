@@ -110,6 +110,49 @@ def fallback_meaning(session: Session, translator: Translator, entry: Dictionary
     return None
 
 
+def card_key(entry: DictionaryEntry, info: WordInfo) -> str:
+    """One card per base word and word type: leiht and leihen are 'leihen', 'macht' is the verb 'machen' and 'Macht' the noun 'macht#n'."""
+    base = word_key(entry.lemma or entry.surface)
+    return f"{base}#n" if info.is_noun else base
+
+
+def _settle_key(session: Session, entry: DictionaryEntry, info: WordInfo) -> None:
+    key = card_key(entry, info)[:100]
+    if key == entry.word:
+        return
+    other = session.query(DictionaryEntry).filter(
+        DictionaryEntry.user_id == entry.user_id, DictionaryEntry.language == entry.language, DictionaryEntry.word == key, DictionaryEntry.id != entry.id).one_or_none()
+    if other is not None:
+        merge_cards(session, entry, other)
+    entry.word = key
+
+
+def merge_cards(session: Session, keep: DictionaryEntry, other: DictionaryEntry) -> None:
+    """`other` is the same card as `keep` (same base word and type): `keep` takes over its examples and the most advanced review progress."""
+    best = max((keep, other), key=lambda e: (e.reps or 0, e.interval_seconds or 0, e.last_reviewed_at is not None))
+    if best is other:
+        for f in ("due_at", "interval_seconds"):
+            setattr(keep, f, getattr(other, f))
+    keep.reps, keep.lapses = max(keep.reps or 0, other.reps or 0), max(keep.lapses or 0, other.lapses or 0)
+    keep.suspended = bool(keep.suspended and other.suspended)
+    keep.added_at = min(keep.added_at, other.added_at)
+    for f, pick in (("introduced_at", min), ("last_reviewed_at", max)):
+        values = [v for v in (getattr(keep, f), getattr(other, f)) if v is not None]
+        setattr(keep, f, pick(values) if values else None)
+    have = {sentence_key(ex.sentence) for ex in keep.examples}
+    for ex in list(other.examples):
+        k = sentence_key(ex.sentence)
+        if k not in have and len(have) < MAX_EXAMPLES:
+            have.add(k)
+            ex.entry_id = keep.id
+        else:
+            session.delete(ex)
+    session.flush()
+    session.expire(other)
+    session.delete(other)
+    session.flush()
+
+
 def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary, fresh: bool = False) -> None:
     """Fill in lemma, article and translations. Anything that fails leaves the entry 'failed' so a later try can finish it."""
     failed = False
@@ -157,6 +200,10 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
         if meaning:
             entry.translation, entry.translation_language = meaning
     entry.enrich_status = "failed" if failed else "done"
+    if not failed:
+        entry.lookup_version = 1
+    if not failed and info.found:
+        _settle_key(session, entry, info)
     session.commit()
 
 

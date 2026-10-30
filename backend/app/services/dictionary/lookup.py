@@ -189,6 +189,10 @@ def choose(found: list[Reading], noun_hint: bool | None) -> Reading | None:
         return None
     nouns = [r for r in found if r.pos == "noun"]
     others = [r for r in found if r.pos != "noun"]
+    if noun_hint is None:  # the first word of a line: a verb form is the likelier reading (machen), then a noun (die Zeit), then the small words
+        verbs = [r for r in others if r.pos == "verb"]
+        words = [r for r in others if r.pos in ("num", "pron", "det", "article")]  # numerals and pronouns are likelier than the noun of the same spelling
+        return (verbs + words + nouns + [r for r in others if r not in verbs and r not in words])[0]
     return (nouns + others if noun_hint else others + nouns)[0]
 
 
@@ -260,7 +264,10 @@ class Wiktionary(_Http):
             return WordInfo()
         low, cap = word.lower(), word[:1].upper() + word[1:].lower()
         titles = [cap, low] if noun_hint else [low, cap]  # lyrics written in lowercase fall back to the capitalised (noun) page
-        found = self._readings([word] + titles if word not in (low, cap) else titles, name, code)
+        if noun_hint is None and cap != low:  # capitalised only as the first word of a line: both pages are read, the readings are weighed together
+            found = [r for t in dict.fromkeys([low, cap]) for r in (self._readings([t], name, code) or [])]
+        else:
+            found = self._readings([word] + titles if word not in (low, cap) else titles, name, code)
         if not found:
             elided = re.sub(r"(?<=\w)'n\b", "en", word)
             elided = re.sub(r"(?<=\w)'s\b", "es", elided)

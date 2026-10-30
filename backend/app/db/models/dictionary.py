@@ -22,6 +22,7 @@ class DictionaryEntry(Base):
     article: Mapped[str | None] = mapped_column(String(16), default=None)  # der / die / das, le / la ...; None when unknown or none
     translation: Mapped[str | None] = mapped_column(String(300), default=None)
     translation_language: Mapped[str | None] = mapped_column(String(16), default=None)  # the language `translation` is in
+    lookup_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 1 = looked up with the parser of 2026-10-30; older ones are redone
     enrich_status: Mapped[str] = mapped_column(String(8), default="pending", server_default="pending")  # pending | done | failed
     suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     added_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
