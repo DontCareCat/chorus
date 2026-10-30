@@ -26,6 +26,7 @@ import { paths } from "../router";
 import { api } from "../services/api";
 import type { Answer } from "../services/api";
 import { createEngine, getEngineKind } from "../services/audio/create-engine";
+import { createYouTubeEngine } from "../services/audio/youtube-player";
 import type { GameEngine, PlaybackEngine } from "../services/audio/engine";
 import type { GameDto } from "../types/game";
 import type { QuizQuestion as QuizQuestionT } from "../types/question";
@@ -48,6 +49,11 @@ function GameScreen({ game }: { game: GameDto }) {
   const handedOff = useRef(false);
   const arrival = useRef(peekArrival()); // how this game was reached: started by the queue, with a fade-in?
   const [engine, setEngine] = useState<GameEngine | null>(null);
+  // A YouTube song is played by YouTube's own player, shown on the page (never covered), instead of the <audio> element.
+  const youtubeId = game.youtube_id ?? null;
+  const ytHost = useRef<HTMLDivElement>(null);
+  const [ytEngine, setYtEngine] = useState<GameEngine | null>(null);
+  const startWhenReady = useRef(false);
   const [wantPlay, setWantPlay] = useState(false);
   const queueStore = useQueue();
   const queueActions = useQueueActions();
@@ -67,6 +73,7 @@ function GameScreen({ game }: { game: GameDto }) {
   stateName.current = playback.state.name;
 
   const [audioFailed, setAudioFailed] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   /** A seek asked for by the player. Resolves when done. An open question cannot be skipped: if the request went
@@ -112,6 +119,23 @@ function GameScreen({ game }: { game: GameDto }) {
     [engine],
   );
   useEffect(() => {
+    if (!youtubeId || !ytHost.current) return;
+    let gone = false, made: GameEngine | null = null;
+    createYouTubeEngine(ytHost.current, youtubeId).then(
+      (e) => {
+        if (gone) { e.dispose(); return; }
+        made = e;
+        e.onError((m) => { setAudioFailed(true); setAudioError(m); });
+        setYtEngine(e);
+        setAudioFailed(false);
+        if (startWhenReady.current) { startWhenReady.current = false; setEngine(e); setWantPlay(true); }
+      },
+      (err: Error) => { if (!gone) { setAudioFailed(true); setAudioError(err.message); } },
+    );
+    return () => { gone = true; made?.dispose(); };
+  }, [youtubeId]);
+  useEffect(() => {
+    if (youtubeId) return;
     audioEl.src = api.audioUrl(game.song_id);
     const failed = () => setAudioFailed(true), loaded = () => setAudioFailed(false);
     audioEl.addEventListener("error", failed);
@@ -122,7 +146,7 @@ function GameScreen({ game }: { game: GameDto }) {
       audioEl.removeEventListener("loadeddata", loaded);
       if (!handedOff.current) { audioEl.pause(); audioEl.removeAttribute("src"); audioEl.remove(); }
     };
-  }, [audioEl, game.song_id]);
+  }, [audioEl, game.song_id, youtubeId]);
 
   // When the game is finished, say where it ranks on this song.
   const [rank, setRank] = useState<number | null>(null);
@@ -143,6 +167,12 @@ function GameScreen({ game }: { game: GameDto }) {
   // Until the audio element knows its length, the API's duration keeps the runway meaningful.
   const engineDuration = engine?.getDuration() ?? NaN;
   const duration = Number.isFinite(engineDuration) && engineDuration > 0 ? engineDuration : game.song_duration;
+  const lengthSaved = useRef(false);
+  useEffect(() => { // a YouTube song's length is known once the player tells it: keep it for the lyrics matching and the runway
+    if (!youtubeId || game.song_duration > 0 || lengthSaved.current || !(engineDuration > 0)) return;
+    lengthSaved.current = true;
+    api.patchSong(game.song_id, { duration: Math.round(engineDuration) }).catch(() => { lengthSaved.current = false; });
+  }, [youtubeId, game.song_duration, game.song_id, engineDuration]);
   const runway = computeRunway({ duration, currentTime: time, questions: g.syncQs, answered: g.answeredSet });
   // the same line objects as before for every line an answer did not touch, so the lyric window redraws only what changed
   const lastLines = useRef<WindowLine[] | null>(null);
@@ -228,6 +258,10 @@ function GameScreen({ game }: { game: GameDto }) {
   const start = () => {
     if (engine || started.current) return;
     started.current = true;
+    if (youtubeId) {
+      if (ytEngine) { setEngine(ytEngine); setWantPlay(true); } else startWhenReady.current = true; // the player is still loading
+      return;
+    }
     setEngine(createEngine(audioEl, getEngineKind(), game.sample_rate));
     setWantPlay(true);
   };
@@ -294,9 +328,10 @@ function GameScreen({ game }: { game: GameDto }) {
     arrival: { fadeMs, autostart: true },
     beforeNavigate: () => {
       const ghostMs = fadeMs || (spinning ? 400 : 0); // the old song never just stops: it fades out while this page is replaced
+      if (youtubeId && engine) { playback.release(); return engine.fadeOut(Math.max(ghostMs, 400)).then(() => undefined); } // an embedded player cannot be handed on: it fades out here, the next song starts fresh
       if (ghostMs > 0 && engine) { handedOff.current = true; playback.release(); fadeOutAndRelease(engine, audioEl, ghostMs); }
     },
-  }), [queueActions, spinning, engine, playback, audioEl]);
+  }), [queueActions, spinning, engine, playback, audioEl, youtubeId]);
   const finished = g.finished && (
     <FinishCard
       standing={g.standing}
@@ -323,7 +358,7 @@ function GameScreen({ game }: { game: GameDto }) {
         <a className="back" href={paths.library()} aria-label={en.game.backToLibrary} title={en.game.backToLibrary}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         </a>
-        {!phone && <Vinyl songId={game.song_id} title={game.song_title} hasCover={null} spinning={spinning} />}
+        {!phone && !youtubeId && <Vinyl songId={game.song_id} title={game.song_title} hasCover={null} spinning={spinning} />}
         <div className="game-title">
           <h1>{game.song_title}</h1>
           <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(" · ")}</p>
@@ -331,7 +366,8 @@ function GameScreen({ game }: { game: GameDto }) {
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
 
-      {audioFailed && <p className="notice error wrap" role="alert">{en.audio.cannotLoad}</p>}
+      {audioFailed && <p className="notice error wrap" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
+      {youtubeId && <div className="yt-stage wrap"><div className="yt-player" ref={ytHost} /></div>}
       <div className="game-timeline wrap">
         <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>
       </div>

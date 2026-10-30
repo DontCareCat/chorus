@@ -32,14 +32,14 @@ export function useQueueActions() {
   }, [store]);
   /** Start the next song of the queue with its own difficulty and mode, move the queue on, and open the game. Returns the error text when it cannot.
  *  `arrival` makes the new game start playing by itself (with a fade-in); `beforeNavigate` runs just before the page changes. */
-  const playNext = useCallback(async (opts: { arrival?: Arrival; beforeNavigate?: () => void } = {}): Promise<string | null> => {
+  const playNext = useCallback(async (opts: { arrival?: Arrival; beforeNavigate?: () => void | Promise<void> } = {}): Promise<string | null> => {
     const next = Q.next(store.snapshot());
     if (!next) return null;
     try {
       const lvl = next.difficulty === "progressive" ? progressiveLevel(await api.myGames(), next.songId, next.mode) : next.difficulty;
       const g = await api.createGame(next.songId, lvl, next.mode);
       store.set(Q.withPlaying(Q.advance(store.snapshot()), g.public_id));
-      opts.beforeNavigate?.(); // the page that is leaving lets its song fade out
+      await opts.beforeNavigate?.(); // the page that is leaving lets its song fade out
       if (opts.arrival) announceArrival(opts.arrival); // and the new one knows how to start
       location.hash = paths.game(g.public_id);
       return null;

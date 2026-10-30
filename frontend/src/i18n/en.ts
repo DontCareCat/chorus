@@ -522,6 +522,7 @@ export const en = {
     freePlay: "Free play: this song's lyrics have no timestamps, so the audio never waits for you.",
     translated: "Translated",
     sheet: "Lyrics",
+    openOnYouTube: "Open on YouTube",
     backToLibrary: "Library",
     audioWaitsHere: "The audio waits here",
     finishedTitle: "Song finished",

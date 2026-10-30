@@ -78,7 +78,7 @@ def game_out(session: Session, game: Game) -> GameOut:
         for l in ordered
     ]
     return GameOut(
-        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate,
+        public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate, youtube_id=song.youtube_id,
         language=game.language, difficulty=game.difficulty, mode=game.mode,
         synced=lyrics.is_synced, lyrics_offset=song.lyrics_offset, started_at=game.started_at,
         finished_at=game.finished_at,

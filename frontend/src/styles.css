@@ -473,6 +473,10 @@ main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding:
 .game .score-panel { min-width: 0; padding: 8px 18px 12px; gap: 14px; }
 .game .score-points { font-size: 30px; }
 .game-timeline { flex: none; }
+/* YouTube's player: always on show, at least 200 px high, and nothing is ever drawn over it */
+.yt-stage { flex: none; display: flex; justify-content: center; padding-block: 8px; }
+.yt-player { position: relative; width: min(100%, 560px); aspect-ratio: 16 / 9; min-height: 200px; background: #000; border-radius: 10px; overflow: hidden; }
+.yt-player iframe { display: block; width: 100%; height: 100%; border: 0; }
 .game .state-line { min-height: 1.4em; }
 .game-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 48px; padding-top: 6px; padding-bottom: 14px; }
 .game-main { min-height: 0; display: flex; flex-direction: column; justify-content: center; }

@@ -73,6 +73,7 @@ export interface SongPatch {
   album?: string | null;
   language?: string;
   lyrics_offset?: number;
+  duration?: number;
 }
 
 export interface LineDto {

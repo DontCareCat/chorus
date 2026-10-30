@@ -40,6 +40,7 @@ export interface GameDto {
   song_artist: string;
   song_duration: number;
   sample_rate: number | null; // of the audio file (Hz)
+  youtube_id?: string | null; // played by YouTube's player instead of a file
   language: string;
   difficulty: string;
   mode: GameMode;

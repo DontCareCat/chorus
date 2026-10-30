@@ -221,7 +221,10 @@ def retry_lyrics(
 
 @router.patch("/songs/{song_id}", response_model=SongOut)
 def patch_song(body: SongPatch, song: Song = Depends(get_song), session: Session = Depends(get_session)):
-    for key, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("duration") is not None and (song.source != SongSource.youtube or song.duration > 0):
+        changes.pop("duration")  # a file's length is read from the file; a known YouTube length is not overwritten
+    for key, value in changes.items():
         if value is not None or key == "album":
             setattr(song, key, value)
             if key == "language":

@@ -59,6 +59,7 @@ class GameOut(BaseModel):
     song_artist: str
     song_duration: float
     sample_rate: int | None  # of the audio file; lets the browser open its audio context at the same rate
+    youtube_id: str | None = None  # the song is played by YouTube's player instead of an audio file
     language: str
     difficulty: str
     mode: str = "choice"  # choice | typing
