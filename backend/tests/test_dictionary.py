@@ -182,12 +182,30 @@ def test_turning_translation_off_makes_no_outside_calls(api, song, dictionary):
     assert dictionary.calls == [] and entries(api)["items"][0]["enrich_status"] == "pending"
 
 
-def test_same_language_needs_no_translation(api, song, dictionary):
+def test_same_language_still_gets_a_meaning(api, song, session, dictionary):
+    """The word is already in the translation language: nothing is translated into it, but the meaning is still written down, in English."""
     assert api.patch("/api/auth/me", json={"translation_language": "de"}).status_code == 200
-    g = start(api, song)
-    ask(api, g, g["questions"][0])
-    assert not [c for c in dictionary.calls if c.startswith("tr:")]
-    assert entries(api)["items"][0]["enrich_status"] == "done"
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.pages[word] = HAUS
+    ask(api, g, q, "typing")
+    e = entries(api)["items"][0]
+    assert e["enrich_status"] == "done" and e["translation"] and e["translation_language"] == "en"
+    assert not [c for c in dictionary.calls if c.startswith("tr:") and ">de" in c]
+
+
+def test_a_word_the_service_returns_unchanged_gets_another_meaning(api, song, session, dictionary):
+    """The translation came back as the same word: Wiktionary's definition is written down instead of nothing."""
+    assert api.patch("/api/auth/me", json={"translation_language": "uk"}).status_code == 200
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.pages[word] = HAUS
+    dictionary.translations.update({word: word, word.lower(): word.lower(), "Haus": "Haus", "haus": "haus"})
+    ask(api, g, q, "typing")
+    e = entries(api)["items"][0]
+    assert e["translation"] == "house" and e["translation_language"] == "en"
 
 
 def test_changing_the_translation_language_translates_again(api, song, dictionary):

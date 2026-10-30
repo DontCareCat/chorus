@@ -94,6 +94,20 @@ def word_translation(session: Session, translator: Translator, entry: Dictionary
     return out
 
 
+def fallback_meaning(session: Session, translator: Translator, entry: DictionaryEntry, info: WordInfo, source: str, target: str) -> tuple[str, str] | None:
+    """A meaning for a word the translation could not give one for (it is already in the translation language, or the service only
+    returned the same word): Wiktionary's English definition, else a translation into English. (meaning, its language) or None."""
+    if info.gloss:
+        return info.gloss[:300], "en"
+    if base_language(source) != "en" and base_language(target) != "en":
+        word = entry.lemma or entry.surface
+        ask = word if info.is_noun or not info.found else word.lower()
+        out = cached_translation(session, translator, ask, source, "en")[:300]
+        if re.search(r"[^\W\d_]", out) and out.casefold() != ask.casefold():
+            return out, "en"
+    return None
+
+
 def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary) -> None:
     """Fill in lemma, article and translations. Anything that fails leaves the entry 'failed' so a later try can finish it."""
     failed = False
@@ -112,6 +126,10 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
         try:
             entry.translation = word_translation(session, translator, entry, info, source, target)
             entry.translation_language = target
+            if not entry.translation:  # the same word came back: write its meaning down in another way
+                meaning = fallback_meaning(session, translator, entry, info, source, target)
+                if meaning:
+                    entry.translation, entry.translation_language = meaning
         except LookupUnavailable as e:
             log.warning("translation failed for %r: %s", entry.surface, e)
             failed = True
@@ -124,7 +142,15 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
                     failed = True
                     break
     else:
-        entry.translation_language = target  # same language: nothing to translate
+        entry.translation_language = target  # same language: nothing to translate, but the meaning is still written down
+        try:
+            meaning = fallback_meaning(session, translator, entry, info, source, target)
+        except LookupUnavailable as e:
+            log.warning("meaning lookup failed for %r: %s", entry.surface, e)
+            failed = True
+            meaning = None
+        if meaning and not entry.translation:
+            entry.translation, entry.translation_language = meaning
     entry.enrich_status = "failed" if failed else "done"
     session.commit()
 
