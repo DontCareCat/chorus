@@ -84,7 +84,8 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
     <section className="section">
       <h2>{en.song.currentLyrics}</h2>
       {!lyrics && <p className="muted">{en.song.noLyrics}</p>}
-      {lyrics && (
+      {lyrics && song.source === "youtube" && <p className="muted">{en.song.youtubeNoPreview}</p>}
+      {lyrics && song.source !== "youtube" && (
         <>
           <audio ref={audio} src={api.audioUrl(song.id)} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
           <div className="controls" style={{ gap: 12 }}>

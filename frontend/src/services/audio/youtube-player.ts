@@ -31,13 +31,14 @@ export async function createYouTubeEngine(host: HTMLElement, videoId: string): P
   const mount = document.createElement("div");
   host.replaceChildren(mount);
   return new Promise<YouTubePlaybackEngine>((resolve, reject) => {
+    const giveUp = setTimeout(() => reject(new Error("YouTube's player did not start. Is something blocking youtube.com?")), 20_000);
     let engine: YouTubePlaybackEngine | null = null;
     const player = new YT.Player(mount, {
       videoId,
       width: "100%", height: "100%",
       playerVars: { playsinline: 1, controls: 1, rel: 0, fs: 1, disablekb: 0, origin: location.origin.startsWith("http") ? location.origin : undefined },
       events: {
-        onReady: () => { engine = new YouTubePlaybackEngine(player); resolve(engine); },
+        onReady: () => { clearTimeout(giveUp); engine = new YouTubePlaybackEngine(player); resolve(engine); },
         onStateChange: (e: { data: number }) => engine?.handleState(e.data),
         onError: (e: { data: number }) => (engine ? engine.handleError(e.data) : reject(new Error(youtubeErrorMessage(e.data)))),
       },

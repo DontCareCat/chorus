@@ -126,4 +126,41 @@ describe("YouTubePlaybackEngine", () => {
     player.duration = 213;
     expect(engine.getDuration()).toBe(213);
   });
+
+  it("does not give up while the player buffers (an ad, a slow connection)", async () => {
+    player.playVideo = () => { player.state = YT_STATE.buffering; player.onState(player.state); };
+    let result = "pending";
+    void engine.play().then(() => { result = "ok"; }, () => { result = "failed"; });
+    await vi.advanceTimersByTimeAsync(40_000); // far longer than the play limit
+    expect(result).toBe("pending");
+    player.state = YT_STATE.playing; player.onState(player.state);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(result).toBe("ok");
+  });
+
+  it("does not run ahead for long when the player's clock stops", async () => {
+    await engine.play();
+    player.time = 12;
+    engine.getCurrentTime();
+    vi.advanceTimersByTime(20_000);
+    expect(engine.getCurrentTime()).toBeLessThanOrEqual(12.61);
+  });
+
+  it("reports the target, not the old position, while a seek is on its way", async () => {
+    await engine.play();
+    player.time = 80;
+    engine.getCurrentTime();
+    const done = engine.seek(10);
+    expect(engine.getCurrentTime()).toBe(10);
+    await vi.advanceTimersByTimeAsync(400);
+    await done;
+  });
+
+  it("leaves nothing running after dispose", async () => {
+    await engine.play();
+    player.seekTo = () => { player.state = YT_STATE.buffering; };
+    void engine.seek(10).catch(() => undefined);
+    engine.dispose();
+    expect(vi.getTimerCount()).toBe(0);
+  });
 });

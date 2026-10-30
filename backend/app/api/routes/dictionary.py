@@ -27,7 +27,7 @@ def entry_out(session: Session, entry: DictionaryEntry) -> EntryOut:
             continue  # entries saved before duplicates were refused
         seen.add(sentence_key(ex.sentence))
         song = songs.get(ex.song_id)
-        ok = song is not None and not song.removed and song.available and ex.audio_start is not None
+        ok = song is not None and not song.removed and song.available and song.file_path is not None and ex.audio_start is not None
         offset = song.lyrics_offset if song else 0.0
         examples.append(ExampleOut(
             id=ex.id, song_id=ex.song_id, song_title=song.title if song else "", sentence=ex.sentence, translation=ex.translation,

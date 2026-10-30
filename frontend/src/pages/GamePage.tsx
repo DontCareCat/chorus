@@ -271,6 +271,18 @@ function GameScreen({ game }: { game: GameDto }) {
     if (arrival.current?.autostart) startRef.current();
     clearArrival();
   }, []);
+  // YouTube's own controls stay on the player: what is done there is passed to the game, which keeps its say over the audio.
+  useEffect(() => {
+    if (!youtubeId || !ytEngine) return;
+    return ytEngine.onStateChange((s) => {
+      const n = stateName.current;
+      if (s === "playing") {
+        if (!engine) startRef.current(); // the video was started on the player itself: that is Start
+        else if (n === "PAUSED_FOR_QUESTION" || n === "IDLE") ytEngine.pause(); // an open question cannot be played past
+        else if (n === "PAUSED") playback.play();
+      } else if (s === "paused" && (n === "PLAYING" || n === "FADING_IN")) playback.pause();
+    });
+  }, [youtubeId, ytEngine, engine, playback]);
   const startRef = useRef(start);
   startRef.current = start;
   // Space: pause while the song runs (also during a fade), otherwise play; the first press starts the engine.

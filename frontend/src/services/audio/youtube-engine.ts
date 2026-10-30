@@ -4,6 +4,7 @@ const SEEK_TIMEOUT_MS = 12_000;
 const PLAY_TIMEOUT_MS = 10_000;
 const STEP_MS = 50; // fades step the player's volume (0..100) this often
 const SEEK_TOLERANCE_S = 0.4;
+const MAX_LEAD_S = 0.6; // the interpolated clock is never further than this ahead of the player's last report
 
 /** The part of the YouTube IFrame player the engine uses (the real one is `YT.Player`). */
 export interface YtPlayerLike {
@@ -26,9 +27,9 @@ export function youtubeErrorMessage(code: number): string {
   switch (code) {
     case 2: return "This YouTube link is not valid.";
     case 5: return "YouTube's player could not play this video here.";
-    case 100: return "This video was removed or is private.";
-    case 101: case 150: return "The owner of this video does not allow it to be played outside YouTube.";
-    case 152: case 153: return "YouTube's player could not start (configuration error).";
+    case 100: return "This video can't be played outside YouTube: it was removed or is private.";
+    case 101: case 150: return "This video can't be played outside YouTube: its owner does not allow it.";
+    case 152: case 153: return "This video can't be played here: YouTube's player refused to start (configuration error).";
     default: return `YouTube's player stopped with error ${code}.`;
   }
 }
@@ -59,6 +60,8 @@ export class YouTubePlaybackEngine implements GameEngine {
   private readonly stateCbs = new Set<(s: EngineState) => void>();
   private readonly errorCbs = new Set<(m: string) => void>();
   private readonly waiters = new Set<() => void>();
+  private readonly cancels = new Set<() => void>();
+  private seekTarget: number | null = null; // while a seek is on its way the player still reports the old position
 
   constructor(private readonly player: YtPlayerLike, private readonly now: () => number = () => performance.now()) {
     this.apply();
@@ -78,15 +81,21 @@ export class YouTubePlaybackEngine implements GameEngine {
     this.errorCbs.forEach((cb) => cb(youtubeErrorMessage(code)));
   }
 
+  /** Wait for `test`. The time limit only runs while the player is NOT buffering: an ad or a slow connection is a hold, not a failure. */
   private waitUntil(test: () => boolean, ms: number, what: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (test()) return resolve();
-      let timer: ReturnType<typeof setInterval>;
-      const finish = (error?: Error) => { clearTimeout(timeout); clearInterval(timer); this.waiters.delete(check); error ? reject(error) : resolve(); };
-      const check = () => { if (test()) finish(); };
-      const timeout = setTimeout(() => finish(new Error(`${what} timed out`)), ms);
-      timer = setInterval(check, 50); // the player has no event for "the position arrived"
+      let deadline = this.now() + ms;
+      const finish = (error?: Error) => { clearInterval(timer); this.waiters.delete(check); this.cancels.delete(cancel); error ? reject(error) : resolve(); };
+      const cancel = () => { clearInterval(timer); this.waiters.delete(check); };
+      const check = () => {
+        if (test()) return finish();
+        if (this.state === "buffering") deadline = this.now() + ms;
+        else if (this.now() >= deadline) finish(new Error(`${what} timed out`));
+      };
+      const timer = setInterval(check, 50); // the player has no event for "the position arrived"
       this.waiters.add(check);
+      this.cancels.add(cancel);
     });
   }
 
@@ -102,11 +111,16 @@ export class YouTubePlaybackEngine implements GameEngine {
   async seek(time: number): Promise<void> {
     const duration = this.getDuration();
     const target = Math.max(0, Number.isFinite(duration) && duration > 0 ? Math.min(time, duration) : time);
+    this.seekTarget = target;
     this.player.seekTo(target, true);
     this.lastRead = target; // the clock is there from now on: never reported as earlier or later than where we asked
     this.lastReadAt = this.now();
     this.clock = target;
-    await this.waitUntil(() => Math.abs(this.player.getCurrentTime() - target) < SEEK_TOLERANCE_S && this.state !== "buffering" && this.state !== "idle", SEEK_TIMEOUT_MS, `seek to ${target}`);
+    try {
+      await this.waitUntil(() => Math.abs(this.player.getCurrentTime() - target) < SEEK_TOLERANCE_S && this.state !== "buffering" && this.state !== "idle", SEEK_TIMEOUT_MS, `seek to ${target}`);
+    } finally {
+      this.seekTarget = null;
+    }
     this.sync();
   }
 
@@ -119,6 +133,7 @@ export class YouTubePlaybackEngine implements GameEngine {
   getCurrentTime(): number {
     const t = this.player.getCurrentTime();
     if (!Number.isFinite(t)) return this.clock;
+    if (this.seekTarget !== null && Math.abs(t - this.seekTarget) >= SEEK_TOLERANCE_S) return this.clock; // not there yet: the old position is not news
     const at = this.now();
     if (t !== this.lastRead) { // the player moved
       const backwards = t < this.clock - SEEK_TOLERANCE_S; // a real jump back (a seek) is followed; a small step back is not
@@ -128,7 +143,8 @@ export class YouTubePlaybackEngine implements GameEngine {
     }
     if (this.state === "playing") { // between the player's own steps
       const rate = this.getPlaybackRate() || 1;
-      this.clock = Math.max(this.clock, this.lastRead + ((at - this.lastReadAt) / 1000) * rate);
+      const ahead = Math.min((at - this.lastReadAt) / 1000, MAX_LEAD_S); // the player's own clock stopped (a stall, an ad): do not run on without it
+      this.clock = Math.max(this.clock, this.lastRead + ahead * rate);
       const d = this.getDuration();
       if (d > 0) this.clock = Math.min(this.clock, d);
     }
@@ -226,6 +242,8 @@ export class YouTubePlaybackEngine implements GameEngine {
   dispose(): void {
     this.cancelFade();
     this.waiters.clear();
+    this.cancels.forEach((c) => c());
+    this.cancels.clear();
     try { this.player.destroy(); } catch { /* already gone */ }
   }
 }

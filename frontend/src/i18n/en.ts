@@ -341,6 +341,7 @@ export const en = {
     save: "Save details",
     saved: "Saved",
     back: "Back to library",
+    youtubeNoPreview: "This song plays from YouTube inside the game.",
     currentLyrics: "Current lyrics",
     noLyrics: "This song has no lyrics yet.",
     timing: "Timing",
