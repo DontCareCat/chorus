@@ -179,10 +179,7 @@ def add_youtube_video(session, cfg, youtube: "YouTubeClient", video_id: str, tit
                 existing.artist = artist.strip()
             session.commit()
         return existing, False
-    try:
-        info = youtube.info(video_id)
-    except YouTubeUnavailable as e:
-        raise YouTubeUnavailable(str(e)) from e
+    info = youtube.info(video_id)  # raises AppError (gone / not embeddable) or YouTubeUnavailable
     clean_artist, clean_song = clean_title(info.title, info.channel)
     song = Song(
         title=(title or clean_song or video_id).strip(), artist=(artist if artist is not None else clean_artist).strip(), duration=0.0,

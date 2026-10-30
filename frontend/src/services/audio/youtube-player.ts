@@ -47,29 +47,37 @@ export async function createYouTubeEngine(host: HTMLElement, videoId: string): P
 }
 
 /**
- * The video ids of a public playlist (the first 200), read by YouTube's own player: it is shown in `host` (200 px high, paused) while it
- * reads, as every embedded player is. Rejects when the playlist is private or does not exist.
+ * The video ids of a public playlist (the first 200, each once), read by YouTube's own player: it is shown in `host` (200 px high, paused)
+ * while it reads, as every embedded player is. An error on the first video (not embeddable, private) does not stop the reading: the list is
+ * often known all the same. Rejects when nothing came before the time ran out or `signal` was aborted.
  */
-export async function loadPlaylistVideoIds(host: HTMLElement, listId: string, timeoutMs = 20_000): Promise<string[]> {
-  const YT = await loadYouTubeApi();
+export async function loadPlaylistVideoIds(host: HTMLElement, listId: string, signal?: AbortSignal, timeoutMs = 20_000): Promise<string[]> {
   const mount = document.createElement("div");
   host.replaceChildren(mount);
+  let player: { destroy(): void; getPlaylist?: () => string[] | null } | null = null;
+  let poll: ReturnType<typeof setInterval> | undefined;
+  let giveUp: ReturnType<typeof setTimeout> | undefined;
+  let lastError: number | null = null;
+  const cleanup = () => { clearTimeout(giveUp); clearInterval(poll); try { player?.destroy(); } catch { /* gone */ } mount.remove(); };
   return new Promise<string[]>((resolve, reject) => {
-    let poll: ReturnType<typeof setInterval> | undefined;
-    const finish = (fn: () => void) => { clearTimeout(giveUp); clearInterval(poll); try { player.destroy(); } catch { /* gone */ } host.replaceChildren(); fn(); };
-    const giveUp = setTimeout(() => finish(() => reject(new Error("YouTube did not give the playlist. Is it public?"))), timeoutMs);
-    const player = new YT.Player(mount, {
-      width: "100%", height: "100%",
-      playerVars: { listType: "playlist", list: listId, playsinline: 1, controls: 1, rel: 0, origin: location.origin.startsWith("http") ? location.origin : undefined },
-      events: {
-        onReady: () => {
-          poll = setInterval(() => {
-            const ids = (player as unknown as { getPlaylist?: () => string[] | null }).getPlaylist?.();
-            if (ids && ids.length) finish(() => resolve(ids));
-          }, 200);
+    const end = (fn: () => void) => { cleanup(); fn(); };
+    giveUp = setTimeout(() => end(() => reject(new Error(lastError !== null ? youtubeErrorMessage(lastError) : "YouTube did not give the playlist. Is it public?"))), timeoutMs);
+    signal?.addEventListener("abort", () => end(() => reject(new Error("cancelled"))), { once: true });
+    loadYouTubeApi().then((YT) => {
+      if (signal?.aborted) return;
+      player = new YT.Player(mount, {
+        width: "100%", height: "100%",
+        playerVars: { listType: "playlist", list: listId, playsinline: 1, controls: 1, rel: 0, origin: location.origin.startsWith("http") ? location.origin : undefined },
+        events: {
+          onReady: () => {
+            poll = setInterval(() => {
+              const ids = player?.getPlaylist?.();
+              if (ids && ids.length) end(() => resolve([...new Set(ids)]));
+            }, 200);
+          },
+          onError: (e: { data: number }) => { lastError = e.data; }, // the list may still come: the time limit decides
         },
-        onError: (e: { data: number }) => finish(() => reject(new Error(youtubeErrorMessage(e.data)))),
-      },
-    });
+      }) as unknown as typeof player;
+    }, (e: Error) => end(() => reject(e)));
   });
 }

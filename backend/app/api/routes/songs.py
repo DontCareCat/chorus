@@ -1,4 +1,5 @@
 import mimetypes
+import time
 import shutil
 from pathlib import Path
 
@@ -28,6 +29,8 @@ from app.services.lyrics.lrclib import LrclibClient
 from app.services.lyrics.stall import is_stalled
 from app.services.settings import RuntimeSettings, load_settings
 from app.services.youtube import YouTubeClient, YouTubeUnavailable, add_youtube_video, clean_title, has_stale, parse_video_id, refresh_stale
+
+IMPORT_SECONDS = 25  # of one import call
 
 router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_user)])
 
@@ -143,7 +146,11 @@ def import_youtube_videos(
     out = YouTubeImportOut(songs=[], added=0, existing=0, failed=[], not_tried=[])
     new_ids: list[int] = []
     ids = list(dict.fromkeys(body.video_ids))
+    started = time.monotonic()
     for n, video_id in enumerate(ids):
+        if time.monotonic() - started > IMPORT_SECONDS:  # a slow YouTube must not outlast the request: the rest is asked again
+            out.not_tried = ids[n:]
+            break
         if parse_video_id(video_id) != video_id:
             out.failed.append(YouTubeImportFailure(video_id=video_id, reason="not_a_video"))
             continue
@@ -161,7 +168,7 @@ def import_youtube_videos(
             new_ids.append(song.id)
         else:
             out.existing += 1
-    if new_ids:
+    if new_ids and body.lookup:
         background.add_task(discover_for_songs, factory, client, new_ids)
     return out
 

@@ -292,3 +292,17 @@ def test_import_is_switched_off_with_youtube_songs(api, yt):
     api.put("/api/settings", json={**settings, "youtube_enabled": False})
     assert api.post("/api/songs/youtube/import", json={"video_ids": [VID]}).json()["error"]["code"] == "youtube_disabled"
     assert api.post("/api/songs/youtube/import", json={"video_ids": []}).status_code == 422
+
+
+def test_import_can_leave_the_lyrics_lookup_to_the_caller(api, yt, lrclib):
+    api.post("/api/songs/youtube/import", json={"video_ids": [VID], "lookup": False})
+    assert not any("/search" in c or "/get" in c for c in lrclib.calls)
+    api.post("/api/songs/youtube/import", json={"video_ids": ["9bZkp7q19f0"]})
+    assert any("/search" in c or "/get" in c for c in lrclib.calls)
+
+
+def test_import_gives_up_after_its_time_and_reports_the_rest(api, yt, monkeypatch):
+    import app.api.routes.songs as songs_route
+    monkeypatch.setattr(songs_route, "IMPORT_SECONDS", -1)
+    r = api.post("/api/songs/youtube/import", json={"video_ids": [VID, "9bZkp7q19f0"]}).json()
+    assert r["not_tried"] == [VID, "9bZkp7q19f0"] and r["added"] == 0

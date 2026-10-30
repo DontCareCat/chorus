@@ -353,7 +353,7 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
-  importYouTubeVideos: (videoIds: string[]) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds })),
+  importYouTubeVideos: (videoIds: string[], lookup = true) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds, lookup })),
   previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),

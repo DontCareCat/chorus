@@ -10,7 +10,7 @@ type Step =
   | { step: "error"; message: string }
   | { step: "found"; ids: string[] }
   | { step: "running"; ids: string[]; done: number }
-  | { step: "done"; added: number; existing: number; failed: number; notTried: string[]; playlist: string | null };
+  | { step: "done"; added: number; existing: number; failed: number; notTried: string[]; playlist: string | null; problem: string | null };
 
 /** Importing a public YouTube playlist: read its videos (YouTube's own player lists them, no key), add them a batch at a time, optionally into a Chorus playlist. */
 export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onAdded: () => void }) {
@@ -19,54 +19,78 @@ export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onA
   const [makeList, setMakeList] = useState(true);
   const host = useRef<HTMLDivElement>(null);
   const songIds = useRef<number[]>([]);
+  const fresh = useRef<number[]>([]); // songs this import added: their lyrics are looked up once, at the end
+  const alive = useRef(true);
+  const running = useRef(false);
+  useEffect(() => () => { alive.current = false; }, []);
 
   useEffect(() => {
-    let gone = false;
+    const abort = new AbortController();
     songIds.current = [];
+    fresh.current = [];
     setState({ step: "reading" });
     if (!host.current) return;
-    loadPlaylistVideoIds(host.current, listId).then(
-      (ids) => { if (!gone) setState({ step: "found", ids }); },
-      (e: Error) => { if (!gone) setState({ step: "error", message: e.message }); },
+    loadPlaylistVideoIds(host.current, listId, abort.signal).then(
+      (ids) => { if (!abort.signal.aborted) setState({ step: "found", ids }); },
+      (e: Error) => { if (!abort.signal.aborted) setState({ step: "error", message: e.message }); },
     );
-    return () => { gone = true; };
+    return () => abort.abort();
   }, [listId]);
 
   const run = async (ids: string[], done: { added: number; existing: number; failed: number }) => {
     let { added, existing, failed } = done;
     for (let at = 0; at < ids.length; at += IMPORT_BATCH) {
+      if (!alive.current) return; // the person left: what is added stays, nothing more is asked
       setState({ step: "running", ids, done: at });
       const batch = ids.slice(at, at + IMPORT_BATCH);
       let r;
       try {
-        r = await api.importYouTubeVideos(batch);
+        r = await api.importYouTubeVideos(batch, false);
       } catch (e) {
-        setState({ step: "error", message: e instanceof ApiError ? e.message : en.errors.generic });
+        if (!alive.current) return;
+        setState({ step: "done", added, existing, failed, notTried: ids.slice(at), playlist: null, problem: e instanceof ApiError ? e.message : en.errors.generic });
+        onAdded();
         return;
       }
       added += r.added; existing += r.existing; failed += r.failed.length;
       songIds.current.push(...r.songs.map((s) => s.id));
+      fresh.current.push(...r.songs.filter((s) => s.lyrics_status === "pending").map((s) => s.id));
       if (r.not_tried.length) {
-        setState({ step: "done", added, existing, failed, notTried: [...r.not_tried, ...ids.slice(at + IMPORT_BATCH)], playlist: null });
+        if (!alive.current) return;
+        setState({ step: "done", added, existing, failed, notTried: [...r.not_tried, ...ids.slice(at + IMPORT_BATCH)], playlist: null, problem: null });
         onAdded();
         return;
       }
     }
+    if (!alive.current) return;
+    if (fresh.current.length) void api.retryLyrics(fresh.current).catch(() => undefined); // one lookup queue for all the new songs
+    fresh.current = [];
     let playlist: string | null = null;
+    let problem: string | null = null;
     if (makeList && songIds.current.length) {
-      const base = name.trim() || en.library.plNameDefault;
+      const base = Array.from(name.trim() || en.library.plNameDefault).slice(0, 100).join("");
       for (let n = 1; n < 20 && playlist === null; n++) {
         const tryName = n === 1 ? base : `${base} (${n})`;
+        let made;
         try {
-          const made = await api.createPlaylist(tryName);
+          made = await api.createPlaylist(tryName);
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 409) continue; // the name is taken, try the next
+          problem = en.library.plNotMade;
+          break;
+        }
+        try {
           await api.addToPlaylist(made.id, songIds.current);
           playlist = tryName;
-        } catch (e) {
-          if (!(e instanceof ApiError) || e.status !== 409) break; // 409: the name is taken, try the next
+        } catch {
+          void api.deletePlaylist(made.id).catch(() => undefined); // no empty playlist is left behind
+          problem = en.library.plNotMade;
+          break;
         }
       }
     }
-    setState({ step: "done", added, existing, failed, notTried: [], playlist });
+    if (!alive.current) return;
+    setState({ step: "done", added, existing, failed, notTried: [], playlist, problem });
     onAdded();
   };
 
@@ -84,7 +108,7 @@ export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onA
             <span>{en.library.plMakePlaylist}</span>
           </label>
           {makeList && <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("youtube-playlist-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>}
-          <button type="button" className="btn inverse" onClick={() => void run(s.ids, { added: 0, existing: 0, failed: 0 })}>{en.library.plAdd(s.ids.length)}</button>
+          <button type="button" className="btn inverse" onClick={() => { if (running.current) return; running.current = true; void run(s.ids, { added: 0, existing: 0, failed: 0 }).finally(() => { running.current = false; }); }}>{en.library.plAdd(s.ids.length)}</button>
         </div>
       )}
       {s.step === "running" && (
@@ -96,13 +120,14 @@ export function YouTubePlaylistImport({ listId, onAdded }: { listId: string; onA
       {s.step === "done" && (
         <div role="status" className="yt-result">
           <p><strong>{en.library.plResult(s.added, s.existing)}</strong></p>
+          {s.problem && <p className="yt-problem" role="alert">{s.problem}</p>}
           {s.playlist && <p>{en.library.plPlaylistMade(s.playlist)}</p>}
           {s.failed > 0 && <p className="muted">{en.library.plFailed(s.failed)}</p>}
           {s.added + s.existing === 0 && s.notTried.length === 0 && <p className="muted">{en.library.plNone}</p>}
           {s.notTried.length > 0 && (
             <>
               <p className="yt-problem">{en.library.plNotTried(s.notTried.length)}</p>
-              <button type="button" className="btn secondary" onClick={() => void run(s.notTried, { added: s.added, existing: s.existing, failed: s.failed })}>{en.library.plRetry}</button>
+              <button type="button" className="btn secondary" onClick={() => { if (running.current) return; running.current = true; void run(s.notTried, { added: s.added, existing: s.existing, failed: s.failed }).finally(() => { running.current = false; }); }}>{en.library.plRetry}</button>
             </>
           )}
         </div>

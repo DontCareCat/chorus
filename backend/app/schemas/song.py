@@ -58,6 +58,7 @@ class YouTubePreviewOut(BaseModel):
 
 class YouTubeImportRequest(BaseModel):
     video_ids: list[str] = Field(min_length=1, max_length=25)  # a batch of a playlist's videos
+    lookup: bool = True  # look for lyrics at once; a playlist import turns it off and asks once for all the songs at the end
 
 
 class YouTubeImportFailure(BaseModel):
