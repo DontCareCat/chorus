@@ -91,3 +91,52 @@ class YouTubeClient:
         except ValueError as e:
             raise YouTubeUnavailable("YouTube answered with something unexpected") from e
         return VideoInfo(video_id, str(j.get("title") or ""), str(j.get("author_name") or ""))
+
+
+REFRESH_AFTER_DAYS = 30
+
+
+def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
+    """YouTube's own facts about a song (channel, whether it can still be played) are checked again after 30 days.
+
+    What the user confirmed (title, artist, timing) stays. A video that is gone is marked unavailable and its channel dropped.
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.db.models import Song, SongSource
+    from app.db.models.types import utcnow
+
+    now = now or utcnow()
+    done = 0
+    with factory() as session:
+        stale = session.scalars(
+            select(Song).where(Song.source == SongSource.youtube, (Song.youtube_checked_at.is_(None)) | (Song.youtube_checked_at < now - timedelta(days=REFRESH_AFTER_DAYS)))
+        ).all()
+        for song in stale:
+            try:
+                info = client.info(song.youtube_id)
+                song.youtube_channel, song.available = info.channel or None, True
+            except AppError:
+                song.youtube_channel, song.available = None, False  # removed, private or not embeddable
+            except YouTubeUnavailable:
+                continue  # offline: try again next time
+            song.youtube_checked_at = now
+            done += 1
+        session.commit()
+    return done
+
+
+def has_stale(session, now=None) -> bool:
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from app.db.models import Song, SongSource
+    from app.db.models.types import utcnow
+
+    now = now or utcnow()
+    return session.scalar(
+        select(Song.id).where(Song.source == SongSource.youtube, (Song.youtube_checked_at.is_(None)) | (Song.youtube_checked_at < now - timedelta(days=REFRESH_AFTER_DAYS))).limit(1)
+    ) is not None

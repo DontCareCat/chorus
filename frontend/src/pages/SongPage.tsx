@@ -74,10 +74,10 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
   }, [youtubeId]);
   const lengthSaved = useRef(false);
   useEffect(() => { // the player tells the video's length: keep it (it makes the lyrics match better)
-    if (!yt || song.duration > 0 || lengthSaved.current) return;
+    if (!yt || lengthSaved.current) return;
     const t = setInterval(() => {
       const d = yt.getDuration();
-      if (d > 0 && !lengthSaved.current) { lengthSaved.current = true; api.patchSong(song.id, { duration: Math.round(d) }).then(onSaved, () => { lengthSaved.current = false; }); }
+      if (d > 0 && !lengthSaved.current && Math.round(d) !== Math.round(song.duration)) { lengthSaved.current = true; api.patchSong(song.id, { duration: Math.round(d) }).then(onSaved, () => { lengthSaved.current = false; }); }
     }, 1000);
     return () => clearInterval(t);
   }, [yt, song.id, song.duration]);

@@ -121,8 +121,8 @@ def test_length_is_learned_once_and_lyrics_are_looked_up_again(api, yt, lrclib):
     lrclib.get_result = None
     r = api.patch(f"/api/songs/{s['id']}", json={"duration": 213.4})
     assert r.status_code == 200 and r.json()["duration"] == 213.4
-    again = api.patch(f"/api/songs/{s['id']}", json={"duration": 99})  # a known length stays
-    assert again.json()["duration"] == 213.4
+    again = api.patch(f"/api/songs/{s['id']}", json={"duration": 214})  # the player tells it on every play: kept up to date
+    assert again.json()["duration"] == 214
     assert any("/get" in c or "/search" in c for c in lrclib.calls)
 
 
@@ -143,3 +143,42 @@ def test_looking_again_never_leaves_a_song_pending_or_replaces_lyrics(api, yt, l
     after = [x for x in api.get("/api/songs").json() if x["id"] == s["id"]][0]
     assert after["lyrics_status"] != "pending"
     assert api.get(f"/api/songs/{s['id']}/lyrics").json()["source"] == "upload"
+
+
+def test_switching_youtube_off_stops_adding_and_playing(api, yt, tmp_path):
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    lrc = tmp_path / "x.lrc"
+    lrc.write_text("[00:01.00] eins zwei drei vier\n[00:05.00] fuenf sechs sieben acht\n[00:09.00] neun zehn elf zwoelf\n")
+    with lrc.open("rb") as f:
+        api.post(f"/api/songs/{s['id']}/lyrics/upload", files={"file": ("x.lrc", f, "text/plain")})
+    game = api.post("/api/games", json={"song_id": s["id"]})
+    assert game.status_code == 201 and game.json()["youtube_id"] == VID
+    settings = api.get("/api/settings").json()
+    api.put("/api/settings", json={**settings, "youtube_enabled": False})
+    assert api.post("/api/songs/youtube", json={"url": "dQw4w9WgXcQ"}).json()["error"]["code"] == "youtube_disabled"
+    assert api.get(f"/api/games/{game.json()['public_id']}").status_code == 403
+    assert [x["available"] for x in api.get("/api/songs").json()] == [False]
+    api.put("/api/settings", json={**settings, "youtube_enabled": True})
+    assert [x["available"] for x in api.get("/api/songs").json()] == [True]
+
+
+def test_stale_youtube_facts_are_checked_again_after_30_days(api, yt, session):
+    from datetime import timedelta
+    from sqlalchemy.orm import sessionmaker
+    from app.db.models import Song
+    from app.db.models.types import utcnow
+    from app.services.youtube import refresh_stale
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    with factory() as q:
+        q.get(Song, s["id"]).youtube_checked_at = utcnow() - timedelta(days=31)
+        q.commit()
+    assert refresh_stale(factory, yt.client()) == 1 and refresh_stale(factory, yt.client()) == 0
+    yt.status = 404
+    with factory() as q:
+        q.get(Song, s["id"]).youtube_checked_at = utcnow() - timedelta(days=31)
+        q.commit()
+    assert refresh_stale(factory, yt.client()) == 1
+    with factory() as q:
+        gone = q.get(Song, s["id"])
+        assert gone.available is False and gone.youtube_channel is None

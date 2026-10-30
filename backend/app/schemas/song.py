@@ -37,7 +37,7 @@ class SongPatch(BaseModel):
     album: str | None = Field(None, max_length=300)
     language: str | None = Field(None, min_length=2, max_length=16)
     lyrics_offset: float | None = Field(None, ge=-60, le=60)
-    duration: float | None = Field(None, gt=0, le=86_400)  # only for a YouTube song whose length is not known yet (the player tells it)
+    duration: float | None = Field(None, gt=0, le=86_400)  # only for a YouTube song: the player tells its length
 
 
 class YouTubeRequest(BaseModel):

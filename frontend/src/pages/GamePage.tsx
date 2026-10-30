@@ -169,7 +169,7 @@ function GameScreen({ game }: { game: GameDto }) {
   const duration = Number.isFinite(engineDuration) && engineDuration > 0 ? engineDuration : game.song_duration;
   const lengthSaved = useRef(false);
   useEffect(() => { // a YouTube song's length is known once the player tells it: keep it for the lyrics matching and the runway
-    if (!youtubeId || game.song_duration > 0 || lengthSaved.current || !(engineDuration > 0)) return;
+    if (!youtubeId || lengthSaved.current || !(engineDuration > 0) || Math.round(engineDuration) === Math.round(game.song_duration)) return;
     lengthSaved.current = true;
     api.patchSong(game.song_id, { duration: Math.round(engineDuration) }).catch(() => { lengthSaved.current = false; });
   }, [youtubeId, game.song_duration, game.song_id, engineDuration]);

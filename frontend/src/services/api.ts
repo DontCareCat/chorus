@@ -128,6 +128,7 @@ export interface SettingsDto {
   default_language: string;
   library_dirs: string[];
   translation_enabled: boolean;
+  youtube_enabled: boolean;
   allow_guest: boolean;
   allow_registration: boolean;
 }

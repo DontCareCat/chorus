@@ -170,6 +170,13 @@ export function SettingsPage() {
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />
             <span><strong>{en.settings.translationEnabled}</strong><small>{en.settings.translationEnabledHelp}</small></span>
           </label>
+          <label className="check">
+            <input type="checkbox" checked={form.youtube_enabled} onChange={(e) => set("youtube_enabled", e.target.checked)} />
+            <span>
+              <strong>{en.settings.youtubeEnabled}</strong>
+              <small>{en.settings.youtubeEnabledHelp} <a href="https://www.youtube.com/t/terms" target="_blank" rel="noreferrer">{en.settings.youtubeTerms}</a> · <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">{en.settings.googlePrivacy}</a></small>
+            </span>
+          </label>
         </section>
 
         <section className="panel">

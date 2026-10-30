@@ -27,15 +27,26 @@ from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.lyrics.stall import is_stalled
 from app.services.settings import RuntimeSettings, load_settings
-from app.services.youtube import YouTubeClient, YouTubeUnavailable, clean_title, parse_video_id
+from app.services.youtube import YouTubeClient, YouTubeUnavailable, clean_title, has_stale, parse_video_id, refresh_stale
 
 router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_user)])
 
 
 @router.get("/songs", response_model=list[SongOut])
-def list_songs(session: Session = Depends(get_session), user: User = Depends(current_user)):
+def list_songs(
+    background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
+    factory: sessionmaker = Depends(get_session_factory), youtube: YouTubeClient = Depends(get_youtube_client),
+):
     songs = list(session.scalars(select(Song).where(Song.removed.is_(False)).order_by(Song.artist, Song.title)))
-    timeout, now = load_settings(session).lyrics_timeout_minutes, utcnow()
+    cfg = load_settings(session)
+    timeout, now = cfg.lyrics_timeout_minutes, utcnow()
+    if cfg.youtube_enabled and any(s.source == SongSource.youtube for s in songs) and has_stale(session):
+        background.add_task(refresh_stale, factory, youtube)
+    if not cfg.youtube_enabled:  # switched off: the songs stay, but cannot be played (shown like a missing file)
+        for s in songs:
+            if s.source == SongSource.youtube:
+                session.expunge(s)
+                s.available = False
     mine = {
         r.song_id: r
         for r in session.execute(
@@ -78,6 +89,8 @@ def add_youtube_song(
     client: LrclibClient = Depends(get_lrclib_client), youtube: YouTubeClient = Depends(get_youtube_client),
 ):
     """Add a song that is played from YouTube: only the video id and the facts YouTube shows publicly are kept."""
+    if not cfg.youtube_enabled:
+        raise AppError("youtube_disabled", "YouTube songs are switched off in Settings", 403)
     video_id = parse_video_id(body.url)
     if video_id is None:
         raise AppError("bad_youtube_link", "That is not a YouTube video link", 422)
@@ -225,9 +238,10 @@ def patch_song(
     factory: sessionmaker = Depends(get_session_factory), client: LrclibClient = Depends(get_lrclib_client),
 ):
     changes = body.model_dump(exclude_unset=True)
-    if changes.get("duration") is not None and (song.source != SongSource.youtube or song.duration > 0):
-        changes.pop("duration")  # a file's length is read from the file; a known YouTube length is not overwritten
-    learned_length = changes.get("duration") is not None
+    was_unknown = song.duration <= 0
+    if changes.get("duration") is not None and song.source != SongSource.youtube:
+        changes.pop("duration")  # a file's length is read from the file; only a YouTube song's length comes from the player (each time it plays)
+    learned_length = changes.get("duration") is not None and was_unknown
     for key, value in changes.items():
         if value is not None or key == "album":
             setattr(song, key, value)

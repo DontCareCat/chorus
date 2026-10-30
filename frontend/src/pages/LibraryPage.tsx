@@ -97,6 +97,8 @@ export function LibraryPage() {
     });
 
   const [ytLink, setYtLink] = useState("");
+  const appSettings = useAsync(() => api.settings(), []);
+  const youtubeOn = appSettings.data?.youtube_enabled !== false;
   const addYouTube = () =>
     run(async () => {
       const song = await api.addYouTubeSong(ytLink.trim());
@@ -251,7 +253,7 @@ export function LibraryPage() {
               <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
-          <form autoComplete="off" className="youtube-add" onSubmit={(e) => { e.preventDefault(); if (ytLink.trim()) void addYouTube(); }}>
+          {youtubeOn && <form autoComplete="off" className="youtube-add" onSubmit={(e) => { e.preventDefault(); if (ytLink.trim()) void addYouTube(); }}>
             <label className="field" style={{ marginBottom: 0 }}>
               <span>{en.library.youtubeLink}</span>
               <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
@@ -260,7 +262,7 @@ export function LibraryPage() {
               </div>
               <small>{en.library.youtubeHelp}</small>
             </label>
-          </form>
+          </form>}
           <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
             <div>
               <label className="field" style={{ marginBottom: 0 }}>
