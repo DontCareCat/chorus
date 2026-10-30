@@ -1,3 +1,4 @@
+import { useConfirm } from "../components/Confirm";
 import { useMemo, useState } from "react";
 import { AddSongs } from "../components/AddSongs";
 import { AddToPlaylist } from "../components/AddToPlaylist";
@@ -38,8 +39,14 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
   const takeOut = async (s: SongDto) => {
     try { await api.removeFromPlaylist(playlistId, s.id); setNotice(null); list.reload(); } catch (e) { setNotice(e instanceof ApiError ? e.message : en.errors.generic); }
   };
+  const confirm = useConfirm();
   const removeFromLibrary = async (s: SongDto) => {
-    if (!window.confirm(s.source === "library" ? en.library.removeLibrary(s.title) : en.library.removeCopy(s.title))) return;
+    const sure = await confirm(s.source === "library"
+      ? { title: en.library.removeLibrary(s.title), body: en.library.removeLibraryBody, action: en.library.removeAction }
+      : s.source === "youtube"
+        ? { title: en.library.removeYouTube(s.title), body: en.library.removeYouTubeBody, action: en.library.removeAction }
+        : { title: en.library.removeCopy(s.title), body: en.library.removeCopyBody, action: en.library.deleteAction });
+    if (!sure) return;
     await api.deleteSong(s.id);
     reload();
   };
@@ -75,7 +82,7 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
         onExtra={(id, s) => { if (id === "playlist") setTarget(s); else void takeOut(s); }}
       />
       {menu && list.data && <PlaylistMenu phone={phone} anchor={menu} title={list.data.name} onClose={() => setMenu(null)} onRename={() => setDialog("rename")}
-        onDelete={() => { if (window.confirm(en.playlists.deleteConfirm(list.data!.name))) void api.deletePlaylist(playlistId).then(() => { location.hash = paths.playlists(); }); }} />}
+        onDelete={() => { void confirm({ title: en.playlists.deleteConfirm(list.data!.name), body: en.playlists.deleteConfirmBody, action: en.playlists.deleteAction }).then((ok) => { if (ok) void api.deletePlaylist(playlistId).then(() => { location.hash = paths.playlists(); }); }); }} />}
       {dialog === "rename" && list.data && <PlaylistNameDialog title={en.playlists.renameTitle} action={en.playlists.save} initial={list.data.name} onClose={() => setDialog(null)} onSubmit={async (n) => { await api.renamePlaylist(playlistId, n); list.reload(); }} />}
       {dialog === "add" && <AddSongs songs={candidates} onClose={() => setDialog(null)} onAdd={async (ids) => { await api.addToPlaylist(playlistId, ids); list.reload(); }} />}
       {target && <AddToPlaylist songIds={[target.id]} subtitle={`${target.title} · ${target.artist}`} onClose={() => setTarget(null)} onChanged={list.reload} />}

@@ -13,6 +13,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
   const api = async (m, p, d) => { const r = await page.request.fetch(B + "api/" + p, { method: m, ...(d ? { data: d } : {}) }); return r.status() === 204 ? null : r.json(); };
   const stamp = Date.now() % 100000;
   const songs = [];

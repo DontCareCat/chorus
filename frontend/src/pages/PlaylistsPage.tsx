@@ -1,3 +1,4 @@
+import { useConfirm } from "../components/Confirm";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { LibraryTabs } from "../components/LibraryTabs";
@@ -21,8 +22,9 @@ export function PlaylistsPage() {
   const [dialog, setDialog] = useState<{ kind: "new" } | { kind: "rename"; list: PlaylistDto } | null>(null);
   const [menu, setMenu] = useState<{ list: PlaylistDto; anchor: HTMLElement } | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  const confirm = useConfirm();
   const remove = async (p: PlaylistDto) => {
-    if (!window.confirm(en.playlists.deleteConfirm(p.name))) return;
+    if (!(await confirm({ title: en.playlists.deleteConfirm(p.name), body: en.playlists.deleteConfirmBody, action: en.playlists.deleteAction }))) return;
     await api.deletePlaylist(p.id);
     lists.reload();
   };

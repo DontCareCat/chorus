@@ -5,6 +5,7 @@ import { ActionMenu } from "../components/ActionMenu";
 import { LookupBar } from "../components/LookupBar";
 import { AddToPlaylist } from "../components/AddToPlaylist";
 import { LibraryTabs } from "../components/LibraryTabs";
+import { useConfirm } from "../components/Confirm";
 import { YouTubeAdd } from "../components/YouTubeAdd";
 import { SongList } from "../components/SongList";
 import { useQueueActions } from "../hooks/useQueueActions";
@@ -76,6 +77,7 @@ export function LibraryPage() {
     folderRef.current?.setAttribute("webkitdirectory", ""); // not part of React's input typings
   }, [addOpen, tab]);
 
+  const confirm = useConfirm();
   const run = async (job: () => Promise<string>) => {
     setBusy(true);
     setNotice(null);
@@ -129,7 +131,11 @@ export function LibraryPage() {
     });
 
   const remove = async (s: SongDto) => {
-    const sure = window.confirm(s.source === "library" ? en.library.removeLibrary(s.title) : s.source === "youtube" ? en.library.removeYouTube(s.title) : en.library.removeCopy(s.title));
+    const sure = await confirm(s.source === "library"
+      ? { title: en.library.removeLibrary(s.title), body: en.library.removeLibraryBody, action: en.library.removeAction }
+      : s.source === "youtube"
+        ? { title: en.library.removeYouTube(s.title), body: en.library.removeYouTubeBody, action: en.library.removeAction }
+        : { title: en.library.removeCopy(s.title), body: en.library.removeCopyBody, action: en.library.deleteAction });
     if (!sure) return;
     await run(async () => {
       await api.deleteSong(s.id);
@@ -139,7 +145,7 @@ export function LibraryPage() {
 
   const removePicked = async () => {
     const ids = [...selection.picked];
-    if (ids.length === 0 || !window.confirm(en.library.removeManyLibrary(ids.length))) return;
+    if (ids.length === 0 || !(await confirm({ title: en.library.removeManyLibrary(ids.length), body: en.library.removeManyBody, action: en.library.removeAction }))) return;
     await run(async () => {
       const r = await api.deleteSongs(ids);
       selection.clear();

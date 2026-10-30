@@ -10,6 +10,7 @@ const wav = (seed, secs = 2) => { const n = 8000 * secs, d = Buffer.alloc(44 + n
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
   const add = async (name, seed, secs) => (await (await page.request.post(B + "api/songs", { multipart: { file: { name, mimeType: "audio/wav", buffer: wav(seed, secs) } } })).json());
 
   console.log("[no duplicates, no chip]");

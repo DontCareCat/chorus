@@ -24,6 +24,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   });
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
   const api = async (method, path, data) => { const r = await page.request.fetch(B + "api/" + path, { method, ...(data ? { data } : {}) }); return r.json(); };
 
   console.log("[an empty dictionary]");

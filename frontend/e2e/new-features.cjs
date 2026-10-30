@@ -46,6 +46,7 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   const page = await guest.newPage();
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
 
   console.log("[replace lyrics that are already saved]");
   await page.request.patch(B + "api/songs/1", { data: { lyrics_offset: 1.5 } });

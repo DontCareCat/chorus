@@ -11,6 +11,7 @@ const wav = (secs, seed) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2
   const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
   const api = async (m, p, d) => { const r = await page.request.fetch(B + "api/" + p, { method: m, ...(d ? { data: d } : {}) }); return r.status() === 204 ? null : r.json(); };
   const stamp = Date.now() % 100000;
   const names = [`Pl Alpha ${stamp}`, `Pl Beta ${stamp}`, `Pl Gamma ${stamp}`];
@@ -64,7 +65,8 @@ const wav = (secs, seed) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2
   console.log("[from a selection]");
   await page.evaluate(() => document.querySelectorAll(".song .pick")[0]?.click());
   await page.evaluate(() => document.querySelectorAll(".song .pick")[1]?.click());
-  await page.click('.select-bar button:has-text("Add to playlist")');
+  await page.click('.select-bar [aria-haspopup="menu"]'); // the bar's more-actions menu
+  await page.click('.menu-popover button:has-text("Add to playlist"), .sheet button:has-text("Add to playlist"), [role="menu"] button:has-text("Add to playlist")');
   await page.fill('.new-playlist input', `Mine B ${stamp}`);
   await page.click('.new-playlist button[type=submit]');
   await page.waitForSelector('.notice.ok');

@@ -1325,3 +1325,11 @@ button.queue-bar-face { cursor: pointer; }
 .game[data-game="two"][data-yt]:not([data-land]) .transport { margin-left: calc(-1 * max(40px, env(safe-area-inset-left))); margin-right: calc(-1 * max(40px, env(safe-area-inset-right))); }
 /* viewport-fit=cover reaches every page: the others keep clear of a notch too */
 .shell:not([data-route="game"]) { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); box-sizing: border-box; }
+
+/* the confirmation before something is removed (design guide section 25b): the app's own dialog, a sheet on phones */
+.confirm { display: grid; gap: 18px; padding: 4px 0 0; }
+.confirm-text { margin: 0; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+.confirm-actions { display: flex; justify-content: flex-end; gap: var(--gap-actions); flex-wrap: wrap; }
+[data-layout="phone"] .confirm-actions { flex-direction: column-reverse; }
+[data-layout="phone"] .confirm-actions .btn { width: 100%; height: 52px; font-size: 17px; }
+.dialog-scrim .dialog.tool-dialog:has(.confirm) { width: min(460px, 100%); }

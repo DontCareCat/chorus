@@ -1,3 +1,4 @@
+import { useConfirm } from "../components/Confirm";
 import { LEVELS, LevelBars, ProgressiveStars } from "../components/LevelIcon";
 import { Select } from "../components/Select";
 import { useEffect, useState } from "react";
@@ -70,8 +71,9 @@ export function SettingsPage() {
       setNotice({ kind: "error", text: msg(e) });
     }
   };
+  const confirm = useConfirm();
   const clear = async () => {
-    if (!window.confirm(en.settings.clearConfirm)) return;
+    if (!(await confirm({ title: en.settings.clearConfirm, body: en.settings.clearConfirmBody, action: en.settings.clearAction }))) return;
     const r = await api.clearCache();
     setNotice({ kind: "ok", text: en.settings.cacheCleared(r.deleted) });
   };
@@ -283,8 +285,9 @@ function PasswordPanel() {
 
 function UsersPanel({ me }: { me: UserDto }) {
   const users = useAsync(() => api.users(), []);
+  const confirm = useConfirm();
   const remove = async (u: UserDto) => {
-    if (!window.confirm(en.settings.deleteUserConfirm(u.display_name))) return;
+    if (!(await confirm({ title: en.settings.deleteUserConfirm(u.display_name), body: en.settings.deleteUserBody, action: en.settings.deleteUserAction }))) return;
     await api.deleteUser(u.id);
     users.reload();
   };

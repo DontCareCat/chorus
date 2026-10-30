@@ -20,6 +20,7 @@ async function newGame(page, level) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
 
   console.log("[difficulty levels: 10 / 30 / 60 / 80 % of the words]");
   const counts = {};

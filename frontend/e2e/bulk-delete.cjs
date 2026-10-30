@@ -6,6 +6,7 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   const browser = await chromium.launch();
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   page.on("dialog", (d) => d.accept());
+  page.addInitScript(() => { new MutationObserver(() => document.querySelector(".confirm-actions .btn.danger")?.click()).observe(document, { subtree: true, childList: true }); }); // answers the app's own confirmation (Confirm.tsx) like the native dialog was accepted
   const wav = (seed) => { const n = 8000 * 5, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * seed) % 3000, 44 + i * 2); return d; };
   for (const [i, name] of ["A - One.wav", "B - Two.wav", "C - Three.wav"].entries()) await page.request.post(B + "api/songs", { multipart: { file: { name, mimeType: "audio/wav", buffer: wav(3 + i) } } });
   await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn");
@@ -18,7 +19,7 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   await page.check(".select-all"); // the summary checkbox selects everything the filter shows
   ok((await page.locator(".song-main .pick:checked").count()) === before, "select all ticks every shown song");
   await page.uncheck(".song-main .pick >> nth=0");
-  await page.click(".select-bar >> text=Remove");
+  await page.click(".select-bar .icon-btn.danger"); // the red icon button; its question is the app's own dialog
   await page.waitForFunction((n) => document.querySelectorAll(".song").length === n - (n - 1), before, { timeout: 8000 }).catch(() => {});
   ok((await page.locator(".song").count()) === 1, "the ticked songs are gone, the unticked one stays");
   await browser.close();
