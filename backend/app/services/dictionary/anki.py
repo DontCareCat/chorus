@@ -245,6 +245,9 @@ def _open_collection(path: str) -> list[ImportedNote]:
         kinds = {r[0] for r in db.execute("SELECT type FROM sqlite_master WHERE name IN ('col','notes','cards')")}
         if kinds != {"table"}:
             raise bad  # a view or trigger posing as a table
+        for table in ("col", "notes", "cards"):
+            if any(row[6] != 0 for row in db.execute(f"PRAGMA table_xinfo({table})")):
+                raise bad  # a generated column can compute anything
         return _read_collection(db)
     except AppError:
         raise

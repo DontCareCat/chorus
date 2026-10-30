@@ -1370,9 +1370,11 @@ button.queue-bar-face { cursor: pointer; }
 .dict-actions { display: flex; gap: var(--gap-actions); align-items: center; flex-wrap: wrap; }
 .exchange { display: grid; gap: 16px; }
 .exchange .inline { align-items: center; gap: 12px; flex-wrap: wrap; }
+.exchange .segmented { justify-self: start; }
+.exchange .check { margin: 0; }
 .exchange-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 [data-layout="phone"] .page-head .dict-actions { order: 3; flex-basis: 100%; }
 [data-layout="phone"] .dict-actions .btn { min-height: 44px; }
 
-.link-btn { background: none; border: none; padding: 10px 0; min-height: 44px; color: var(--text-2, var(--text)); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
+.link-btn { background: none; border: none; padding: 10px 12px; margin-left: -12px; min-height: 44px; color: var(--text-3); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
 .link-btn:hover { color: var(--text); }

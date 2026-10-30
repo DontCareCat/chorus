@@ -146,6 +146,7 @@ def test_malformed_collections_are_not_a_deck():
 
     full = "CREATE TABLE col (id, crt, models); CREATE TABLE notes (id, mid, tags, flds); CREATE TABLE cards (nid, type, queue, due, ivl, reps, lapses, ord, id);"
     for sql in (
+        "CREATE TABLE col (id, crt, models); INSERT INTO col VALUES (1, 0, '{}'); CREATE TABLE notes (id, mid, tags, flds AS (printf('%.*c', 3000, 'x'))); CREATE TABLE cards (nid);",
         full,  # empty col
         full + "INSERT INTO col VALUES (1, 0, '[1]');",
         full + "INSERT INTO col VALUES (1, 0, '{}'); INSERT INTO notes VALUES (1, 1, NULL, NULL);",
