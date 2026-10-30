@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import current_user
@@ -11,6 +12,13 @@ router = APIRouter(prefix="/api/settings", tags=["settings"], dependencies=[Depe
 
 
 MASK = "********"
+
+
+def _may_change_key(session: Session, user: User) -> bool:
+    """The administrator; or, on a server nobody has signed up on (one person, the Guest), the Guest."""
+    if user.is_admin:
+        return True
+    return user.is_guest and session.scalar(select(func.count(User.id)).where(User.is_guest.is_(False))) == 0
 
 
 def _masked(cfg: RuntimeSettings) -> RuntimeSettings:
@@ -30,6 +38,6 @@ def write_settings(new: RuntimeSettings, session: Session = Depends(get_session)
         raise AppError("admin_required", "Only the administrator can change who may use this server.", 403)
     if new.youtube_api_key == MASK:  # unchanged
         new = new.model_copy(update={"youtube_api_key": current.youtube_api_key})
-    if not user.is_admin and not user.is_guest and new.youtube_api_key != current.youtube_api_key:
+    if new.youtube_api_key != current.youtube_api_key and not _may_change_key(session, user):
         raise AppError("admin_required", "Only the administrator can change the YouTube API key.", 403)
     return _masked(save_settings(session, new))

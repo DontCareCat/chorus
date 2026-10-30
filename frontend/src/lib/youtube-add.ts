@@ -88,9 +88,17 @@ export function parseSpotifyTrackId(input: string): string | null {
 
 export type InputKind = "empty" | "video" | "playlist" | "spotify" | "spotifyTrack" | "link" | "search";
 
+/** The pasted text without the brackets, quotes and full stop that a message app wraps around a link. */
+export function cleanInput(input: string): string {
+  const t = input.trim();
+  const wrapped = /^[<(\["'“‘]+(.*?)[>)\]"'”’]+$/.exec(t);
+  const inner = wrapped && /^(?:[a-z][a-z0-9+.-]*:|www\.|(?:m|music)\.)/i.test(wrapped[1]!) ? wrapped[1]! : t;
+  return /^(?:[a-z][a-z0-9+.-]*:\/\/|www\.)/i.test(inner) ? inner.replace(/[.,;:!?]+$/, "") : inner;
+}
+
 /** What the one field of Add music was given: a YouTube video, a YouTube playlist, a Spotify playlist, another link, or words to search for. */
 export function classifyInput(input: string): InputKind {
-  const text = input.trim();
+  const text = cleanInput(input);
   if (!text) return "empty";
   if (parsePlaylistId(text)) return "playlist";
   if (parseSpotifyPlaylistId(text)) return "spotify";
@@ -99,4 +107,18 @@ export function classifyInput(input: string): InputKind {
   const looksLikeLink = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) || /^(www\.|m\.|music\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|open\.spotify\.com)(\/|$)/i.test(text) || /^[^\s/]+\.[a-z]{2,}\/\S*$/i.test(text);
   if (!looksLikeLink) return "search";
   return /youtube\.com|youtu\.be|youtube-nocookie\.com/i.test(text) ? "video" : "link";
+}
+
+/** What identifies a Spotify link (its id), so editing the tracking parameters does not read the page again. */
+export const spotifyKey = (link: string): string => parseSpotifyPlaylistId(cleanInput(link)) ?? parseSpotifyTrackId(cleanInput(link)) ?? link.trim();
+
+/** Does the video found look like this song? (the title has the song's title, and the artist is in the title or the channel) */
+export function looksRight(track: { title: string; artist: string }, hit: { title: string; channel: string }): boolean {
+  const words = (x: string, ofTrack = false) => x.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(ofTrack ? /\([^)]*\)|\[[^\]]*\]|\s-\s.*$/g : /$^/, " ").match(/[\p{L}\p{N}]+/gu) ?? []; // a track's "(Remastered)" is not looked for in the video
+  const hitWords = new Set(words(`${hit.title} ${hit.channel}`));
+  const titleWords = words(track.title, true);
+  const artistWords = words(track.artist.split(",")[0] ?? "");
+  const has = (ws: string[]) => ws.length > 0 && ws.every((w) => hitWords.has(w));
+  const hasArtist = (ws: string[]) => ws.every((w) => hitWords.has(w) || (w.length >= 4 && [...hitWords].some((h) => h.startsWith(w)))); // a channel like "BeyoncéVEVO"
+  return has(titleWords) && (artistWords.length === 0 || hasArtist(artistWords));
 }

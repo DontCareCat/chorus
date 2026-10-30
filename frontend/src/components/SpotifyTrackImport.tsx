@@ -14,11 +14,11 @@ export function SpotifyTrackImport({ link, onAdded, onShow }: { link: string; on
     let gone = false;
     setTrack(null);
     setError(null);
-    api.spotifyTrack(link).then(
+    const wait = setTimeout(() => api.spotifyTrack(link).then(
       (t) => { if (!gone) setTrack(t); },
       (e) => { if (!gone) setError(e instanceof ApiError ? e.message : en.errors.generic); },
-    );
-    return () => { gone = true; };
+    ), 500); // typing a link does not read a page for every letter
+    return () => { gone = true; clearTimeout(wait); };
   }, [link]);
 
   if (error) return <p className="yt-problem" role="alert">{error}</p>;
@@ -35,7 +35,7 @@ export function SpotifyTrackImport({ link, onAdded, onShow }: { link: string; on
       ) : (
         <>
           <p className="muted">{en.library.stPick}</p>
-          <YouTubeSearch query={`${first} ${track.title}`.trim()} onAdded={onAdded} onShow={onShow} names={{ title: track.title, artist: first }} />
+          <YouTubeSearch query={`${first} ${track.title}`.trim()} onAdded={onAdded} onShow={onShow} names={{ title: track.title, artist: track.artist }} />
           <a href={youtubeSearchUrl(first, track.title)} target="_blank" rel="noreferrer">{en.library.ytSearchOnYouTube}</a>
         </>
       )}

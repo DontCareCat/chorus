@@ -26,8 +26,8 @@ class YouTubeSearchClient:
         if not key:
             raise AppError("youtube_key_missing", "Searching YouTube needs a YouTube Data API key: add it in Settings.", 422)
         try:
-            r = self.http.get(SEARCH_URL, params={
-                "part": "snippet", "type": "video", "videoEmbeddable": "true", "videoSyndicated": "true", "maxResults": limit, "q": query, "key": key,
+            r = self.http.get(SEARCH_URL, headers={"X-Goog-Api-Key": key}, params={  # the key in a header: a URL would be written to logs
+                "part": "snippet", "type": "video", "videoEmbeddable": "true", "videoSyndicated": "true", "maxResults": limit, "q": query,
             })
         except httpx.HTTPError as e:
             raise YouTubeUnavailable(str(e)) from e

@@ -174,6 +174,7 @@ export function SettingsPage() {
           </label>
           <div className="field">
             <label className="field"><span>{en.settings.youtubeKey}</span><input type="password" {...noAutofill("youtube-api-key")} autoComplete="new-password" value={form.youtube_api_key === "********" ? "" : form.youtube_api_key} placeholder={form.youtube_api_key === "********" ? en.settings.youtubeKeySaved : ""} onChange={(e) => { const v = e.target.value.trim(); set("youtube_api_key", v === "" && loaded.data?.youtube_api_key === "********" ? "********" : v); }} style={{ fontSize: 15 }} /></label>
+            {form.youtube_api_key !== "" && <div><button type="button" className="btn quiet small" onClick={() => set("youtube_api_key", "")}>{en.settings.youtubeKeyRemove}</button></div>}
             <small>{en.settings.youtubeKeyHelp} <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer">{en.settings.youtubeKeyConsole}</a></small>
           </div>
           <label className="check">

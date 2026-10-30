@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { IMPORT_BATCH, youtubeSearchUrl, youtubeThumb } from "../lib/youtube-add";
+import { useConfirm } from "./Confirm";
+import { IMPORT_BATCH, looksRight, youtubeSearchUrl, youtubeThumb } from "../lib/youtube-add";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { SpotifyPlaylistDto, SpotifyTrackDto } from "../services/api";
@@ -24,18 +25,20 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
   const [state, setState] = useState<Step>({ step: "reading" });
   const [name, setName] = useState("");
   const [hasKey, setHasKey] = useState(false);
+  const [youtubeOn, setYoutubeOn] = useState(true);
   const alive = useRef(true);
-  useEffect(() => () => { alive.current = false; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const confirm = useConfirm();
 
   useEffect(() => {
     let gone = false;
     setState({ step: "reading" });
-    api.settings().then((c) => { if (!gone) setHasKey(c.youtube_api_key !== ""); }, () => undefined);
-    api.spotifyPlaylist(link).then(
+    api.settings().then((c) => { if (!gone) { setHasKey(c.youtube_api_key !== ""); setYoutubeOn(c.youtube_enabled); } }, () => undefined);
+    const wait = setTimeout(() => api.spotifyPlaylist(link).then(
       (list) => { if (gone) return; setName(list.name || en.library.tlNameDefault); setState({ step: "ready", list }); },
       (e) => { if (!gone) setState({ step: "error", message: e instanceof ApiError ? e.message : en.errors.generic, unreadable: e instanceof ApiError && e.code === "spotify_page_unreadable" }); },
-    );
-    return () => { gone = true; };
+    ), 500); // typing a link does not read a page for every letter
+    return () => { gone = true; clearTimeout(wait); };
   }, [link]);
 
   const missing = (list: SpotifyPlaylistDto): number[] => list.tracks.flatMap((t, i) => (t.song_id === null ? [i] : []));
@@ -48,14 +51,27 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
       if (!alive.current) return;
       setState({ step: "searching", list, done: n, total: todo.length });
       const t = list.tracks[i]!;
-      try {
-        const hit = (await api.youtubeSearch(`${t.artist} ${t.title}`.trim())).hits[0];
-        proposals.push({ track: i, videoId: hit?.video_id ?? null, title: hit?.title ?? "", channel: hit?.channel ?? "", picked: !!hit });
-      } catch (e) {
-        problem = e instanceof ApiError ? e.message : en.errors.generic;
-        for (const rest of todo.slice(n)) proposals.push({ track: rest, videoId: null, title: "", channel: "", picked: false }); // the day's searches ran out, or the key was refused
+      let hit;
+      let stop = false;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          hit = (await api.youtubeSearch(`${t.artist} ${t.title}`.trim().slice(0, 200))).hits[0];
+          break;
+        } catch (e) {
+          const code = e instanceof ApiError ? e.code : "";
+          if (code === "search_too_fast") { await new Promise((r) => setTimeout(r, 3000)); continue; } // the server's pace: wait and ask again
+          if (["youtube_quota", "youtube_key_invalid", "youtube_key_missing", "youtube_disabled"].includes(code)) {
+            problem = e instanceof ApiError ? e.message : en.errors.generic;
+            stop = true; // the day's searches ran out, or the key is refused: nothing more can be found now
+          }
+          break; // another trouble (a busy YouTube): this song has no video, the next is tried
+        }
+      }
+      if (stop) {
+        for (const rest of todo.slice(n)) proposals.push({ track: rest, videoId: null, title: "", channel: "", picked: false });
         break;
       }
+      proposals.push({ track: i, videoId: hit?.video_id ?? null, title: hit?.title ?? "", channel: hit?.channel ?? "", picked: !!hit && looksRight(t, hit) });
     }
     if (alive.current) setState({ step: "proposals", list, proposals, problem });
   };
@@ -72,7 +88,7 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
     const videos = [...byVideo.keys()];
     for (let at = 0; at < videos.length && problem === null; at += IMPORT_BATCH) {
       const batch = videos.slice(at, at + IMPORT_BATCH);
-      const names = Object.fromEntries(batch.map((v) => { const t = list.tracks[byVideo.get(v)![0]!]!; return [v, { title: t.title, artist: t.artist.split(",")[0]!.trim() }]; }));
+      const names = Object.fromEntries(batch.map((v) => { const t = list.tracks[byVideo.get(v)![0]!]!; return [v, { title: t.title, artist: t.artist }]; }));
       try {
         const r = await api.importYouTubeVideos(batch, true, names);
         added += r.added;
@@ -131,14 +147,14 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
       {s.step === "ready" && (
         <div className="yt-found">
           <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("spotify-playlist-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>
-          {otherCount > 0 && hasKey && (
+          {otherCount > 0 && hasKey && youtubeOn && (
             <>
-              <button type="button" className="btn inverse" onClick={() => void search(s.list)}>{en.library.spFindOthers(otherCount)}</button>
+              <button type="button" className="btn inverse" onClick={() => void (async () => { if (otherCount > 20 && !(await confirm({ title: en.library.spSearchSure(otherCount), body: en.library.spQuota(otherCount), action: en.library.ytSearch }))) return; await search(s.list); })()}>{en.library.spFindOthers(otherCount)}</button>
               <small>{en.library.spQuota(otherCount)}</small>
             </>
           )}
-          {haveCount > 0 && <button type="button" className={otherCount > 0 && hasKey ? "btn secondary" : "btn inverse"} onClick={() => void finish(s.list, [])}>{en.library.spMakeOnly(haveCount)}</button>}
-          {otherCount > 0 && !hasKey && <small>{en.library.ytNeedKey} <a href={paths.settings()}>{en.library.ytOpenSettings}</a></small>}
+          {haveCount > 0 && <button type="button" className={otherCount > 0 && hasKey && youtubeOn ? "btn secondary" : "btn inverse"} onClick={() => void finish(s.list, [])}>{en.library.spMakeOnly(haveCount)}</button>}
+          {otherCount > 0 && (!hasKey || !youtubeOn) && <small>{en.library.ytNeedKey} <a href={paths.settings()}>{en.library.ytOpenSettings}</a></small>}
           {haveCount === 0 && otherCount === 0 && <p className="muted">{en.library.tlNone}</p>}
         </div>
       )}
@@ -159,7 +175,7 @@ export function SpotifyPlaylistImport({ link, onDone, onPaste }: { link: string;
           {s.problem && <p className="yt-problem" role="alert">{s.problem}</p>}
         </div>
       )}
-      {s.step === "ready" && !hasKey && otherCount > 0 && <TrackLinks tracks={s.list.tracks} />}
+      {s.step === "ready" && (!hasKey || !youtubeOn) && otherCount > 0 && <TrackLinks tracks={s.list.tracks} />}
     </div>
   );
 }
@@ -196,7 +212,7 @@ function Proposals({ list, proposals, problem, haveCount, onFinish }: { list: Sp
               {r.videoId ? <img src={youtubeThumb(r.videoId)} alt="" width={112} height={63} loading="lazy" /> : <span className="yt-nothumb" aria-hidden="true" />}
               <div className="yt-hit-text">
                 <strong>{[t.artist, t.title].filter(Boolean).join(" – ")}</strong>
-                <small>{r.videoId ? `${r.title} · ${r.channel}` : en.library.spNoVideo}</small>
+                <small>{r.videoId ? `${r.title} · ${r.channel}` : en.library.spNoVideo}{r.videoId && !r.picked ? ` · ${en.library.spCheckThis}` : ""}</small>
               </div>
               {r.videoId && <input type="checkbox" className="pick" checked={r.picked} onChange={() => setRows((all) => all.map((x, k) => (k === n ? { ...x, picked: !x.picked } : x)))} aria-label={r.title} />}
             </li>

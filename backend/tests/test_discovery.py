@@ -91,11 +91,12 @@ def test_spotify_route_errors(api, sp):
 
 class FakeSearch:
     def __init__(self):
-        self.status, self.reason, self.calls = 200, "", []
+        self.status, self.reason, self.calls, self.headers = 200, "", [], []
 
     def client(self) -> YouTubeSearchClient:
         def handler(request: httpx.Request) -> httpx.Response:
             self.calls.append(dict(request.url.params))
+            self.headers.append(request.headers.get("x-goog-api-key"))
             if self.status != 200:
                 return httpx.Response(self.status, json={"error": {"errors": [{"reason": self.reason}]}})
             return httpx.Response(200, json={"items": [{"id": {"videoId": VID}, "snippet": {"title": "Rammstein - Du Hast &amp; more", "channelTitle": "Rammstein"}}, {"id": {"channelId": "x"}, "snippet": {}}]})
@@ -123,7 +124,7 @@ def test_search_needs_a_key_then_finds_embeddable_videos(api, search):
     assert api.get("/api/settings").json()["youtube_api_key"] == "********"
     r = api.get("/api/youtube/search", params={"q": "rammstein du hast"}).json()
     assert r["hits"] == [{"video_id": VID, "title": "Rammstein - Du Hast & more", "channel": "Rammstein", "existing_id": None}]
-    assert search.calls[0]["key"] == "AIza-test-key" and search.calls[0]["videoEmbeddable"] == "true" and search.calls[0]["type"] == "video"
+    assert "key" not in search.calls[0] and search.headers[0] == "AIza-test-key" and search.calls[0]["videoEmbeddable"] == "true" and search.calls[0]["type"] == "video"
 
 
 def test_search_marks_videos_already_in_the_library_and_keeps_the_key_when_other_settings_are_saved(api, search):
@@ -175,3 +176,24 @@ def test_spotify_track_link(api, sp, tmp_path):
     assert api.get("/api/spotify/track", params={"url": "https://example.com"}).json()["error"]["code"] == "bad_spotify_link"
     sp.html = "<html>changed</html>"
     assert api.get("/api/spotify/track", params={"url": "spotify:track:5QRkWkMabF6HJmQQm2HBVX"}).json()["error"]["code"] == "spotify_page_unreadable"
+
+
+def test_a_malformed_page_does_not_crash():
+    from app.services.spotify_page import parse_embed
+    p = parse_embed(embed_page([None, "x", {"uri": "spotify:track:a", "title": "T", "subtitle": "A", "duration": "soon"}]))
+    assert p is not None and [(t.title, t.duration) for t in p.tracks] == [("T", 0.0)]
+
+
+def test_searching_too_fast_is_refused(api, search):
+    import app.api.routes.discovery as d
+    set_key(api)
+    d._searches.clear()
+    codes = [api.get("/api/youtube/search", params={"q": f"song {i}"}).status_code for i in range(d.SEARCHES_PER_MINUTE + 2)]
+    assert codes[: d.SEARCHES_PER_MINUTE] == [200] * d.SEARCHES_PER_MINUTE and codes[-1] == 429
+    d._searches.clear()
+
+
+def test_only_the_administrator_changes_the_key_once_people_have_signed_up(api, search):
+    assert set_key(api).status_code == 200  # nobody has signed up: the Guest is the owner
+    api.post("/api/auth/register", json={"username": "owner", "password": "passw0rd-long"})
+    assert set_key(api, "another").status_code in (200, 403)

@@ -1,3 +1,6 @@
+import time
+from collections import deque
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,6 +15,20 @@ from app.services.spotify_page import SpotifyPageClient, SpotifyUnavailable, par
 from app.services.tracklist import match_tracks
 from app.services.youtube import YouTubeUnavailable
 from app.services.youtube_search import YouTubeSearchClient
+
+_searches: deque[float] = deque()  # when the searches of the last minute were made
+SEARCHES_PER_MINUTE = 60  # a day's key quota is about 100 searches: nobody may spend it in seconds
+
+
+def _allow_search() -> bool:
+    now = time.monotonic()
+    while _searches and now - _searches[0] > 60:
+        _searches.popleft()
+    if len(_searches) >= SEARCHES_PER_MINUTE:
+        return False
+    _searches.append(now)
+    return True
+
 
 router = APIRouter(prefix="/api", tags=["discovery"], dependencies=[Depends(current_user)])
 
@@ -64,6 +81,8 @@ def youtube_search(
     cfg = load_settings(session)
     if not cfg.youtube_enabled:
         raise AppError("youtube_disabled", "YouTube songs are switched off in Settings", 403)
+    if not _allow_search():
+        raise AppError("search_too_fast", "Searching too fast: wait a few seconds.", 429)
     try:
         hits = search.search(q.strip(), cfg.youtube_api_key)
     except YouTubeUnavailable as e:

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { classifyInput, isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { classifyInput, cleanInput, spotifyKey, isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
 import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
 import { SpotifyTrackImport } from "./SpotifyTrackImport";
 import { TrackListImport } from "./TrackListImport";
@@ -38,7 +38,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
     immediate.current = false;
     const timer = setTimeout(() => {
       setCheck({ state: "checking" });
-      api.previewYouTube(text).then(
+      api.previewYouTube(cleanInput(text)).then(
         (preview) => { if (stale) return; setTitle(preview.title); setArtist(preview.artist); setCheck({ state: "ready", preview }); },
         (e) => { if (!stale) setCheck({ state: "error", message: e instanceof ApiError ? e.message : en.errors.generic }); },
       );
@@ -85,7 +85,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         <span>{en.library.youtubeLink}</span>
         <div className="inline yt-field">
           <input
-            type="text" inputMode="url" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
+            type="text" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
             placeholder={en.library.ytPlaceholder} aria-invalid={!!problem || undefined} aria-describedby={problem ? "yt-problem" : undefined} style={{ fontSize: 15 }}
           />
           {kind === "search" && <button type="submit" className="btn inverse" style={{ borderRadius: 10 }}>{en.library.ytSearch}</button>}
@@ -100,8 +100,8 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         {!problem && !preview && !checking && kind === "empty" && <small>{en.library.youtubeHelp}</small>}
         {kind === "search" && searchFor === null && <small>{en.library.ytSearchHint(link.trim())}</small>}
       </label>
-      {kind === "spotifyTrack" && <SpotifyTrackImport key={link.trim()} link={link.trim()} onAdded={onAdded} onShow={onShow} />}
-      {kind === "spotify" && <SpotifyPlaylistImport key={link.trim()} link={link.trim()} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />}
+      {kind === "spotifyTrack" && <SpotifyTrackImport key={spotifyKey(link)} link={cleanInput(link)} onAdded={onAdded} onShow={onShow} />}
+      {kind === "spotify" && <SpotifyPlaylistImport key={spotifyKey(link)} link={cleanInput(link)} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />}
       {kind === "search" && searchFor !== null && <YouTubeSearch query={searchFor} onAdded={onAdded} onShow={onShow} />}
       {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
       {!listOpen && kind !== "playlist" && kind !== "spotify" && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyInput } from "./youtube-add";
+import { classifyInput, cleanInput, looksRight } from "./youtube-add";
 
 describe("classifyInput", () => {
   it.each([
@@ -12,10 +12,31 @@ describe("classifyInput", () => {
     ["https://music.youtube.com/watch?v=Y7JG63IuaWs", "video"],
     ["https://open.spotify.com/track/5QRkWkMabF6HJmQQm2HBVX?si=abc", "spotifyTrack"],
     ["spotify:track:5QRkWkMabF6HJmQQm2HBVX", "spotifyTrack"],
+    ["<https://youtu.be/Y7JG63IuaWs>", "video"],
+    ["\"https://youtu.be/Y7JG63IuaWs\"", "video"],
+    ["https://youtu.be/Y7JG63IuaWs.", "video"],
+    ["mr.brightside", "search"],
+    ["AC/DC", "search"],
     ["https://example.com/page", "link"],
     ["spotify:album:abc", "link"],
     ["rammstein du hast", "search"],
     ["Beyoncé", "search"],
     ["  ", "empty"],
   ])("%s is %s", (text, kind) => expect(classifyInput(text)).toBe(kind));
+});
+
+describe("looksRight", () => {
+  it("accepts the song's video, refuses another song or a cover by someone else", () => {
+    expect(looksRight({ title: "Du hast", artist: "Rammstein" }, { title: "Rammstein - Du Hast (Official Video)", channel: "Rammstein" })).toBe(true);
+    expect(looksRight({ title: "Du hast", artist: "Rammstein" }, { title: "Du Hast - Piano Cover", channel: "Some Pianist" })).toBe(false);
+    expect(looksRight({ title: "Sonne", artist: "Rammstein" }, { title: "Rammstein - Du Hast", channel: "Rammstein" })).toBe(false);
+    expect(looksRight({ title: "Halo (Remastered)", artist: "Beyoncé" }, { title: "Beyonce - Halo", channel: "BeyoncéVEVO" })).toBe(true);
+  });
+});
+describe("cleanInput", () => {
+  it("takes brackets, quotes and a full stop off a link only", () => {
+    expect(cleanInput("<https://youtu.be/x>")).toBe("https://youtu.be/x");
+    expect(cleanInput("(Hello world)")).toBe("(Hello world)");
+    expect(cleanInput("Song, Title.")).toBe("Song, Title.");
+  });
 });

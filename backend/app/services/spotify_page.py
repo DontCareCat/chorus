@@ -92,18 +92,23 @@ def parse_embed(html: str) -> SpotifyPlaylist | None:
         items = entity["trackList"]
     except (ValueError, KeyError, TypeError):
         return None
+    if not isinstance(entity, dict):
+        return None
     if entity.get("type") != "playlist" or not isinstance(items, list):
         return None
     tracks = []
     for t in items:
+        if not isinstance(t, dict):
+            continue
         uri = str(t.get("uri") or "")
         title = str(t.get("title") or "").strip()
         if not uri.startswith("spotify:track:") or not title:
             continue  # an episode, or a local file
-        tracks.append(SpotifyTrack(
-            title=title, artist=re.sub(r"\s+", " ", str(t.get("subtitle") or "")).strip(), duration=float(t.get("duration") or 0) / 1000,
-            spotify_id=uri.rsplit(":", 1)[-1],
-        ))
+        try:
+            duration = float(t.get("duration") or 0) / 1000
+        except (TypeError, ValueError):
+            duration = 0.0
+        tracks.append(SpotifyTrack(title=title, artist=re.sub(r"\s+", " ", str(t.get("subtitle") or "")).strip(), duration=duration, spotify_id=uri.rsplit(":", 1)[-1]))
     return SpotifyPlaylist(name=str(entity.get("name") or entity.get("title") or ""), owner=str(entity.get("subtitle") or ""), tracks=tracks)
 
 
