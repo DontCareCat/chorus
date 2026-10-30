@@ -35,6 +35,7 @@ export function DictionaryExchange({ mode, scope, shown, defaultLanguage, onClos
         onImported();
       }
     } catch (e) {
+      if ((e as { code?: string })?.code === "cancelled") return; // backed out of the save dialog
       setResult({ kind: "error", text: e instanceof ApiError ? e.message : en.errors.generic });
     } finally {
       setBusy(false);
