@@ -38,7 +38,7 @@ router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_
 @router.get("/songs", response_model=list[SongOut])
 def list_songs(
     background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
-    factory: sessionmaker = Depends(get_session_factory), youtube: YouTubeClient = Depends(get_youtube_client),
+    factory: sessionmaker = Depends(get_session_factory), youtube: YouTubeClient = Depends(get_youtube_client), client: LrclibClient = Depends(get_lrclib_client),
 ):
     songs = list(session.scalars(select(Song).where(Song.removed.is_(False)).order_by(Song.artist, Song.title)))
     cfg = load_settings(session)
@@ -46,7 +46,7 @@ def list_songs(
     if cfg.youtube_enabled and any(s.source == SongSource.youtube for s in songs) and has_stale(session):
         background.add_task(refresh_stale, factory, youtube)
     if cfg.youtube_enabled and any(s.source == SongSource.youtube and s.duration <= 0 for s in songs):
-        background.add_task(fill_lengths, factory, youtube)  # every song gets its real length, also the ones added before the length was read
+        background.add_task(fill_lengths, factory, youtube, lambda ids: discover_for_songs(factory, client, ids))  # every song gets its real length, also the ones added before the length was read
     if not cfg.youtube_enabled:  # switched off: the songs stay, but cannot be played (shown like a missing file)
         for s in songs:
             if s.source == SongSource.youtube:
@@ -316,7 +316,7 @@ def ensure_length(
     factory: sessionmaker = Depends(get_session_factory), client: LrclibClient = Depends(get_lrclib_client), youtube: YouTubeClient = Depends(get_youtube_client),
 ):
     """Looks up the song's real length when it is not known (a YouTube video's page); the song comes back as it is when that fails."""
-    if song.duration <= 0 and song.source == SongSource.youtube and song.youtube_id:
+    if song.duration <= 0 and song.source == SongSource.youtube and song.youtube_id and song.available and load_settings(session).youtube_enabled:
         length = youtube.length(song.youtube_id)
         if length > 0:
             song.duration = length

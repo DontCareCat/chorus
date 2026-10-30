@@ -163,11 +163,25 @@ def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
 
 
 _filling = threading.Lock()
+_LENGTH_PER_PASS = 10
+_tried: dict[int, tuple[float, int]] = {}  # song id -> (not before, failures): a video that gives no length is asked again later, and not forever
 
 
-def fill_lengths(factory, client: "YouTubeClient") -> int:
-    """Gives every YouTube song without a length its real one (read from the video's page). A few per pass, saved song by song; what
-    cannot be read now (offline, busy) is tried again at the next pass."""
+def _due(song_id: int, now: float) -> bool:
+    not_before, failures = _tried.get(song_id, (0.0, 0))
+    return failures < 6 and now >= not_before
+
+
+def _failed(song_id: int, now: float) -> None:
+    failures = _tried.get(song_id, (0.0, 0))[1] + 1
+    _tried[song_id] = (now + min(86400, 600 * 2 ** failures), failures)
+
+
+def fill_lengths(factory, client: "YouTubeClient", on_learned=None) -> int:
+    """Gives YouTube songs without a length their real one (read from the video's page). A few per pass, saved song by song; a video that
+    gives none (private, live, offline) is asked again after a growing pause and given up on after a few tries."""
+    import time
+
     from sqlalchemy import select
 
     from app.db.models import Song, SongSource
@@ -175,16 +189,25 @@ def fill_lengths(factory, client: "YouTubeClient") -> int:
     if not _filling.acquire(blocking=False):
         return 0
     try:
-        done = 0
+        done, learned = 0, []
         with factory() as session:
-            ids = session.scalars(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), Song.duration <= 0).limit(MAX_PER_PASS)).all()
-            for song_id in ids:
+            ids = session.scalars(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), Song.duration <= 0)).all()
+            for song_id in [i for i in ids if _due(i, time.time())][:_LENGTH_PER_PASS]:
                 song = session.get(Song, song_id)
+                if song is None or song.removed or song.duration > 0 or not song.youtube_id:
+                    continue  # gone or learned meanwhile
                 length = client.length(song.youtube_id)
-                if length > 0:
+                session.refresh(song)  # the player may have told the length while the page loaded
+                if length > 0 and song.duration <= 0:
                     song.duration = length
                     session.commit()
                     done += 1
+                    if song.lyrics_status != "found":
+                        learned.append(song_id)
+                elif length <= 0:
+                    _failed(song_id, time.time())
+        if learned and on_learned:
+            on_learned(learned)  # the length makes the lyrics match better
         return done
     finally:
         _filling.release()

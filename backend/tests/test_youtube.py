@@ -347,3 +347,29 @@ def test_lengths_are_filled_in_and_the_dialog_can_ask(api, yt, session):
         q.commit()
     r = api.post(f"/api/songs/{s['id']}/length")
     assert r.status_code == 200 and r.json()["duration"] == 213
+
+
+def test_a_video_without_a_length_is_not_asked_again_at_once(api, yt, session):
+    from sqlalchemy.orm import sessionmaker
+    from app.db.models import Song
+    from app.services import youtube as y
+
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    with factory() as q:
+        q.get(Song, s["id"]).duration = 0
+        q.commit()
+    y._tried.clear()
+    calls = []
+    client = yt.client()
+    real = client.length
+    client.length = lambda vid: (calls.append(vid), 0.0)[1]
+    assert y.fill_lengths(factory, client) == 0 and y.fill_lengths(factory, client) == 0
+    assert len(calls) == 1  # the second pass waits
+    y._tried.clear()
+    client.length = real
+    assert y.fill_lengths(factory, client) == 1
+    with factory() as q:  # a song deleted meanwhile does not stop a pass
+        q.delete(q.get(Song, s["id"]))
+        q.commit()
+    assert y.fill_lengths(factory, client) == 0
