@@ -170,7 +170,7 @@ export function DictionaryPage() {
                 <div className="song-actions">
                   <button type="button" className="btn quiet bordered danger small" onClick={() => { void confirm({ title: en.dictionary.removeConfirm(headword(e)), body: en.dictionary.removeConfirmBody, action: en.dictionary.removeAction }).then((ok) => { if (ok) void act(() => api.deleteWord(e.id)); }); }}>{en.dictionary.remove}</button>
                   <button type="button" className="btn secondary small" onClick={() => void act(() => api.setSuspended(e.id, !e.suspended))}>{e.suspended ? en.dictionary.resume : en.dictionary.pause}</button>
-                  {e.enrich_status === "failed" && <button type="button" className="btn secondary small" onClick={() => void act(() => api.refreshWord(e.id))}>{en.dictionary.lookupAgain}</button>}
+                  <button type="button" className="btn secondary small" onClick={() => void act(() => api.refreshWord(e.id))}>{en.dictionary.lookupAgain}</button>
                 </div>
               </div></div>
             )}

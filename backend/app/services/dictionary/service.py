@@ -1,6 +1,7 @@
 import logging
 import re
 import threading
+import unicodedata
 from datetime import datetime, timezone
 
 from sqlalchemy import case, func, or_
@@ -10,7 +11,7 @@ from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, 
 from app.db.models.types import utcnow
 from app.services.dictionary import srs
 from app.services.dictionary.lookup import (
-    LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, cached_translation, cached_word_info,
+    LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, bad_meaning, cached_translation, cached_word_info,
 )
 from app.services.game.nlp import base_language
 from app.services.settings import load_settings
@@ -21,7 +22,8 @@ SESSION_SIZES = (20, 40, 60)
 
 
 def word_key(word: str) -> str:
-    return word.strip().casefold()[:100]
+    """One card per word: composed and decomposed spellings and the apostrophe variants (geh’n, geh'n) are the same key."""
+    return unicodedata.normalize("NFC", word).strip().replace("’", "'").replace("ʼ", "'").casefold()[:100]
 
 
 def sentence_key(text: str) -> str:
@@ -108,13 +110,16 @@ def fallback_meaning(session: Session, translator: Translator, entry: Dictionary
     return None
 
 
-def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary) -> None:
+def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary, fresh: bool = False) -> None:
     """Fill in lemma, article and translations. Anything that fails leaves the entry 'failed' so a later try can finish it."""
     failed = False
     source = entry.language
     info = WordInfo()
     try:
-        info = cached_word_info(session, wiktionary, entry.surface, source, noun_hint(entry))
+        hint = noun_hint(entry)
+        info = cached_word_info(session, wiktionary, entry.surface, source, hint, fresh)
+        if info.found and not info.is_noun and hint is None and entry.surface[:1].isupper():
+            entry.surface = entry.surface.lower()  # capitalised only because it began the line: the headword is the lowercase word
         lemma = info.lemma if info.lemma and info.lemma.casefold() != entry.surface.casefold() else None
         entry.lemma = lemma
         # only a noun has an article: not the pronoun "mir", the numeral "neun" or the verb "fallen"
@@ -146,7 +151,8 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
         try:
             meaning = fallback_meaning(session, translator, entry, info, source, target)
         except LookupUnavailable as e:
-            log.warning("meaning lookup failed for %r: %s", entry.surface, e)  # a bonus here: the word stays done
+            log.warning("meaning lookup failed for %r: %s", entry.surface, e)
+            failed = True  # looked up again later on its own
             meaning = None
         if meaning:
             entry.translation, entry.translation_language = meaning
@@ -187,6 +193,22 @@ def enrich_pending(factory: sessionmaker, translator: Translator, wiktionary: Wi
         raise
 
 
+def requeue_failed(session: Session, user_id: int, now: float | None = None) -> bool:
+    """Entries a lookup failed for (offline, busy) are tried again on their own, at most once an hour per user. True when some were queued."""
+    import time
+
+    now = time.time() if now is None else now
+    if now - _retried.get(user_id, 0.0) < 3600:
+        return False
+    _retried[user_id] = now
+    n = session.query(DictionaryEntry).filter_by(user_id=user_id, enrich_status="failed").update({"enrich_status": "pending"})
+    session.commit()
+    return n > 0
+
+
+_retried: dict[int, float] = {}
+
+
 def _enrich_once(factory: sessionmaker, translator: Translator, wiktionary: Wiktionary, user_id: int, entry_id: int | None) -> None:
     try:
         with _enrich_lock, factory() as session:
@@ -199,7 +221,7 @@ def _enrich_once(factory: sessionmaker, translator: Translator, wiktionary: Wikt
             q = q.filter_by(id=entry_id) if entry_id is not None else q.filter_by(enrich_status="pending")
             for entry in q.order_by(DictionaryEntry.id).all():
                 try:
-                    enrich_entry(session, entry, user.translation_language, translator, wiktionary)
+                    enrich_entry(session, entry, user.translation_language, translator, wiktionary, fresh=entry_id is not None)
                 except Exception:
                     log.exception("enriching dictionary entry %s failed", entry.id)
                     session.rollback()
@@ -388,7 +410,7 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
             existing += 1
             continue
         entry = DictionaryEntry(user_id=user.id, language=note_lang, word=key, surface=headword[:100], article=article)
-        if translation:
+        if translation and not bad_meaning(translation):
             entry.translation, entry.translation_language, entry.enrich_status = translation, translation_language, "done"
         if with_schedule and n.reps > 0 and n.due_at is not None:
             entry.interval_seconds, entry.due_at, entry.reps, entry.lapses = n.interval_seconds, n.due_at, n.reps, n.lapses

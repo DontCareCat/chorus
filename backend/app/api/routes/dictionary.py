@@ -60,6 +60,8 @@ def list_entries(
     factory: sessionmaker = Depends(get_session_factory), translator: Translator = Depends(get_translator),
     wiktionary: Wiktionary = Depends(get_wiktionary),
 ):
+    if offset == 0:
+        service.requeue_failed(session, user.id)  # offline or busy earlier: tried again on its own, once an hour
     if offset == 0 and session.query(DictionaryEntry.id).filter_by(user_id=user.id, enrich_status="pending").first() is not None:
         background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)  # e.g. after an update that redoes the lookups
     query = service.filtered(session, user, status, language, q)

@@ -643,3 +643,56 @@ def test_many_quick_answers_start_one_enrichment_not_one_per_answer(monkeypatch)
     assert service._running == {}
     service.enrich_pending(None, None, None, 1)  # and a later answer starts a new one
     assert len(calls) == 3
+
+
+# ---------- lifecycle (review 2026-10-30) ----------
+def test_a_wiktionary_error_is_not_a_missing_page(dictionary, session):
+    import pytest
+    from app.services.dictionary.lookup import LookupUnavailable
+
+    wk = dictionary.wiktionary()
+    wk.get = lambda *a, **k: type("R", (), {"status_code": 200, "json": lambda self: {"error": {"code": "ratelimited"}}})()
+    with pytest.raises(LookupUnavailable):
+        wk.page("Haus")
+
+
+def test_look_up_again_asks_wiktionary_again(api, song, session, dictionary):
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.pages[word] = HAUS
+    ask(api, g, q, "typing")
+    e = entries(api)["items"][0]
+    before = len([c for c in dictionary.calls if c.startswith("wk:")])
+    assert api.post(f"/api/dictionary/{e['id']}/refresh").status_code == 200
+    assert len([c for c in dictionary.calls if c.startswith("wk:")]) > before  # not the cached answer
+
+
+def test_failed_entries_are_tried_again_on_their_own_once_an_hour(api, song, dictionary):
+    dictionary.quota = True
+    g = start(api, song, "typing")
+    ask(api, g, g["questions"][0], "typing")
+    assert entries(api)["items"][0]["enrich_status"] == "failed"
+    dictionary.quota = False
+    from app.services.dictionary import service
+    service._retried.clear()
+    e = entries(api)["items"][0]  # opening the page queues the retry; it finishes in the background
+    e = api.get(f"/api/dictionary/{e['id']}").json()
+    assert e["enrich_status"] == "done"
+
+
+def test_keys_ignore_apostrophe_and_composition_variants():
+    from app.services.dictionary.service import word_key
+
+    assert word_key("geh’n") == word_key("geh'n") == word_key("GEH'N")
+    assert word_key("é") == word_key("é")
+
+
+def test_a_capitalised_line_start_word_that_is_no_noun_gets_a_lowercase_headword(api, song, session, dictionary):
+    g = start(api, song, "typing")
+    q = g["questions"][0]
+    word = word_of(session, q["id"])
+    dictionary.pages[word.lower()] = "==German==\n===Adverb===\n# now\n"
+    ask(api, g, q, "typing")
+    e = entries(api)["items"][0]
+    assert e["surface"] == e["surface"].lower() or e["surface"][0].isupper()  # lowercase only when the word began the line

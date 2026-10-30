@@ -85,9 +85,11 @@ ARTICLES = {
     "nl": {"m": "de", "f": "de", "c": "de", "n": "het"},
 }
 VOWELS = "aeiouàâäèéêëìîïòôöùûüáíóúæœ"
-_GENDER_ARG = re.compile(r"^(?:g\d?=)?(m|f|n|c)(?:-[a-z]+)?$")
+_GENDER_ARG = re.compile(r"^(?:g\d?=)?(m|f|n|c)(?:[-.][a-z]+)*$")  # "n.sg": a noun with no plural
 # any "... of" template pointing at the base form: {{verb form of|de|kommen||3|s}}, {{inflection of|de|ich||dat}}, {{plural of|de|Haus}}
-_LEMMA = re.compile(r"\{\{\s*[^{}|]*?\bof\s*\|\s*(?:[a-z]{2,3}\s*\|)\s*\|?\s*([^|}]+)")
+# only templates that say "this word is an inflected form of that one"; "clipping of", "synonym of", "contraction of", "ellipsis of" ... are senses of their own
+_INFLECTION = r"(?:infl|inflection|verb form|noun form|adj form|adjective form|plural|participle|past participle|present participle|gerund|comparative|superlative|(?:[a-z]+ )?(?:singular|plural|genitive|dative|accusative|nominative|imperative))"
+_LEMMA = re.compile(r"\{\{\s*" + _INFLECTION + r"\s+of\s*\|\s*(?:[a-z]{2,3}\s*\|)\s*\|?\s*(?!\w+=)([^|}]+)")
 _LEMMA_ADJ = re.compile(r"\{\{\s*de-[a-z]+ form of\s*\|\s*([^|}]+)")  # {{de-adj form of|hell|...}}
 _HEADING = re.compile(r"(?m)^(={3,5})\s*([^=\n]+?)\s*\1\s*$")
 POS_FAMILY = {
@@ -125,7 +127,12 @@ def clean_gloss(line: str) -> str:
     for _ in range(3):
         t = re.sub(r"\{\{[^{}]*\}\}", "", t)
     t = re.sub(r"<[^>]+>|'{2,}|\{\{|\}\}", "", t)
-    return re.sub(r"\s+", " ", t).strip(" ;,:.")
+    t = re.sub(r"\(\s*see\b[^)]*\)", "", t, flags=re.I)  # "(see usage notes)": a pointer into the page, not a meaning
+    t = re.sub(r"\(\s*\)", "", t)  # a template was all there was between the brackets
+    t = re.sub(r"\s+", " ", t).strip(" ;,:.")
+    if t.count("(") != t.count(")"):
+        t = t.replace("(", "").replace(")", "").strip(" ;,:.")
+    return t if re.search(r"[^\W\d_]", t) else ""  # no letter at all: no meaning (one letter can be right: ich = "I")
 
 
 def _gender_of(block: str, code: str) -> str | None:
@@ -157,11 +164,14 @@ def readings(text: str, language_name: str, code: str) -> list[Reading] | None:
         defs = [ln for ln in block.splitlines() if re.match(r"#{1,2}(?![#*:])", ln)]
         lemma, gloss = None, None
         for ln in defs:
-            lm = _LEMMA.search(ln) or _LEMMA_ADJ.search(ln)
+            lm = (_LEMMA.search(ln) or _LEMMA_ADJ.search(ln)) if ln is defs[0] else None  # a later sense does not make the whole word a form of another
             if lm:
                 lemma = re.sub(r"\[\[|\]\]", "", lm.group(1)).strip() or None
                 tail = ln[ln.find("}}", lm.end()) + 2:] if "}}" in ln[lm.end():] else ""
-                if pos != "verb":  # "mir": {{inflection of|de|ich||dat}}: me, to me  -> the form's own meaning
+                subs = [g for g in (clean_gloss(re.sub(r"^#+\s*", "", x)) for x in defs[1:] if x.startswith("##")) if g]
+                if subs:  # {{gerund of|de|warten}} with the meanings under it
+                    gloss = "; ".join(subs[:2])[:120]
+                elif pos != "verb":  # "mir": {{inflection of|de|ich||dat}}: me, to me  -> the form's own meaning
                     given = re.search(r"\|\s*(?:t|gloss)=([^|}]+)", ln[lm.end(): lm.end() + ln[lm.end():].find("}}")])
                     gloss = clean_gloss(given.group(1)) if given else clean_gloss(tail) or None
                 break
@@ -228,7 +238,9 @@ class Wiktionary(_Http):
         except ValueError:
             raise LookupUnavailable("unreadable answer from Wiktionary")
         if "error" in data:
-            return None  # no such page
+            if data["error"].get("code") == "missingtitle":
+                return None  # no such page
+            raise LookupUnavailable(f"Wiktionary: {data['error'].get('code', 'error')}")  # ratelimited, maxlag, readonly ...: not "the word does not exist"
         return data.get("parse", {}).get("wikitext")
 
     def _readings(self, titles: list[str], name: str, code: str) -> list[Reading]:
@@ -283,12 +295,24 @@ def cached_translation(session: Session, translator: Translator, text: str, sour
     return out
 
 
-def cached_word_info(session: Session, wiktionary: Wiktionary, word: str, code: str, noun_hint: bool | None = None) -> WordInfo:
-    key = _key("wk2", code, word, str(noun_hint))
+def bad_meaning(text: str | None) -> bool:
+    """Empty, nothing that reads as a word, a bracket left behind by a removed template, or a pointer into the Wiktionary page."""
+    if not text or not text.strip():
+        return True
+    return (not re.search(r"[^\W\d_]", text) or text.count("(") != text.count(")") or bool(re.search(r"\(\s*\)", text))
+            or bool(re.search(r"\(\s*see\b", text, re.I)))
+
+
+def cached_word_info(session: Session, wiktionary: Wiktionary, word: str, code: str, noun_hint: bool | None = None, fresh: bool = False) -> WordInfo:
+    """`fresh`: "look up again" asks Wiktionary again and replaces the cached answer."""
+    key = _key("wk3", code, word, str(noun_hint))
     row = session.query(DictionaryCache).filter_by(cache_key=key).one_or_none()
-    if row is not None:
+    if row is not None and not fresh:
         return WordInfo(**json.loads(row.payload))
     info = wiktionary.info(word, code, noun_hint)
+    if row is not None:
+        session.delete(row)
+        session.flush()
     session.add(DictionaryCache(cache_key=key, payload=json.dumps(info.__dict__)))
     session.commit()
     return info
