@@ -29,12 +29,13 @@ const audit = () => {
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       if (!n.textContent.trim()) continue;
       const p = n.parentElement, pcs = getComputedStyle(p);
-      if (!visible(pcs)) continue;
+      if (!visible(pcs) || p.closest(".sr-only")) continue; // text for screen readers is not on screen
       const range = document.createRange(); range.selectNodeContents(n);
       for (const q of range.getClientRects()) { if (!q.width) continue; left = Math.min(left, q.left - r.left); right = Math.min(right, r.right - q.right); }
     }
     for (const c of el.querySelectorAll("button, a.btn, svg")) {
       if (el.matches(".segmented, .theme-switch")) break; // controls inside the box
+      if (c.matches(".lookup-retry")) continue; // a bare icon button: its 44 px box has no look of its own, the icon inside is measured
       const cr = c.getBoundingClientRect(); if (!cr.width || !visible(getComputedStyle(c))) continue;
       left = Math.min(left, cr.left - r.left); right = Math.min(right, r.right - cr.right);
     }
