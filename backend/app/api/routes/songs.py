@@ -220,16 +220,24 @@ def retry_lyrics(
 
 
 @router.patch("/songs/{song_id}", response_model=SongOut)
-def patch_song(body: SongPatch, song: Song = Depends(get_song), session: Session = Depends(get_session)):
+def patch_song(
+    body: SongPatch, background: BackgroundTasks, song: Song = Depends(get_song), session: Session = Depends(get_session),
+    factory: sessionmaker = Depends(get_session_factory), client: LrclibClient = Depends(get_lrclib_client),
+):
     changes = body.model_dump(exclude_unset=True)
     if changes.get("duration") is not None and (song.source != SongSource.youtube or song.duration > 0):
         changes.pop("duration")  # a file's length is read from the file; a known YouTube length is not overwritten
+    learned_length = changes.get("duration") is not None
     for key, value in changes.items():
         if value is not None or key == "album":
             setattr(song, key, value)
             if key == "language":
                 song.language_source = "manual"  # a language somebody chose is never overridden by detection
     session.commit()
+    if learned_length and song.lyrics_status != LyricsStatus.found:
+        song.lyrics_status = LyricsStatus.pending  # the length makes the lyrics match better: look again
+        session.commit()
+        background.add_task(discover_for_songs, factory, client, [song.id])
     return song
 
 

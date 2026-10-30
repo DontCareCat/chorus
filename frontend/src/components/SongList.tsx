@@ -273,6 +273,7 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, 
                 <span title={s.artist}>{s.artist}</span>
                 <span className="lang">{s.language}</span>
                 {s.source === "youtube" && <span className="dup-tag yt-tag">{en.library.youtubeBadge}</span>}
+                {s.source === "youtube" && /- topic$/i.test(s.youtube_channel ?? "") && <span className="dup-tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
                 {(s.duration > 0 || s.source !== "youtube") && <span>{mmss(s.duration)}</span>}
                 {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
                 {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}

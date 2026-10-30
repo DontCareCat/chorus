@@ -114,3 +114,20 @@ def test_a_second_add_of_the_same_video_after_a_race_returns_the_song(api, yt, s
     from sqlalchemy import select
     assert len(list(session.scalars(select(Song)))) == 1
     assert api.post("/api/songs/youtube", json={"url": f"youtu.be/{VID}"}).json()["id"] == first["id"]
+
+
+def test_length_is_learned_once_and_lyrics_are_looked_up_again(api, yt, lrclib):
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    lrclib.get_result = None
+    r = api.patch(f"/api/songs/{s['id']}", json={"duration": 213.4})
+    assert r.status_code == 200 and r.json()["duration"] == 213.4
+    again = api.patch(f"/api/songs/{s['id']}", json={"duration": 99})  # a known length stays
+    assert again.json()["duration"] == 213.4
+    assert any("/get" in c or "/search" in c for c in lrclib.calls)
+
+
+def test_a_file_songs_length_cannot_be_changed(api, tmp_path):
+    from tests.conftest import make_wav
+    with make_wav(tmp_path / "A - B.wav", seconds=2).open("rb") as f:
+        s = api.post("/api/songs", files={"file": ("A - B.wav", f, "audio/wav")}).json()
+    assert api.patch(f"/api/songs/{s['id']}", json={"duration": 500}).json()["duration"] == s["duration"]
