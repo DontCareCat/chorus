@@ -25,6 +25,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if op.get_bind().execute(sa.text("SELECT 1 FROM songs WHERE source = 'youtube' LIMIT 1")).first():
+        raise RuntimeError("Remove the YouTube songs before downgrading: older versions cannot read them")
     with op.batch_alter_table("songs") as b:
         b.drop_constraint("uq_songs_youtube_id", type_="unique")
         b.drop_column("youtube_checked_at")

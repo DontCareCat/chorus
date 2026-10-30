@@ -18,11 +18,12 @@ interface Props {
 export function Cover({ songId, title, hasCover, size = "small", version, youtubeId }: Props) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [hasCover, version]);
-  const show = (hasCover !== false || !!youtubeId) && !failed;
+  const thumb = !!youtubeId && hasCover !== true; // a cover the user chose for a YouTube song wins over the thumbnail
+  const show = (hasCover !== false || thumb) && !failed;
   const style = { "--hue": (songId * 47) % 360 } as CSSProperties;
   return (
     <div className="cover" data-size={size} data-empty={!show} style={style} aria-hidden={!show}>
-      {show ? <img src={youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg` : api.coverUrl(songId, version)} alt="" loading="lazy" onError={() => setFailed(true)} /> : Array.from(title.trim())[0]?.toUpperCase() ?? "♪"}
+      {show ? <img src={thumb ? `https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg` : api.coverUrl(songId, version)} alt="" loading="lazy" onError={() => setFailed(true)} /> : Array.from(title.trim())[0]?.toUpperCase() ?? "♪"}
     </div>
   );
 }

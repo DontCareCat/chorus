@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, get_youtube_client, path_access
@@ -99,7 +100,15 @@ def add_youtube_song(
         lyrics_status=LyricsStatus.pending,
     )
     session.add(song)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:  # the same video was added at the same moment
+        session.rollback()
+        existing = session.scalar(select(Song).where(Song.youtube_id == video_id))
+        if existing is None:
+            raise
+        response.status_code = 200
+        return existing
     background.add_task(discover_for_songs, factory, client, [song.id])
     return song
 
@@ -262,7 +271,7 @@ def _image(data: bytes, mime: str) -> Response:
 @router.get("/songs/{song_id}/cover")
 def cover(song: Song = Depends(get_song), session: Session = Depends(get_session)):
     """The song's cover: art embedded in the audio file first, else a cover kept in the covers folder."""
-    found = extract_cover(Path(song.file_path)) if Path(song.file_path).is_file() and song.cover_source != "custom" else None
+    found = extract_cover(Path(song.file_path)) if song.file_path and Path(song.file_path).is_file() and song.cover_source != "custom" else None
     if found is not None and song.cover_source in (None, "none", "choose", "embedded"):
         if song.cover_source != "embedded" or song.has_cover is not True:
             song.cover_source, song.has_cover = "embedded", True
@@ -367,7 +376,7 @@ def cover_upload(file: UploadFile, song: Song = Depends(get_song), session: Sess
 def cover_remove(song: Song = Depends(get_song), session: Session = Depends(get_session)):
     """Forget a cover kept in the covers folder (art embedded in the audio file is never touched)."""
     remove_cover(session, song)
-    song.has_cover = extract_cover(Path(song.file_path)) is not None if Path(song.file_path).is_file() else False
+    song.has_cover = extract_cover(Path(song.file_path)) is not None if song.file_path and Path(song.file_path).is_file() else False
     song.cover_source = "embedded" if song.has_cover else None
     session.commit()
     return song

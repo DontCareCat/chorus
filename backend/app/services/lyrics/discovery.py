@@ -35,6 +35,8 @@ def is_usable(c: LyricsCandidate, cfg: RuntimeSettings) -> bool:
 
 
 def rank(song: Song, candidates: list[LyricsCandidate]) -> list[LyricsCandidate]:
+    if song.duration <= 0:  # length not known yet: synced first, then the longest (a full version rather than an edit)
+        return sorted(candidates, key=lambda c: (not c.is_synced, -c.duration))
     return sorted(candidates, key=lambda c: (abs(c.duration - song.duration), not c.is_synced))
 
 
@@ -118,7 +120,7 @@ def discover_lyrics(
     hidden = 0
     try:
         # 2. exact lookup
-        exact = lrclib.get(song.artist, song.title, song.album, song.duration) if song.artist else None
+        exact = lrclib.get(song.artist, song.title, song.album, song.duration) if song.artist and song.duration > 0 else None
         if exact is not None and abs(exact.duration - song.duration) <= CONFIDENT_DURATION_DIFF:
             if is_usable(exact, cfg):
                 lyrics, norm = attach_candidate(session, song, exact, cfg)

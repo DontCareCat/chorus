@@ -47,6 +47,8 @@ def normalize(raw: RawLyrics, duration: float) -> NormalizedLyrics:
             raise AppError("empty_lyrics", "The lyrics contain no text", 422)
         return NormalizedLyrics(lines, False, warnings)
 
+    if duration <= 0:  # length not known yet (a YouTube song before its first play): nothing to compare with
+        duration = float("inf")
     lines: list[LineDraft] = []
     dropped = 0
     for i, (start, text) in enumerate(entries):

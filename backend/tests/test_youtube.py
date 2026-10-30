@@ -93,3 +93,24 @@ def test_scan_leaves_youtube_songs_alone(api, yt):
     s = api.post("/api/songs/youtube", json={"url": VID}).json()
     api.post("/api/library/scan")
     assert api.get("/api/songs").json()[0]["available"] is True and s["available"] is True
+
+
+def test_cover_routes_work_without_a_file(api, yt):
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    assert api.get(f"/api/songs/{s['id']}/cover").status_code == 404
+    assert api.delete(f"/api/songs/{s['id']}/cover").status_code == 200
+
+
+def test_unknown_length_does_not_break_lyrics(api, yt, lrclib):
+    from app.services.lyrics.normalizer import normalize
+    from app.services.lyrics.lrc import parse_lyrics_text
+    n = normalize(parse_lyrics_text("[00:01.00] a\n[00:05.00] b"), 0.0)
+    assert len(n.lines) == 2 and not n.warnings
+
+
+def test_a_second_add_of_the_same_video_after_a_race_returns_the_song(api, yt, session):
+    first = api.post("/api/songs/youtube", json={"url": VID}).json()
+    from app.db.models import Song
+    from sqlalchemy import select
+    assert len(list(session.scalars(select(Song)))) == 1
+    assert api.post("/api/songs/youtube", json={"url": f"youtu.be/{VID}"}).json()["id"] == first["id"]
