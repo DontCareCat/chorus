@@ -162,7 +162,7 @@ def import_youtube_videos(
             continue
         try:
             name = body.names.get(video_id)
-            song, created = add_youtube_video(session, cfg, youtube, video_id, name.title if name else None, name.artist if name else None)
+            song, created = add_youtube_video(session, cfg, youtube, video_id, name.title if name else None, name.artist if name else None, with_length=False)
         except AppError as e:  # gone, private or not embeddable
             out.failed.append(YouTubeImportFailure(video_id=video_id, reason=e.code))
             continue
