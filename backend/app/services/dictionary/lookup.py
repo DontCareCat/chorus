@@ -139,6 +139,9 @@ def _gender_of(block: str, code: str) -> str | None:
     for tpl in re.finditer(r"\{\{\s*(?:%s-noun|head\|%s\|[a-z ]*noun[a-z ]*)\b([^{}]*)\}\}" % (re.escape(code), re.escape(code)), block):
         for arg in tpl.group(1).split("|"):
             arg = arg.strip()
+            inline = re.search(r"<([mfnc])(?:[,.>]|$)", arg)  # "{{de-noun|<m,,en.weak_n>}}" (Herr) or "Herr<m,...>": the newer inline form
+            if inline and "=" not in arg and not re.search(r"<[mfnc][^>]*-p\b", arg):
+                return inline.group(1)
             first = arg.split(",")[0].strip()  # "{{de-noun|n,s|Häuser}}": gender, then the genitive ending
             g = _GENDER_ARG.match(first if "=" not in arg else arg)
             if g and not first.endswith("-p"):

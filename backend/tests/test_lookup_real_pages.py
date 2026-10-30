@@ -54,3 +54,11 @@ def test_a_capitalised_line_start_word_is_not_lowercased_unless_it_is_a_form(wk)
     # "Zeit" at the start of a line: the preposition page must not turn the noun's headword into "zeit"
     i = wk.info("Zeit", "de", None)
     assert i.lemma is None  # so the headword stays as sung
+
+
+def test_the_inline_gender_form_reads_as_masculine():
+    page = "==German==\n===Noun===\n{{de-noun|<m,,en.weak_n>}}\n# gentleman; Mr\n"
+    r = L.readings(page, "German", "de")[0]
+    assert (r.pos, r.gender) == ("noun", "m")
+    plural = "==German==\n===Noun===\n{{de-noun|<m-p>}}\n# people\n"
+    assert L.readings(plural, "German", "de")[0].gender is None
