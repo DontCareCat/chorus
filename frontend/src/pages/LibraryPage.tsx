@@ -319,7 +319,7 @@ export function LibraryPage() {
           ))}
         </div>
       )}
-      <LookupBar songs={all} busy={busy} onRetry={() => void retryLyrics()} />
+      <LookupBar songs={all} busy={busy} ready={songs.data !== null} onRetry={() => void retryLyrics()} />
       {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}

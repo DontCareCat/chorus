@@ -15,6 +15,40 @@ const LEAVE_CAP_MS = 420; // all the old letters are gone within this
 const ARRIVE_CAP_MS = 600; // all the new letters have arrived within this
 const ANNOUNCE_MS = 10_000; // a screen reader hears the count at most this often
 
+/** One run of lookups: the songs it has seen, how many it started with (growing when songs are added), and how many were waiting last time we looked. */
+export interface Run { ids: number[]; total: number; last: number; at: number }
+
+const RUN_KEY = "chorus-lookup-run";
+const RUN_MAX_AGE_MS = 36 * 3600_000; // a run older than this was never finished by this screen: forget it
+
+/** The run after a look at the list: new songs waiting raise the total, so what was done stays done. */
+export function advanceRun(run: Run | null, waiting: number, pendingIds: readonly number[], now: number): Run {
+  const r: Run = run ? { ...run, ids: [...run.ids] } : { ids: [], total: 0, last: 0, at: now };
+  const have = new Set(r.ids);
+  for (const id of pendingIds) if (!have.has(id)) r.ids.push(id);
+  if (waiting > r.last) r.total += waiting - r.last;
+  r.last = waiting;
+  return r;
+}
+
+export function loadRun(now = Date.now()): Run | null {
+  try {
+    const raw = localStorage.getItem(RUN_KEY);
+    if (!raw) return null;
+    const r = JSON.parse(raw) as Run;
+    return Array.isArray(r.ids) && typeof r.total === "number" && now - r.at < RUN_MAX_AGE_MS ? r : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveRun(run: Run | null): void {
+  try {
+    if (run) localStorage.setItem(RUN_KEY, JSON.stringify(run));
+    else localStorage.removeItem(RUN_KEY);
+  } catch { /* storage blocked: the run just lasts while this screen is open */ }
+}
+
 export interface Counts { found: number; choose: number; none: number }
 
 /** What happened to the songs that were being looked up. */
@@ -69,6 +103,8 @@ interface Props {
   songs: readonly SongDto[];
   busy: boolean;
   onRetry: () => void;
+  /** the list has been loaded (an empty list before that is not "nothing is waiting") */
+  ready?: boolean;
 }
 
 /**
@@ -77,17 +113,17 @@ interface Props {
  * along the bottom. When the last request is done a colour wave crosses the bar, the old words leave letter by letter and the result arrives
  * letter by letter; the result stays 5 s, then the bar slides shut. What the bar says depends on its own width (tier S, M, L).
  */
-export function LookupBar({ songs, busy, onRetry }: Props) {
+export function LookupBar({ songs, busy, onRetry, ready = true }: Props) {
   const waiting = songs.filter((s) => s.lyrics_status === "pending" && !s.lyrics_stalled).length;
   const [phase, setPhase] = useState<Phase>("hidden");
   const [counts, setCounts] = useState<Counts | null>(null); // set when a run is done
-  const [seen, setSeen] = useState(0); // the number of songs this run looked at
   const [tier, setTier] = useState<Tier>("L");
   const [midFits, setMidFits] = useState(true);
   const [announce, setAnnounce] = useState("");
-  const ids = useRef(new Set<number>());
+  const run = useRef<Run | null>(loadRun()); // kept in storage, so leaving the page or closing the app does not reset the count
+  const [, redraw] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const wasWaiting = useRef(false);
+  const wasWaiting = useRef(run.current !== null && run.current.last > 0); // a run that was on when we left continues (or its result is shown)
   const lastAnnounced = useRef(0);
   const latest = useRef(songs);
   latest.current = songs;
@@ -107,37 +143,45 @@ export function LookupBar({ songs, busy, onRetry }: Props) {
   }, [phase === "hidden"]);
 
   useEffect(() => {
+    if (!ready) return;
     if (waiting > 0) {
-      for (const s of songs) if (s.lyrics_status === "pending" && !s.lyrics_stalled) ids.current.add(s.id);
-      setSeen(ids.current.size);
-      if (!wasWaiting.current) { // a run begins (or begins again while the last result is still on show)
+      const pending = songs.filter((s) => s.lyrics_status === "pending" && !s.lyrics_stalled).map((s) => s.id);
+      const begins = !wasWaiting.current;
+      run.current = advanceRun(begins ? null : run.current, waiting, pending, Date.now()); // a new run counts from zero
+      saveRun(run.current);
+      if (begins) { // a run begins (or begins again while the last result is still on show)
         wasWaiting.current = true;
         clear();
         setCounts(null);
         setPhase("running");
+      } else if (phase === "hidden") {
+        setPhase("running"); // the page was opened in the middle of a run
       }
+      redraw((n) => n + 1);
       const now = Date.now();
       if (now - lastAnnounced.current >= ANNOUNCE_MS || lastAnnounced.current === 0) {
         lastAnnounced.current = now;
-        setAnnounce(en.library.lookupStatus(ids.current.size - waiting, ids.current.size));
+        setAnnounce(en.library.lookupStatus(Math.max(0, run.current.total - waiting), run.current.total));
       }
-    } else if (wasWaiting.current) { // the last request is done
+    } else if (!wasWaiting.current) {
+      if (run.current) { run.current = null; saveRun(null); } // nothing is waiting and no run is on: forget an old one
+    } else { // the last request is done
       wasWaiting.current = false;
       clear();
-      const c = resultCounts(latest.current, ids.current);
+      const c = resultCounts(latest.current, new Set(run.current?.ids ?? []));
       const quick = reducedMotion();
       setPhase("out");
       later(quick ? 0 : SWEEP_MS, () => { setCounts(c); setPhase("in"); setAnnounce(en.library.lookupDone(c.found, c.choose, c.none)); });
       const t1 = (quick ? 0 : SWEEP_MS) + (quick ? 0 : ARRIVE_MS);
       later(t1, () => setPhase("hold"));
       later(t1 + HOLD_MS, () => setPhase("leaving"));
-      later(t1 + HOLD_MS + (quick ? 0 : SLIDE_MS), () => { setPhase("hidden"); setCounts(null); setAnnounce(""); ids.current = new Set(); lastAnnounced.current = 0; });
+      later(t1 + HOLD_MS + (quick ? 0 : SLIDE_MS), () => { setPhase("hidden"); setCounts(null); setAnnounce(""); run.current = null; saveRun(null); lastAnnounced.current = 0; });
     }
-  }, [waiting, songs]);
+  }, [waiting, songs, ready]);
 
   const open = phase !== "hidden" && phase !== "leaving";
   const showResult = counts !== null;
-  const total = Math.max(seen, ids.current.size);
+  const total = run.current?.total ?? waiting;
   const done = Math.max(0, total - waiting);
   const motion = reducedMotion() ? "" : phase === "out" ? "leave" : phase === "in" ? "arrive" : "";
 
