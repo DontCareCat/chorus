@@ -17,7 +17,7 @@ class TrackRef:
     duration: float = 0.0  # seconds; 0 = not known
 
 
-_DROP_WORDS = {"feat", "ft", "featuring", "remaster", "remastered", "live", "version", "edit", "mono", "stereo", "mix"}
+_DROP_WORDS = {"feat", "ft", "featuring", "remaster", "remastered", "mono", "stereo"}  # not "live", "version", "edit", "mix": those are other recordings
 
 
 def _drop_bracket(m: "re.Match[str]") -> str:
@@ -30,7 +30,8 @@ def _key(text: str) -> str:
     """A title for comparing: lower case, accents and punctuation gone; '(feat. …)', '(Live)', '(2011 Remaster)' and '- Remastered 2020' dropped
     (whole words only: '(Alive)' stays)."""
     text = re.sub(r"\s*[\(\[]([^\)\]]*)[\)\]]", _drop_bracket, text)
-    text = re.sub(r"\s+-\s+(?=[^-]*\b(?:remaster\w*|live|version|edit|mono|stereo)\b).*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+-\s+(?=[^-]*\b(?:remaster\w*|mono|stereo)\b).*$", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s+(?:feat\.?|ft\.?|featuring)\s+.*$", "", text, flags=re.IGNORECASE)  # "Song ft. Someone"
     return normalize(text)
 
 
@@ -43,25 +44,36 @@ def match_tracks(tracks: list[TrackRef], library: list[tuple[int, str, str, floa
     """track index → song id for the tracks that are already in the library. `library` rows: (song id, artist, title, duration; 0 = not known).
 
     Same title; the track's first artist among the song's artists (or the other way round) as whole words; and, when both lengths are known,
-    within 4 s.
+    within 4 s. A track written 'Title - Artist' is tried the other way round when it did not match; a track with no artist matches a title
+    that is only in the library once.
     """
     by_title: dict[str, list[tuple[int, list[str], float]]] = {}
     for song_id, artist, title, duration in library:
         by_title.setdefault(_key(title), []).append((song_id, _plain(artist), duration))
+
+    def find(title: str, artist: str, duration: float) -> int | None:
+        first = _plain(artist.split(",")[0]) if artist else []
+        rows = [r for r in by_title.get(_key(title), []) if not (r[2] > 0 and duration > 0 and abs(r[2] - duration) > 4)]
+        if not first:
+            return rows[0][0] if len(rows) == 1 else None  # a title alone: only when it is unambiguous
+        for song_id, other, _ in rows:
+            if other and (_inside(first, other) or _inside(other, first)):
+                return song_id
+        return None
+
     out: dict[int, int] = {}
     for index, t in enumerate(tracks):
-        first = _plain(t.artist.split(",")[0]) if t.artist else []
-        for song_id, artist, duration in by_title.get(_key(t.title), []):
-            if duration > 0 and t.duration > 0 and abs(duration - t.duration) > 4:
-                continue
-            if first and artist and (_inside(first, artist) or _inside(artist, first)):
-                out[index] = song_id
-                break
+        found = find(t.title, t.artist, t.duration)
+        if found is None and t.artist:
+            found = find(t.artist, t.title, t.duration)  # written the other way round
+        if found is not None:
+            out[index] = found
     return out
 
 
 def _plain(text: str) -> list[str]:
+    """Words of an artist: accents and punctuation gone, any alphabet kept ('Кино' → ['кино'])."""
     import unicodedata
 
-    folded = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-    return re.findall(r"[a-z0-9]+", folded)
+    folded = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.category(c).startswith("M")).lower()
+    return re.findall(r"[^\W_]+", folded)

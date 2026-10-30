@@ -20,6 +20,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  const [fromSpotify, setFromSpotify] = useState(false);
   const immediate = useRef(false);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
 
@@ -71,6 +72,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
 
   const playlistId = parsePlaylistId(link);
   const spotifyId = parseSpotifyPlaylistId(link);
+  useEffect(() => { if (spotifyId) { setListOpen(true); setFromSpotify(true); } }, [spotifyId]); // the list stays when the next link is pasted
   const problem = check.state === "error" ? check.message : addError;
   const checking = check.state === "checking";
   return (
@@ -92,8 +94,8 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
         {!problem && !preview && !checking && !playlistId && !spotifyId && <small>{en.library.youtubeHelp}</small>}
       </label>
-      {(spotifyId || listOpen) && <TrackListImport spotify={!!spotifyId} onMade={() => onPlaylistAdded?.()} />}
-      {!spotifyId && !listOpen && !playlistId && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
+      {listOpen && <TrackListImport spotify={fromSpotify} onMade={() => onPlaylistAdded?.()} />}
+      {!listOpen && !playlistId && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">

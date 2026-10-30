@@ -15,6 +15,14 @@ describe("parseTrackList", () => {
       { title: "99 Luftballons", artist: "Nena", duration: 0 }, { title: "Du hast", artist: "Rammstein", duration: 0 }, { title: "Just a title", artist: "", duration: 0 },
     ]);
   });
+  it("takes the artist name, not the artist URI that can come first, and keeps a quoted line break inside its cell", () => {
+    const csv = 'Track URI,Artist URI(s),Track Name,Artist Name(s)\ns:1,spotify:artist:1,"Two\nlines",Nena\ns:2,spotify:artist:2,Sonne,Rammstein\n';
+    expect(parseTrackList(csv)).toEqual([{ title: "Two\nlines", artist: "Nena", duration: 0 }, { title: "Sonne", artist: "Rammstein", duration: 0 }]);
+  });
+  it("does not take a plain line with a comma for a header, and cuts long cells", () => {
+    expect(parseTrackList("Song Name, Title\nA - B")).toHaveLength(2);
+    expect(parseTrackList(`A - ${"x".repeat(500)}`)[0]!.title).toHaveLength(300);
+  });
   it("is empty for nothing and stops at the limit", () => {
     expect(parseTrackList("   \n")).toEqual([]);
     expect(parseTrackList(Array.from({ length: 5 }, (_, i) => `A - T${i}`).join("\n"), 3)).toHaveLength(3);

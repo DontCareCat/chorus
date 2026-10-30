@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { parseTrackList } from "../lib/track-list";
+import { parseTrackList, TRACK_LIST_MAX } from "../lib/track-list";
 import type { TrackRow } from "../lib/track-list";
 import { youtubeSearchUrl } from "../lib/youtube-add";
 import { api, ApiError } from "../services/api";
@@ -36,6 +36,7 @@ export function TrackListImport({ spotify, onMade }: { spotify: boolean; onMade:
 
   const loadFile = async (file: File | undefined) => {
     if (!file) return;
+    if (file.size > 5_000_000) { setState({ step: "error", message: en.library.tlTooBig }); return; }
     const body = await file.text();
     setText(body);
     if (name === en.library.tlNameDefault) setName(file.name.replace(/\.[^.]+$/, "") || en.library.tlNameDefault);
@@ -68,6 +69,7 @@ export function TrackListImport({ spotify, onMade }: { spotify: boolean; onMade:
         break;
       }
     }
+    if (made === null && problem === null) problem = en.library.plNotMade; // every name was taken
     setBusy(false);
     setState({ step: "made", list, name: made ?? base, songs: made ? ids.length : 0, problem });
     if (made) onMade();
@@ -90,7 +92,7 @@ export function TrackListImport({ spotify, onMade }: { spotify: boolean; onMade:
         <input ref={fileInput} type="file" accept=".csv,.tsv,.txt,text/*" hidden onChange={(e) => { void loadFile(e.target.files?.[0]); e.target.value = ""; }} />
       </div>
       {s.step === "error" && <p className="yt-problem" role="alert">{s.message}</p>}
-      {list && <p role="status"><strong>{en.library.tlSummary(list.tracks.length, have)}</strong></p>}
+      {list && <p role="status"><strong>{en.library.tlSummary(list.tracks.length, have)}</strong>{list.tracks.length >= TRACK_LIST_MAX && <small> {en.library.tlLimit(TRACK_LIST_MAX)}</small>}</p>}
       {s.step === "ready" && (have > 0 ? (
         <div className="yt-found">
           <label className="field"><span>{en.library.plName}</span><input type="text" {...noAutofill("track-list-name")} value={name} onChange={(e) => setName(e.target.value)} style={{ fontSize: 15 }} /></label>
@@ -106,7 +108,7 @@ export function TrackListImport({ spotify, onMade }: { spotify: boolean; onMade:
             {missing.map((t, i) => (
               <li key={`${i}-${t.artist}-${t.title}`}>
                 <span>{[t.artist, t.title].filter(Boolean).join(" – ")}</span>
-                <a href={youtubeSearchUrl(t.artist, t.title)} target="_blank" rel="noreferrer">{en.library.spFind}</a>
+                <a href={youtubeSearchUrl(t.artist, t.title)} target="_blank" rel="noreferrer" aria-label={`${en.library.spFind}: ${[t.artist, t.title].filter(Boolean).join(" – ")}`}>{en.library.spFind}</a>
               </li>
             ))}
           </ul>

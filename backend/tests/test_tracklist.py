@@ -31,7 +31,7 @@ def test_the_api_matches_a_pasted_list(api, tmp_path):
 def test_brackets_are_dropped_by_whole_words_only():
     # "(Alive)" is part of the title; "(Live)" and "(feat. X)" are not
     assert match_tracks([TrackRef("Song (Alive)", "A", 0)], [(1, "A", "Song", 0)]) == {}
-    assert match_tracks([TrackRef("Song (Live)", "A", 0)], [(1, "A", "Song", 0)]) == {0: 1}
+    assert match_tracks([TrackRef("Song (Live)", "A", 0)], [(1, "A", "Song", 0)]) == {}  # another recording
     assert match_tracks([TrackRef("Song (feat. Someone)", "A", 0)], [(1, "A", "Song", 0)]) == {0: 1}
     assert match_tracks([TrackRef("Song - 2011 Remaster", "A", 0)], [(1, "A", "Song", 0)]) == {0: 1}
     assert match_tracks([TrackRef("Without Me", "Eminem", 0)], [(1, "Eminem", "Without Me", 0)]) == {0: 1}
@@ -39,3 +39,13 @@ def test_brackets_are_dropped_by_whole_words_only():
 
 def test_accents_and_joined_artists():
     assert match_tracks([TrackRef("Halo", "Beyoncé", 0)], [(1, "Beyonce & Jay-Z", "Halo", 0)]) == {0: 1}
+
+
+def test_unbracketed_feat_other_alphabets_swapped_order_and_title_only():
+    assert match_tracks([TrackRef("Song ft. Someone", "A", 0)], [(1, "A", "Song", 0)]) == {0: 1}
+    assert match_tracks([TrackRef("Группа крови", "Кино", 0)], [(1, "Кино", "Группа крови", 0)]) == {0: 1}
+    assert match_tracks([TrackRef("Du hast", "Rammstein", 0)], [(1, "Rammstein", "Du hast", 0)]) == {0: 1}
+    assert match_tracks([TrackRef("Rammstein", "Du hast", 0)], [(1, "Rammstein", "Du hast", 0)]) == {0: 1}  # "Title - Artist" written backwards
+    assert match_tracks([TrackRef("Du hast", "", 0)], [(1, "Rammstein", "Du hast", 0)]) == {0: 1}
+    assert match_tracks([TrackRef("Du hast", "", 0)], [(1, "Rammstein", "Du hast", 0), (2, "Other", "Du hast", 0)]) == {}  # ambiguous
+    assert match_tracks([TrackRef("Song (Taylor's Version)", "T", 0)], [(1, "T", "Song", 0)]) == {}

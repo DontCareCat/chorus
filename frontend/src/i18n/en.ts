@@ -294,6 +294,8 @@ export const en = {
     importHelp: "A file or a folder on this computer.",
     spFind: "Find on YouTube",
     tlOpen: "Import a song list (from Spotify or elsewhere)",
+    tlTooBig: "That file is too big for a song list (5 MB at most).",
+    tlLimit: (n: number) => `Only the first ${n} are read.`,
     tlNameDefault: "Imported playlist",
     tlHelp: "Paste a list of songs, one per line as “Artist - Title”, or load a CSV file exported from a playlist.",
     tlSpotifyWhy: "Spotify no longer lets other apps read a playlist from its link. Paste its songs instead, one per line as “Artist - Title”, or load a CSV file exported from the playlist (for example with Exportify).",
