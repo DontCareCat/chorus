@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import type { ReactNode, PointerEvent as ReactPointerEvent } from "react";
 import { reducedMotion } from "../hooks/useExitTransition";
 import { en } from "../i18n/en";
+import { holdDialogOpen } from "../lib/dialog-open";
 
 export const SHEET_IN_MS = 280;
 export const SHEET_OUT_MS = 220;
@@ -24,6 +25,8 @@ interface Props {
   onClose: () => void;
   label: string;
   className?: string;
+  /** The id of the text that explains the dialog, read out after its title. */
+  describedBy?: string;
   children: ReactNode;
 }
 
@@ -32,7 +35,7 @@ interface Props {
  * backdrop or on the handle, and follows the finger when the handle is held and dragged (past 30% of its height, or a flick,
  * it rolls away; otherwise it springs back). Nothing underneath is activated by the tap that closes it.
  */
-export const Sheet = forwardRef<SheetApi, Props>(function Sheet({ onClose, label, className, children }, api) {
+export const Sheet = forwardRef<SheetApi, Props>(function Sheet({ onClose, label, className, describedBy, children }, api) {
   const [state, setState] = useState<"enter" | "open" | "closing">("enter");
   const panel = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; t: number; last: number; lastT: number; speed: number; moved: boolean } | null>(null);
@@ -53,8 +56,8 @@ export const Sheet = forwardRef<SheetApi, Props>(function Sheet({ onClose, label
   useEffect(() => {
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); close(); } };
     document.addEventListener("keydown", key);
-    document.documentElement.classList.add("dialog-open");
-    return () => { document.removeEventListener("keydown", key); document.documentElement.classList.remove("dialog-open"); };
+    const release = holdDialogOpen();
+    return () => { document.removeEventListener("keydown", key); release(); };
   }, [close]);
 
   const down = (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -93,7 +96,7 @@ export const Sheet = forwardRef<SheetApi, Props>(function Sheet({ onClose, label
 
   return (
     <div className="sheet-scrim" data-state={state} onClick={(e) => { if (e.target === e.currentTarget) close(); }}>
-      <div className={`sheet${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={label} ref={panel} data-state={state}>
+      <div className={`sheet${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={label} aria-describedby={describedBy} ref={panel} data-state={state}>
         <button
           type="button" className="grab" aria-label={en.dialog.close}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; panel.current?.removeAttribute("data-dragging"); if (panel.current) panel.current.style.transform = ""; }}

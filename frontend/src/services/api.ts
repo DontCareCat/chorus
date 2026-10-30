@@ -12,6 +12,14 @@ export interface YouTubePreviewDto {
   existing_title: string | null;
 }
 
+export interface YouTubeImportDto {
+  songs: SongDto[];
+  added: number;
+  existing: number;
+  failed: { video_id: string; reason: string }[];
+  not_tried: string[];
+}
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -345,6 +353,7 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
+  importYouTubeVideos: (videoIds: string[]) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds })),
   previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),

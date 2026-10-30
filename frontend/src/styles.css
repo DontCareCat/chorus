@@ -921,7 +921,7 @@ html.dialog-open { overflow: hidden; }
 .sheet-scrim { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; background: transparent; transition: background-color var(--dur-sheet) var(--ease-out); }
 .sheet-scrim[data-state="open"] { background: var(--scrim); }
 .sheet-scrim[data-state="closing"] { transition-duration: 0.22s; }
-.sheet { width: 100%; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-top: 1px solid var(--line-strong); border-radius: 22px 22px 0 0; padding: 0 0 20px; transform: translateY(100%); transition: transform var(--dur-sheet) var(--ease-out); will-change: transform; }
+.sheet { width: 100%; max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-top: 1px solid var(--line-strong); border-radius: 22px 22px 0 0; padding: 0 0 calc(20px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform var(--dur-sheet) var(--ease-out); will-change: transform; }
 .sheet[data-state="open"] { transform: none; }
 .sheet[data-state="closing"] { transform: translateY(100%); transition: transform 0.22s ease-in; }
 .sheet[data-dragging] { transition: none; }
@@ -1333,3 +1333,10 @@ button.queue-bar-face { cursor: pointer; }
 [data-layout="phone"] .confirm-actions { flex-direction: column-reverse; }
 [data-layout="phone"] .confirm-actions .btn { width: 100%; height: 52px; font-size: 17px; }
 .dialog-scrim .dialog.tool-dialog:has(.confirm) { width: min(460px, 100%); }
+/* importing a YouTube playlist (Add music > YouTube link) */
+.yt-playlist { display: grid; gap: 12px; margin-top: 12px; }
+.yt-reader { width: min(100%, 356px); aspect-ratio: 16 / 9; min-height: 200px; background: #000; border-radius: 12px; overflow: hidden; }
+.yt-reader[hidden] { display: none; }
+.yt-reader iframe { display: block; width: 100%; height: 100%; border: 0; }
+.yt-found, .yt-result { display: grid; gap: 10px; }
+.yt-found small { color: var(--text-3); }

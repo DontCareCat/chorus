@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { isTopicChannel, youtubeThumb } from "../lib/youtube-add";
+import { isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
 import { api, ApiError } from "../services/api";
 import type { SongDto, YouTubePreviewDto } from "../services/api";
 
@@ -10,7 +11,7 @@ const CHECK_DELAY = 400; // ms after the last keystroke; a paste checks at once
 type Check = { state: "idle" } | { state: "checking" } | { state: "ready"; preview: YouTubePreviewDto } | { state: "error"; message: string };
 
 /** The YouTube link tab of Add music: paste, check, preview, edit title and artist, add. */
-export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded: (song: SongDto) => void; onShow: (title: string) => void }) {
+export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone: boolean; onAdded: (song: SongDto) => void; onShow: (title: string) => void; onPlaylistAdded?: () => void }) {
   const [link, setLink] = useState("");
   const [check, setCheck] = useState<Check>({ state: "idle" });
   const [title, setTitle] = useState("");
@@ -23,7 +24,7 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
   useEffect(() => {
     setAddError(null);
     const text = link.trim();
-    if (!text) { setCheck({ state: "idle" }); return; }
+    if (!text || parsePlaylistId(text)) { setCheck({ state: "idle" }); return; } // a playlist link is read by the playlist import below
     setCheck((c) => (c.state === "ready" ? { state: "checking" } : c)); // an old preview is not offered for a new link
     let stale = false;
     const delay = immediate.current ? 0 : CHECK_DELAY;
@@ -66,6 +67,7 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
     }
   };
 
+  const playlistId = parsePlaylistId(link);
   const problem = check.state === "error" ? check.message : addError;
   const checking = check.state === "checking";
   return (
@@ -85,8 +87,9 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
         </div>
         {!canPaste && checking && <small role="status">{en.library.ytChecking}…</small>}
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
-        {!problem && !preview && !checking && <small>{en.library.youtubeHelp}</small>}
+        {!problem && !preview && !checking && !playlistId && <small>{en.library.youtubeHelp}</small>}
       </label>
+      {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">
           <span>{en.library.ytExists(preview.existing_title ?? preview.title)}</span>

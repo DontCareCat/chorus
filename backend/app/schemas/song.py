@@ -56,6 +56,23 @@ class YouTubePreviewOut(BaseModel):
     existing_title: str | None = None
 
 
+class YouTubeImportRequest(BaseModel):
+    video_ids: list[str] = Field(min_length=1, max_length=25)  # a batch of a playlist's videos
+
+
+class YouTubeImportFailure(BaseModel):
+    video_id: str
+    reason: str  # video_unavailable | not_a_video
+
+
+class YouTubeImportOut(BaseModel):
+    songs: list[SongOut]  # added and already-present songs, in the order asked
+    added: int
+    existing: int
+    failed: list[YouTubeImportFailure]
+    not_tried: list[str]  # YouTube could not be reached: these were not looked at
+
+
 class RetryRequest(BaseModel):
     ids: list[int] | None = Field(None, max_length=100_000)
 

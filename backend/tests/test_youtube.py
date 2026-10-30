@@ -265,3 +265,30 @@ def test_preview_passes_youtube_errors_through_like_add(api, yt):
     yt.status = 503
     assert api.get("/api/songs/youtube/preview", params={"url": VID}).status_code == 503
     assert api.get("/api/songs").json() == []
+
+
+def test_import_several_videos_at_once(api, yt):
+    r = api.post("/api/songs/youtube/import", json={"video_ids": [VID, "9bZkp7q19f0", VID, "bad"]}).json()
+    assert (r["added"], r["existing"]) == (2, 0)
+    assert [s["youtube_id"] for s in r["songs"]] == [VID, "9bZkp7q19f0"]
+    assert r["failed"] == [{"video_id": "bad", "reason": "not_a_video"}]
+    again = api.post("/api/songs/youtube/import", json={"video_ids": [VID]}).json()
+    assert (again["added"], again["existing"]) == (0, 1)
+    assert len(api.get("/api/songs").json()) == 2
+
+
+def test_import_skips_a_gone_video_and_stops_when_youtube_is_unreachable(api, yt):
+    yt.status = 404
+    r = api.post("/api/songs/youtube/import", json={"video_ids": [VID]}).json()
+    assert r["failed"] == [{"video_id": VID, "reason": "video_unavailable"}] and r["added"] == 0
+    yt.status = 503
+    r = api.post("/api/songs/youtube/import", json={"video_ids": [VID, "9bZkp7q19f0"]}).json()
+    assert r["not_tried"] == [VID, "9bZkp7q19f0"] and r["added"] == 0
+    assert api.get("/api/songs").json() == []
+
+
+def test_import_is_switched_off_with_youtube_songs(api, yt):
+    settings = api.get("/api/settings").json()
+    api.put("/api/settings", json={**settings, "youtube_enabled": False})
+    assert api.post("/api/songs/youtube/import", json={"video_ids": [VID]}).json()["error"]["code"] == "youtube_disabled"
+    assert api.post("/api/songs/youtube/import", json={"video_ids": []}).status_code == 422

@@ -246,6 +246,7 @@ export function LibraryPage() {
           {tab === "youtube" && youtubeOn && (
             <YouTubeAdd
               phone={phone}
+              onPlaylistAdded={() => songs.reload()}
               onAdded={(song) => { setNotice({ kind: "ok", text: en.library.youtubeAdded(song.title) }); songs.reload(); }}
               onShow={(title) => { setFilter("all"); setLanguage("all"); setRegex(false); setQuery(title); }}
             />

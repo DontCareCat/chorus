@@ -158,3 +158,45 @@ def has_stale(session, now=None) -> bool:
 
     now = now or utcnow()
     return session.scalar(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), _stale(now)).limit(1)) is not None
+
+
+def add_youtube_video(session, cfg, youtube: "YouTubeClient", video_id: str, title: str | None = None, artist: str | None = None):
+    """The song for a video: the one already in the library (a removed one comes back, with the title and artist given), or a new one made
+    from what YouTube shows publicly. Returns (song, created). Raises AppError (video gone / not embeddable) or YouTubeUnavailable."""
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from app.db.models import LyricsStatus, Song, SongSource
+    from app.db.models.types import utcnow
+
+    existing = session.scalar(select(Song).where(Song.youtube_id == video_id))
+    if existing is not None:
+        if existing.removed:
+            existing.removed = False
+            if title:
+                existing.title = title.strip()
+            if artist is not None:
+                existing.artist = artist.strip()
+            session.commit()
+        return existing, False
+    try:
+        info = youtube.info(video_id)
+    except YouTubeUnavailable as e:
+        raise YouTubeUnavailable(str(e)) from e
+    clean_artist, clean_song = clean_title(info.title, info.channel)
+    song = Song(
+        title=(title or clean_song or video_id).strip(), artist=(artist if artist is not None else clean_artist).strip(), duration=0.0,
+        language=cfg.default_language, source=SongSource.youtube, youtube_id=video_id, youtube_channel=info.channel or None,
+        youtube_checked_at=utcnow(), content_hash=f"youtube:{video_id}", available=True, has_cover=False, cover_source="youtube",
+        lyrics_status=LyricsStatus.pending,
+    )
+    session.add(song)
+    try:
+        session.commit()
+    except IntegrityError:  # the same video was added at the same moment
+        session.rollback()
+        existing = session.scalar(select(Song).where(Song.youtube_id == video_id))
+        if existing is None:
+            raise
+        return existing, False
+    return song, True

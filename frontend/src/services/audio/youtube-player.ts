@@ -45,3 +45,31 @@ export async function createYouTubeEngine(host: HTMLElement, videoId: string): P
     });
   });
 }
+
+/**
+ * The video ids of a public playlist (the first 200), read by YouTube's own player: it is shown in `host` (200 px high, paused) while it
+ * reads, as every embedded player is. Rejects when the playlist is private or does not exist.
+ */
+export async function loadPlaylistVideoIds(host: HTMLElement, listId: string, timeoutMs = 20_000): Promise<string[]> {
+  const YT = await loadYouTubeApi();
+  const mount = document.createElement("div");
+  host.replaceChildren(mount);
+  return new Promise<string[]>((resolve, reject) => {
+    let poll: ReturnType<typeof setInterval> | undefined;
+    const finish = (fn: () => void) => { clearTimeout(giveUp); clearInterval(poll); try { player.destroy(); } catch { /* gone */ } host.replaceChildren(); fn(); };
+    const giveUp = setTimeout(() => finish(() => reject(new Error("YouTube did not give the playlist. Is it public?"))), timeoutMs);
+    const player = new YT.Player(mount, {
+      width: "100%", height: "100%",
+      playerVars: { listType: "playlist", list: listId, playsinline: 1, controls: 1, rel: 0, origin: location.origin.startsWith("http") ? location.origin : undefined },
+      events: {
+        onReady: () => {
+          poll = setInterval(() => {
+            const ids = (player as unknown as { getPlaylist?: () => string[] | null }).getPlaylist?.();
+            if (ids && ids.length) finish(() => resolve(ids));
+          }, 200);
+        },
+        onError: (e: { data: number }) => finish(() => reject(new Error(youtubeErrorMessage(e.data)))),
+      },
+    });
+  });
+}
