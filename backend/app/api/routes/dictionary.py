@@ -1,17 +1,19 @@
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import current_user, get_session_factory, get_translator, get_wiktionary
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import DictionaryEntry, Song, User
+from app.db.models.types import utcnow
 from app.schemas.dictionary import (
-    EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
+    DeckImportResult, EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
     ReviewNext, ReviewSummary, ScheduleState,
 )
-from app.services.dictionary import service, srs
+from app.services.dictionary import anki, service, srs
 from app.services.dictionary.service import sentence_key
 from app.services.dictionary.lookup import Translator, Wiktionary
 
@@ -70,6 +72,52 @@ def list_entries(
     )
 
 
+class Scope:
+    """The Dictionary page's filters, so a review can be limited to the words that page shows."""
+
+    def __init__(self, status: str = Query("all", pattern="^(all|due|new|suspended)$"), language: str | None = Query(None, max_length=16),
+                 q: str | None = Query(None, max_length=200)):
+        self.status, self.language, self.q = status, language, q
+
+
+@router.get("/export")
+def export_deck(
+    format: str = Query("apkg", pattern="^(apkg|txt)$"), schedule: bool = False, scope: Scope = Depends(),
+    session: Session = Depends(get_session), user: User = Depends(current_user),
+):
+    """The words the page shows (its filters) as an Anki deck (.apkg) or a plain-text list that Anki's Import reads."""
+    words = service.export_words(session, user, scope.status, scope.language, scope.q)
+    if not words:
+        raise AppError("nothing_to_export", "There are no words to export with these filters.", 422)
+    stamp = utcnow().strftime("%Y-%m-%d")
+    if format == "txt":
+        return Response(anki.build_text(words), media_type="text/plain; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="chorus-dictionary-{stamp}.txt"'})
+    data = anki.build_apkg(words, "Chorus dictionary", schedule, utcnow())
+    return Response(data, media_type="application/octet-stream", headers={"Content-Disposition": f'attachment; filename="chorus-dictionary-{stamp}.apkg"'})
+
+
+@router.post("/import-deck", response_model=DeckImportResult)
+def import_deck(
+    file: UploadFile, background: BackgroundTasks, language: str = Form(min_length=2, max_length=16), schedule: bool = Form(False),
+    session: Session = Depends(get_session), user: User = Depends(current_user), factory: sessionmaker = Depends(get_session_factory),
+    translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary),
+):
+    """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen."""
+    data = file.file.read(anki.MAX_BYTES + 1)
+    if len(data) > anki.MAX_BYTES:
+        raise AppError("deck_too_big", "That file is too big to import (60 MB at most).", 413)
+    name = (file.filename or "").lower()
+    if data[:2] == b"PK" or name.endswith(".apkg"):
+        notes = anki.parse_apkg(data)
+    else:
+        notes = anki.parse_text(data.decode("utf-8-sig", errors="replace"))
+    if not notes:
+        raise AppError("nothing_to_import", "No words found in that file.", 422)
+    result = service.import_notes(session, user, notes, language, schedule, getattr(user, "translation_language", None))
+    background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)
+    return DeckImportResult(**result)
+
+
 @router.post("/import-from-games", response_model=ImportResult)
 def import_from_games(
     background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
@@ -79,14 +127,6 @@ def import_from_games(
     added, words = service.import_from_games(session, user)
     background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)
     return ImportResult(added=added, words=words)
-
-
-class Scope:
-    """The Dictionary page's filters, so a review can be limited to the words that page shows."""
-
-    def __init__(self, status: str = Query("all", pattern="^(all|due|new|suspended)$"), language: str | None = Query(None, max_length=16),
-                 q: str | None = Query(None, max_length=200)):
-        self.status, self.language, self.q = status, language, q
 
 
 # review routes come before /{entry_id}

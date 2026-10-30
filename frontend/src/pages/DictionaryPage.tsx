@@ -1,4 +1,5 @@
 import { useConfirm } from "../components/Confirm";
+import { DictionaryExchange } from "../components/DictionaryExchange";
 import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Example } from "../components/Example";
@@ -39,6 +40,7 @@ export function DictionaryPage() {
   const [debounced, setDebounced] = useState(query);
   const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
+  const [exchange, setExchange] = useState<"export" | "import" | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const snippets = useSnippets();
   const summary = useAsync(() => api.reviewSummary(), []); // the counts on the chips: all words
@@ -94,10 +96,15 @@ export function DictionaryPage() {
           <h1>{en.dictionary.title}</h1>
           <p className="count">{en.dictionary.count(total)}</p>
         </div>
+        <div className="dict-actions">
+          <button type="button" className="btn quiet bordered small" onClick={() => setExchange("export")} disabled={everything === 0}>{en.dictionary.exchange.export}</button>
+          <button type="button" className="btn quiet bordered small" onClick={() => setExchange("import")}>{en.dictionary.exchange.import}</button>
+        </div>
         <a className="btn inverse large" href={paths.review()} aria-disabled={(scoped.data?.available ?? 0) === 0}>
           {available > 0 ? en.dictionary.reviewDue(available) : en.dictionary.review}
         </a>
       </div>
+      {exchange && <DictionaryExchange mode={exchange} scope={{ status, language: language === "all" ? undefined : language, q: debounced || undefined }} shown={total} defaultLanguage={language !== "all" ? language : data?.languages[0]?.code ?? "de"} onClose={() => setExchange(null)} onImported={() => { list.reload(); summary.reload(); }} />}
       {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
       {snippets.blocked && <p className="notice error" role="status">{en.errors.playBlocked}</p>}
 

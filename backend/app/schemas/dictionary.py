@@ -104,3 +104,9 @@ class ImportResult(BaseModel):
 class AccountPatch(BaseModel):
     translation_language: str | None = Field(None, min_length=2, max_length=16)
     daily_card_limit: int | None = Field(None, ge=0, le=1000)
+
+
+class DeckImportResult(BaseModel):
+    added: int
+    existing: int  # words the dictionary already had
+    skipped: int  # notes with nothing usable (empty, too long, repeated in the file)

@@ -41,6 +41,12 @@ export interface SpotifyPlaylistDto {
   matched: number;
 }
 
+export interface DeckImportDto {
+  added: number;
+  existing: number;
+  skipped: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -449,6 +455,28 @@ export const api = {
   deleteWord: (id: number) => request<{ deleted: number }>(`/api/dictionary/${id}`, { method: "DELETE" }),
   refreshWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}/refresh`, { method: "POST" }),
   getWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}`),
+  exportDictionary: async (opts: { format: "apkg" | "txt"; schedule: boolean; status: DictStatus; language?: string; q?: string }): Promise<{ filename: string; mime: string; bytes: Uint8Array }> => {
+    const query = new URLSearchParams({ format: opts.format, schedule: String(opts.schedule), status: opts.status, ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}) });
+    let res: Response;
+    try {
+      res = await fetch(`/api/dictionary/export?${query}`);
+    } catch {
+      throw new ApiError("network", "Cannot reach the server.", 0);
+    }
+    if (!res.ok) {
+      const e = ((await res.json().catch(() => null)) as { error?: { code: string; message: string } } | null)?.error;
+      throw new ApiError(e?.code ?? "http_error", e?.message ?? res.statusText ?? "Request failed", res.status);
+    }
+    const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? `chorus-dictionary.${opts.format}`;
+    return { filename: name, mime: res.headers.get("content-type") ?? "application/octet-stream", bytes: new Uint8Array(await res.arrayBuffer()) };
+  },
+  importDeck: (file: File, language: string, schedule: boolean) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("language", language);
+    fd.append("schedule", String(schedule));
+    return request<DeckImportDto>("/api/dictionary/import-deck", { method: "POST", body: fd });
+  },
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
   reviewSummary: (scope?: ReviewScope) => request<ReviewSummaryDto>(`/api/dictionary/review/summary?${scopeQuery(scope)}`),
   reviewNext: (exclude: number[] = [], scope?: ReviewScope) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}&${scopeQuery(scope)}`),

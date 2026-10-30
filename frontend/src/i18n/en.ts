@@ -4,6 +4,18 @@ export const en = {
   appName: "Chorus",
   nav: { library: "Library", dictionary: "Dictionary", scores: "Scores", settings: "Settings", menu: "Menu" },
   dictionary: {
+    exchange: {
+      export: "Export", import: "Import", close: "Close", working: "Working…", format: "Format",
+      exportTitle: "Export to Anki", importTitle: "Import from Anki",
+      exportHelp: (n: number) => `${n} ${n === 1 ? "word" : "words"} as the page shows them (its filters apply). One note per word: the word with its article on the front, the translation and the song lines on the back.`,
+      importHelp: "An Anki deck (.apkg, exported with \"Support older Anki versions\") or a text list: one word per line, the word and its translation separated by a tab, semicolon or comma. Words you already have stay as they are.",
+      apkg: "Anki deck (.apkg)", txt: "Plain text (.txt)",
+      withProgress: "Include my review progress", withProgressHelp: "In Anki, tick \"Include scheduling information\" when importing, or the cards start as new.",
+      chooseFile: "Choose a file", otherFile: "Choose another file", noFile: "No file chosen", language: "Language of the words",
+      takeProgress: "Take over the review progress", takeProgressHelp: "Cards you already reviewed in Anki come back due when Anki says so.",
+      exported: (n: number, name: string) => `${n} ${n === 1 ? "word" : "words"} saved as ${name}`,
+      imported: (added: number, existing: number, skipped: number) => `${added} added${existing ? `, ${existing} already in your dictionary` : ""}${skipped ? `, ${skipped} skipped` : ""}`,
+    },
     title: "Dictionary",
     count: (n: number) => `${n} ${n === 1 ? "word" : "words"}`,
     search: "Search words and translations",

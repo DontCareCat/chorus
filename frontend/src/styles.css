@@ -1365,3 +1365,10 @@ button.queue-bar-face { cursor: pointer; }
 .yt-add input[type="text"], .yt-found input[type="text"] { max-width: 100%; box-sizing: border-box; }
 .yt-field { flex-wrap: nowrap; min-width: 0; }
 .add-body, .add-panel > * { min-width: 0; max-width: 100%; }
+
+/* Dictionary: export / import to Anki */
+.dict-actions { display: flex; gap: var(--gap-actions); align-items: center; flex-wrap: wrap; }
+.exchange { display: grid; gap: 16px; }
+.exchange .inline { align-items: center; gap: 12px; flex-wrap: wrap; }
+.exchange-file { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+[data-layout="phone"] .page-head .dict-actions { order: 3; flex-basis: 100%; }

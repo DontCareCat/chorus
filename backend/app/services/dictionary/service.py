@@ -303,3 +303,64 @@ def restore(session: Session, entry: DictionaryEntry, state: dict) -> None:
     for f in SCHEDULE_FIELDS:
         setattr(entry, f, state[f])
     session.commit()
+
+
+# ---------- Anki exchange (see anki.py) ----------
+
+def export_words(session: Session, user: User, status: str, language: str | None, text: str | None) -> list:
+    """The words the Dictionary page shows for these filters (oldest first), ready for a deck or a list."""
+    from app.services.dictionary import anki
+
+    songs: dict[int, str] = {}
+    out = []
+    for e in filtered(session, user, status, language, text).order_by(DictionaryEntry.added_at, DictionaryEntry.id).all():
+        examples, seen = [], set()
+        for ex in e.examples:
+            if sentence_key(ex.sentence) in seen or len(examples) >= 3:
+                continue
+            seen.add(sentence_key(ex.sentence))
+            if ex.song_id not in songs:
+                song = session.get(Song, ex.song_id)
+                songs[ex.song_id] = song.title if song else ""
+            examples.append((ex.sentence, ex.translation, songs[ex.song_id]))
+        out.append(anki.ExportWord(
+            language=e.language, word=e.word, surface=e.surface, article=e.article, translation=e.translation, examples=examples,
+            due_at=e.due_at, interval_seconds=e.interval_seconds, reps=e.reps, lapses=e.lapses, suspended=e.suspended, user_id=user.id,
+        ))
+    return out
+
+
+def import_notes(session: Session, user: User, notes: list, language: str, with_schedule: bool, translation_language: str | None) -> dict:
+    """Words from a deck or list into the dictionary: new words are added (translation kept, the look-ups fill what is missing), words the
+    dictionary already has stay as they are (a missing translation is filled). Returns the counts."""
+    from app.services.dictionary import anki
+
+    lang = base_language(language)
+    now = utcnow()
+    added = existing = skipped = 0
+    seen: set[str] = set()
+    for n in notes:
+        article, headword = anki.split_article(n.front, lang)
+        key = word_key(headword)
+        if not key or len(headword) > 100 or key in seen:
+            skipped += 1
+            continue
+        seen.add(key)
+        translation = (n.back.split("\n")[0].strip()[:300]) if n.back else ""
+        entry = session.query(DictionaryEntry).filter_by(user_id=user.id, language=lang, word=key).one_or_none()
+        if entry is not None:
+            if translation and not entry.translation:
+                entry.translation, entry.translation_language = translation, translation_language
+            existing += 1
+            continue
+        entry = DictionaryEntry(user_id=user.id, language=lang, word=key, surface=headword[:100], article=article)
+        if translation:
+            entry.translation, entry.translation_language, entry.enrich_status = translation, translation_language, "done"
+        if with_schedule and n.reps > 0 and n.due_at is not None:
+            entry.interval_seconds, entry.due_at, entry.reps, entry.lapses = n.interval_seconds, n.due_at, n.reps, n.lapses
+            entry.introduced_at = entry.last_reviewed_at = now
+        entry.suspended = bool(with_schedule and n.suspended)
+        session.add(entry)
+        added += 1
+    session.commit()
+    return {"added": added, "existing": existing, "skipped": skipped}
