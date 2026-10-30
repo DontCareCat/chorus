@@ -42,6 +42,30 @@ def parse_playlist_id(text: str) -> str | None:
     return None
 
 
+def parse_track_id(text: str) -> str | None:
+    """The 22-character id of an open.spotify.com/track/… link (any ?si= parameters) or a spotify:track:… uri."""
+    from urllib.parse import urlparse
+
+    text = text.strip()
+    m = re.fullmatch(r"spotify:track:([A-Za-z0-9]{22})", text)
+    if m:
+        return m.group(1)
+    if "://" not in text:
+        text = "https://" + text
+    try:
+        u = urlparse(text)
+    except ValueError:
+        return None
+    if (u.hostname or "").lower() not in ("open.spotify.com", "play.spotify.com"):
+        return None
+    parts = [p for p in u.path.split("/") if p]
+    if len(parts) > 1 and parts[0].startswith("intl-"):
+        parts = parts[1:]
+    if len(parts) >= 2 and parts[0] == "track" and _ID.match(parts[1]):
+        return parts[1]
+    return None
+
+
 @dataclass
 class SpotifyTrack(TrackRef):
     spotify_id: str = ""
@@ -83,6 +107,22 @@ def parse_embed(html: str) -> SpotifyPlaylist | None:
     return SpotifyPlaylist(name=str(entity.get("name") or entity.get("title") or ""), owner=str(entity.get("subtitle") or ""), tracks=tracks)
 
 
+def parse_track_embed(html: str) -> SpotifyTrack | None:
+    """The track in an embed page, or None when the page does not hold one in the shape known."""
+    m = _NEXT.search(html)
+    if not m:
+        return None
+    try:
+        e = json.loads(m.group(1))["props"]["pageProps"]["state"]["data"]["entity"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    title = str(e.get("name") or e.get("title") or "").strip() if isinstance(e, dict) else ""
+    if not isinstance(e, dict) or e.get("type") != "track" or not title:
+        return None
+    artists = ", ".join(str(a.get("name") or "") for a in e.get("artists") or [] if isinstance(a, dict) and a.get("name"))
+    return SpotifyTrack(title=title, artist=artists, duration=float(e.get("duration") or 0) / 1000, spotify_id=str(e.get("id") or ""))
+
+
 class SpotifyPageClient:
     def __init__(self, http: httpx.Client | None = None):
         self.http = http or httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=12, follow_redirects=True)
@@ -102,4 +142,18 @@ class SpotifyPageClient:
                 "spotify_page_unreadable", "Spotify's page gave no songs for that playlist: it is private, empty, or Spotify changed its page. "
                 "You can paste the songs instead (Import a song list).", 422,
             )
+        return found
+
+    def track(self, track_id: str) -> SpotifyTrack:
+        try:
+            r = self.http.get(EMBED_URL.replace("/playlist/", "/track/") + track_id)
+        except httpx.HTTPError as e:
+            raise SpotifyUnavailable(str(e)) from e
+        if r.status_code == 404:
+            raise AppError("spotify_track_unavailable", "That song does not exist.", 422)
+        if r.status_code >= 400:
+            raise SpotifyUnavailable(f"Spotify returned HTTP {r.status_code}")
+        found = parse_track_embed(r.text)
+        if found is None:
+            raise AppError("spotify_page_unreadable", "Spotify's page gave no song for that link: Spotify may have changed its page. Search for the song by its name instead.", 422)
         return found

@@ -8,7 +8,7 @@ import type { SearchHitDto, SongDto } from "../services/api";
 type State = { step: "searching" } | { step: "error"; message: string; code: string } | { step: "hits"; hits: SearchHitDto[] };
 
 /** Videos for "artist and name" (YouTube Data API with the person's key); each can be added as it is, the title and artist are cleaned as for a link. */
-export function YouTubeSearch({ query, onAdded, onShow }: { query: string; onAdded: (song: SongDto) => void; onShow: (title: string) => void }) {
+export function YouTubeSearch({ query, onAdded, onShow, names }: { query: string; onAdded: (song: SongDto) => void; onShow: (title: string) => void; names?: { title: string; artist: string } }) {
   const [state, setState] = useState<State>({ step: "searching" });
   const [added, setAdded] = useState<Record<string, SongDto>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export function YouTubeSearch({ query, onAdded, onShow }: { query: string; onAdd
     setBusy(hit.video_id);
     setProblem(null);
     try {
-      const song = await api.addYouTubeSong(hit.video_id);
+      const song = await api.addYouTubeSong(hit.video_id, names?.title, names?.artist);
       setAdded((a) => ({ ...a, [hit.video_id]: song }));
       onAdded(song);
     } catch (e) {

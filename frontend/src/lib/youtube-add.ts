@@ -70,7 +70,23 @@ export function parseSpotifyPlaylistId(input: string): string | null {
 /** Where to look for a track on YouTube (a normal search page: the person picks the video and pastes its link). */
 export const youtubeSearchUrl = (artist: string, title: string): string => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${title}`.trim())}`;
 
-export type InputKind = "empty" | "video" | "playlist" | "spotify" | "link" | "search";
+/** The id of a Spotify song link (open.spotify.com/track/… or spotify:track:…). */
+export function parseSpotifyTrackId(input: string): string | null {
+  const text = input.trim();
+  const uri = /^spotify:track:([A-Za-z0-9]{22})$/.exec(text);
+  if (uri) return uri[1]!;
+  try {
+    const u = new URL(text.includes("://") ? text : `https://${text}`);
+    if (!["open.spotify.com", "play.spotify.com"].includes(u.hostname.toLowerCase())) return null;
+    const parts = u.pathname.split("/").filter(Boolean);
+    const rest = parts[0]?.startsWith("intl-") ? parts.slice(1) : parts;
+    return rest[0] === "track" && /^[A-Za-z0-9]{22}$/.test(rest[1] ?? "") ? rest[1]! : null;
+  } catch {
+    return null;
+  }
+}
+
+export type InputKind = "empty" | "video" | "playlist" | "spotify" | "spotifyTrack" | "link" | "search";
 
 /** What the one field of Add music was given: a YouTube video, a YouTube playlist, a Spotify playlist, another link, or words to search for. */
 export function classifyInput(input: string): InputKind {
@@ -78,6 +94,7 @@ export function classifyInput(input: string): InputKind {
   if (!text) return "empty";
   if (parsePlaylistId(text)) return "playlist";
   if (parseSpotifyPlaylistId(text)) return "spotify";
+  if (parseSpotifyTrackId(text)) return "spotifyTrack";
   if (/^spotify:/i.test(text)) return "link";
   const looksLikeLink = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) || /^(www\.|m\.|music\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|open\.spotify\.com)(\/|$)/i.test(text) || /^[^\s/]+\.[a-z]{2,}\/\S*$/i.test(text);
   if (!looksLikeLink) return "search";

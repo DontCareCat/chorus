@@ -155,3 +155,23 @@ def test_import_gives_names_to_videos(api):
     app.dependency_overrides[get_youtube_client] = lambda: c
     r = api.post("/api/songs/youtube/import", json={"video_ids": [VID], "names": {VID: {"title": "Du hast", "artist": "Rammstein"}}}).json()
     assert (r["songs"][0]["title"], r["songs"][0]["artist"]) == ("Du hast", "Rammstein")
+
+
+TRACK_PAGE = '<html><script id="__NEXT_DATA__" type="application/json">' + json.dumps({"props": {"pageProps": {"state": {"data": {"entity": {
+    "type": "track", "name": "Du hast", "id": "t1", "artists": [{"name": "Rammstein"}, {"name": "Someone"}], "duration": 2000}}}}}}) + "</script></html>"
+
+
+def test_spotify_track_link(api, sp, tmp_path):
+    from tests.conftest import make_wav
+    from app.services.spotify_page import parse_track_id
+    assert parse_track_id("https://open.spotify.com/track/5QRkWkMabF6HJmQQm2HBVX?si=abc") == "5QRkWkMabF6HJmQQm2HBVX"
+    assert parse_track_id(f"https://open.spotify.com/playlist/{PID}") is None
+    sp.html = TRACK_PAGE
+    r = api.get("/api/spotify/track", params={"url": "spotify:track:5QRkWkMabF6HJmQQm2HBVX"}).json()
+    assert (r["title"], r["artist"], r["song_id"]) == ("Du hast", "Rammstein, Someone", None)
+    with make_wav(tmp_path / "Rammstein - Du hast.wav", seconds=2).open("rb") as f:
+        song = api.post("/api/songs", files={"file": ("Rammstein - Du hast.wav", f, "audio/wav")}).json()
+    assert api.get("/api/spotify/track", params={"url": "spotify:track:5QRkWkMabF6HJmQQm2HBVX"}).json()["song_id"] == song["id"]
+    assert api.get("/api/spotify/track", params={"url": "https://example.com"}).json()["error"]["code"] == "bad_spotify_link"
+    sp.html = "<html>changed</html>"
+    assert api.get("/api/spotify/track", params={"url": "spotify:track:5QRkWkMabF6HJmQQm2HBVX"}).json()["error"]["code"] == "spotify_page_unreadable"

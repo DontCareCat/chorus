@@ -3,6 +3,7 @@ import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
 import { classifyInput, isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
 import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
+import { SpotifyTrackImport } from "./SpotifyTrackImport";
 import { TrackListImport } from "./TrackListImport";
 import { YouTubeSearch } from "./YouTubeSearch";
 import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
@@ -99,10 +100,11 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         {!problem && !preview && !checking && kind === "empty" && <small>{en.library.youtubeHelp}</small>}
         {kind === "search" && searchFor === null && <small>{en.library.ytSearchHint(link.trim())}</small>}
       </label>
+      {kind === "spotifyTrack" && <SpotifyTrackImport key={link.trim()} link={link.trim()} onAdded={onAdded} onShow={onShow} />}
       {kind === "spotify" && <SpotifyPlaylistImport key={link.trim()} link={link.trim()} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />}
       {kind === "search" && searchFor !== null && <YouTubeSearch query={searchFor} onAdded={onAdded} onShow={onShow} />}
       {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
-      {!listOpen && kind !== "playlist" && kind !== "spotify" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
+      {!listOpen && kind !== "playlist" && kind !== "spotify" && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">

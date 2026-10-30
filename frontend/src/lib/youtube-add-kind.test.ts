@@ -10,6 +10,8 @@ describe("classifyInput", () => {
     ["youtu.be/Y7JG63IuaWs", "video"],
     ["www.youtube.com/watch?v=Y7JG63IuaWs&list=PLAw_8IRmyA1I", "video"],
     ["https://music.youtube.com/watch?v=Y7JG63IuaWs", "video"],
+    ["https://open.spotify.com/track/5QRkWkMabF6HJmQQm2HBVX?si=abc", "spotifyTrack"],
+    ["spotify:track:5QRkWkMabF6HJmQQm2HBVX", "spotifyTrack"],
     ["https://example.com/page", "link"],
     ["spotify:album:abc", "link"],
     ["rammstein du hast", "search"],
