@@ -14,6 +14,7 @@ import os
 import re
 import shutil
 import sqlite3
+import unicodedata
 import tempfile
 import time
 import zipfile
@@ -69,8 +70,12 @@ def _plain(text: str) -> str:
     return "\n".join(line.strip() for line in text.split("\n")).strip()
 
 
+def word_key(word: str) -> str:  # the same key as the dictionary service (the guid must not change when a card is rekeyed)
+    return unicodedata.normalize("NFC", word).strip().replace("’", "'").replace("ʼ", "'").casefold()[:100]
+
+
 def _guid(w: ExportWord) -> str:
-    digest = hashlib.sha1(f"chorus:{w.user_id}:{w.language}:{w.word}".encode()).digest()
+    digest = hashlib.sha1(f"chorus:{w.user_id}:{w.language}:{word_key(w.surface)}".encode()).digest()
     n = int.from_bytes(digest[:8], "big")
     alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~"
     out = ""

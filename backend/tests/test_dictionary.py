@@ -730,3 +730,37 @@ def test_one_card_per_base_word_and_type(api, song, session, dictionary):
     session.commit()
     keys = {r.word for r in session.query(DictionaryEntry).filter_by(user_id=user.id, language="de")}
     assert {"machen", "macht#n"} <= keys
+
+
+def test_asking_a_form_again_finds_its_card(api, song, session, dictionary):
+    """An answered word whose card was settled under its base word ('leihen') is not made again when the form ('leiht') is asked again."""
+    from app.db.models import DictionaryEntry, DictionaryExample, Question, User
+    from app.services.dictionary import service
+    from app.services.dictionary.lookup import DictionaryCache, WordInfo, _key
+    import json
+
+    start(api, song, "typing")
+    user = session.query(User).first()
+    q = session.query(Question).first()
+    card = DictionaryEntry(user_id=user.id, language="de", word="leihen", surface="leihen", enrich_status="done", added_at=service.utcnow())
+    card.examples.append(DictionaryExample(song_id=q.song_id, sentence="ich leihe", audio_start=1, audio_end=2))
+    session.add(card)
+    session.add(DictionaryCache(cache_key=_key("wk4", "de", "leiht", "False"), payload=json.dumps(WordInfo(found=True, lemma="leihen", pos="verb").__dict__)))
+    session.commit()
+    q.missing_word = "leiht"
+    entry, created = service.record_asked(session, user.id, "de", q)
+    assert not created and entry.id == card.id
+    assert session.query(DictionaryEntry).filter_by(user_id=user.id, language="de").count() == 1
+
+
+def test_importing_a_deck_again_does_not_duplicate_settled_cards(api, song, session):
+    from app.db.models import DictionaryEntry, User
+    from app.services.dictionary import anki, service
+
+    start(api, song, "typing")
+    user = session.query(User).first()
+    session.add(DictionaryEntry(user_id=user.id, language="de", word="zeit#n", surface="Zeit", article="die", translation="time", enrich_status="done", added_at=service.utcnow()))
+    session.commit()
+    notes = [anki.ImportedNote(front="die Zeit", back="time")]
+    out = service.import_notes(session, user, notes, "de", False, "en")
+    assert out == {"added": 0, "existing": 1, "skipped": 0}

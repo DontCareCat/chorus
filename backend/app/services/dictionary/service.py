@@ -11,7 +11,7 @@ from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, 
 from app.db.models.types import utcnow
 from app.services.dictionary import srs
 from app.services.dictionary.lookup import (
-    LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, bad_meaning, cached_translation, cached_word_info,
+    LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, bad_meaning, cached_translation, cached_word_info, peek_word_info,
 )
 from app.services.game.nlp import base_language
 from app.services.settings import load_settings
@@ -31,19 +31,42 @@ def sentence_key(text: str) -> str:
     return " ".join("".join(c if c.isalnum() else " " for c in text.casefold()).split())
 
 
+def _line_hint(surface: str, sentence: str) -> bool | None:
+    """The noun hint the lookup will get for this word in this line (see noun_hint)."""
+    word = surface.strip()
+    if not word or not word[0].isupper():
+        return False
+    return True if word in re.findall(r"[\w']+", sentence)[1:] else None
+
+
+def find_card(session: Session, user_id: int, lang: str, surface: str, sentence: str) -> DictionaryEntry | None:
+    """The card a sung word already belongs to: its own spelling, or (from an earlier lookup, nobody asked) the base word and type it was found to be."""
+    key = word_key(surface)
+    q = session.query(DictionaryEntry).filter(DictionaryEntry.user_id == user_id, DictionaryEntry.language == lang)
+    found = q.filter(DictionaryEntry.word.in_([key, key + "#n"])).order_by(DictionaryEntry.id).first()
+    if found is not None:
+        return found
+    info = peek_word_info(session, surface.strip(), lang, _line_hint(surface, sentence))
+    if info is None or not info.found:
+        return None
+    article = article_for(lang, info.gender, info.lemma or surface) if info.is_noun else None
+    probe = DictionaryEntry(language=lang, lemma=info.lemma, surface=surface.strip(), article=article)
+    return q.filter(DictionaryEntry.word == card_key(probe, info)[:100]).first()
+
+
 def record_asked(session: Session, user_id: int, language: str, question: Question) -> tuple[DictionaryEntry, bool]:
     """Put the word of a question into the user's dictionary (right or wrong) with the line it came from.
     Returns (entry, created). Asking the same word again only adds a new example sentence."""
     lang = base_language(language)
     key = word_key(question.missing_word)
-    entry = session.query(DictionaryEntry).filter_by(user_id=user_id, language=lang, word=key).one_or_none()
+    line = session.get(LyricLine, question.lyric_line_id)
+    sentence = (line.text if line is not None else question.sentence).strip()
+    entry = find_card(session, user_id, lang, question.missing_word, sentence)
     created = entry is None
     if created:
         entry = DictionaryEntry(user_id=user_id, language=lang, word=key, surface=question.missing_word.strip()[:100])
         session.add(entry)
         session.flush()
-    line = session.get(LyricLine, question.lyric_line_id)
-    sentence = (line.text if line is not None else question.sentence).strip()
     have = {sentence_key(e.sentence) for e in entry.examples}
     if sentence and sentence_key(sentence) not in have and len(entry.examples) < MAX_EXAMPLES:
         entry.examples.append(DictionaryExample(
@@ -113,18 +136,32 @@ def fallback_meaning(session: Session, translator: Translator, entry: Dictionary
 def card_key(entry: DictionaryEntry, info: WordInfo) -> str:
     """One card per base word and word type: leiht and leihen are 'leihen', 'macht' is the verb 'machen' and 'Macht' the noun 'macht#n'."""
     base = word_key(entry.lemma or entry.surface)
-    return f"{base}#n" if info.is_noun else base
+    # a noun is told from a verb of the same spelling where nouns are written differently (German capitals) or have articles
+    return f"{base}#n" if info.is_noun and (entry.language == "de" or entry.article) else base
 
 
-def _settle_key(session: Session, entry: DictionaryEntry, info: WordInfo) -> None:
+def _settle_key(session: Session, entry: DictionaryEntry, info: WordInfo) -> DictionaryEntry:
+    """Gives the entry the key of its base word and type. When that card exists already the older card stays (its id is the one the person knows)
+    and takes over this entry; the card that is left is returned."""
     key = card_key(entry, info)[:100]
     if key == entry.word:
-        return
+        return entry
     other = session.query(DictionaryEntry).filter(
         DictionaryEntry.user_id == entry.user_id, DictionaryEntry.language == entry.language, DictionaryEntry.word == key, DictionaryEntry.id != entry.id).one_or_none()
-    if other is not None:
-        merge_cards(session, entry, other)
-    entry.word = key
+    if other is None:
+        entry.word = key
+        return entry
+    keep, gone = (other, entry) if other.id < entry.id else (entry, other)
+    if keep is other:  # the new row brings what the lookup found: the older card has it too, or gets it
+        for f in ("lemma", "article", "surface"):
+            if getattr(other, f) is None:
+                setattr(other, f, getattr(entry, f))
+        if not other.translation and entry.translation:
+            other.translation, other.translation_language = entry.translation, entry.translation_language
+        other.enrich_status, other.lookup_version = entry.enrich_status, entry.lookup_version
+    merge_cards(session, keep, gone)
+    keep.word = key
+    return keep
 
 
 def merge_cards(session: Session, keep: DictionaryEntry, other: DictionaryEntry) -> None:
@@ -153,7 +190,7 @@ def merge_cards(session: Session, keep: DictionaryEntry, other: DictionaryEntry)
     session.flush()
 
 
-def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary, fresh: bool = False) -> None:
+def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translator: Translator, wiktionary: Wiktionary, fresh: bool = False) -> DictionaryEntry:
     """Fill in lemma, article and translations. Anything that fails leaves the entry 'failed' so a later try can finish it."""
     failed = False
     source = entry.language
@@ -202,9 +239,9 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
     entry.enrich_status = "failed" if failed else "done"
     if not failed:
         entry.lookup_version = 1
-    if not failed and info.found:
-        _settle_key(session, entry, info)
+    survivor = _settle_key(session, entry, info) if not failed and info.found else entry
     session.commit()
+    return survivor
 
 
 _running: dict[int, bool] = {}  # users with an enrichment task going -> "more entries arrived while it ran"
@@ -267,12 +304,15 @@ def _enrich_once(factory: sessionmaker, translator: Translator, wiktionary: Wikt
             q = session.query(DictionaryEntry).filter_by(user_id=user_id)
             q = q.filter_by(id=entry_id) if entry_id is not None else q.filter_by(enrich_status="pending")
             unreachable = 0
-            for entry in q.order_by(DictionaryEntry.id).all():
+            for eid in [e.id for e in q.order_by(DictionaryEntry.id).all()]:
                 if unreachable >= 3:
                     break  # the services do not answer: the rest waits for the next try instead of asking one by one
+                entry = session.get(DictionaryEntry, eid)
+                if entry is None:
+                    continue  # merged into another card meanwhile
                 try:
-                    enrich_entry(session, entry, user.translation_language, translator, wiktionary, fresh=entry_id is not None)
-                    unreachable = unreachable + 1 if entry.enrich_status == "failed" else 0
+                    survivor = enrich_entry(session, entry, user.translation_language, translator, wiktionary, fresh=entry_id is not None)
+                    unreachable = unreachable + 1 if survivor.enrich_status == "failed" else 0
                 except Exception:
                     log.exception("enriching dictionary entry %s failed", entry.id)
                     session.rollback()
@@ -452,7 +492,12 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
             continue
         seen.add((note_lang, key))
         if note_lang not in cache:
-            cache[note_lang] = {e.word: e for e in session.query(DictionaryEntry).filter_by(user_id=user.id, language=note_lang)}
+            index: dict[str, DictionaryEntry] = {}
+            for e in session.query(DictionaryEntry).filter_by(user_id=user.id, language=note_lang).order_by(DictionaryEntry.id.desc()):
+                for k in (e.word, e.word.removesuffix("#n"), word_key(e.surface), word_key(e.lemma) if e.lemma else None):  # settled cards are found by the word as written too
+                    if k:
+                        index[k] = e
+            cache[note_lang] = index
         translation = (n.back.split("\n")[0].strip()[:300]) if n.back else ""
         if bad_meaning(translation):
             translation = ""  # an exported ")" is looked up again instead

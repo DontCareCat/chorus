@@ -310,9 +310,15 @@ def bad_meaning(text: str | None) -> bool:
             or bool(re.search(r"\(\s*see\b", text, re.I)))
 
 
+def peek_word_info(session: Session, word: str, code: str, noun_hint: bool | None) -> WordInfo | None:
+    """What an earlier lookup found for this word, without asking anyone (None when it was never looked up)."""
+    row = session.query(DictionaryCache).filter_by(cache_key=_key("wk4", code, word, str(noun_hint))).one_or_none()
+    return WordInfo(**json.loads(row.payload)) if row is not None else None
+
+
 def cached_word_info(session: Session, wiktionary: Wiktionary, word: str, code: str, noun_hint: bool | None = None, fresh: bool = False) -> WordInfo:
     """`fresh`: "look up again" asks Wiktionary again and replaces the cached answer."""
-    key = _key("wk3", code, word, str(noun_hint))
+    key = _key("wk4", code, word, str(noun_hint))
     row = session.query(DictionaryCache).filter_by(cache_key=key).one_or_none()
     if row is not None and not fresh:
         return WordInfo(**json.loads(row.payload))

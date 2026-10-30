@@ -20,7 +20,7 @@ def test_repair_merges_requeues_and_is_idempotent():
                           "last_reviewed_at TEXT, lookup_version INT)"))
         c.execute(sa.text("CREATE TABLE dictionary_examples (id INTEGER PRIMARY KEY, entry_id INT, sentence TEXT)"))
         c.execute(sa.text("CREATE TABLE dictionary_cache (cache_key TEXT, payload TEXT)"))
-        c.execute(sa.text("INSERT INTO dictionary_cache VALUES ('wk2:x', '{}'), ('wk3:y', '{}')"))
+        c.execute(sa.text("INSERT INTO dictionary_cache VALUES ('wk2:x', '{}'), ('wk3:y', '{}'), ('wk4:z', '{}')"))
         c.execute(sa.text(f"INSERT INTO dictionary_entries ({COLS}) VALUES "
                           "(1,'de','geh’n','geh’n',NULL,NULL,'to go','en','done',0,'2026-01-01',864000,5,1,'2030-01-01','2026-01-01','2026-06-01',0),"
                           "(1,'de','geh''n','geh''n',NULL,NULL,')','en','done',1,'2025-01-01',60,1,3,'2026-02-01','2025-01-01','2026-01-02',0),"

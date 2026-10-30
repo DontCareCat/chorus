@@ -41,7 +41,7 @@ def bad_meaning(t: str | None) -> bool:
 
 def card_key_stored(r) -> str:
     base = norm_key(r["lemma"] or r["surface"])
-    return f"{base}#n" if r["article"] else base
+    return f"{base}#n" if r["article"] else base  # German nouns without an article are looked up again, not keyed here
 
 
 def suspicious(r) -> bool:
@@ -100,12 +100,13 @@ def repair(conn) -> dict:
             "UPDATE dictionary_entries SET word = :word, translation = :translation, translation_language = :translation_language, enrich_status = :status, reps = :reps, "
             "lapses = :lapses, suspended = :suspended, added_at = :added_at, introduced_at = :introduced_at, last_reviewed_at = :last_reviewed_at, lookup_version = :version WHERE id = :id"),
             {**{k: keep[k] for k in ("translation", "translation_language", "reps", "lapses", "suspended", "added_at", "introduced_at", "last_reviewed_at", "id")}, "word": key, "status": status, "version": version})
-    conn.execute(sa.text("DELETE FROM dictionary_cache WHERE cache_key LIKE 'wk2:%'"))
+    conn.execute(sa.text("DELETE FROM dictionary_cache WHERE cache_key LIKE 'wk2:%' OR cache_key LIKE 'wk3:%'"))
     return stats
 
 
 def upgrade() -> None:
-    op.add_column("dictionary_entries", sa.Column("lookup_version", sa.Integer(), nullable=False, server_default="0"))
+    if "lookup_version" not in {c["name"] for c in sa.inspect(op.get_bind()).get_columns("dictionary_entries")}:  # a failed run on MySQL leaves the column behind
+        op.add_column("dictionary_entries", sa.Column("lookup_version", sa.Integer(), nullable=False, server_default="0"))
     repair(op.get_bind())
 
 
