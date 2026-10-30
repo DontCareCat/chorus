@@ -17,7 +17,9 @@ class SongOut(BaseModel):
     language_source: str = "default"  # default | detected (from the lyrics) | manual
     lyrics_offset: float
     source: SongSource
-    file_name: str
+    file_name: str | None
+    youtube_id: str | None = None
+    youtube_channel: str | None = None
     available: bool
     has_cover: bool | None  # None = not checked yet; the cover endpoint answers 404 if there is none
     cover_source: str | None = None  # embedded | online | custom | choose (candidates to pick from) | none
@@ -35,6 +37,12 @@ class SongPatch(BaseModel):
     album: str | None = Field(None, max_length=300)
     language: str | None = Field(None, min_length=2, max_length=16)
     lyrics_offset: float | None = Field(None, ge=-60, le=60)
+
+
+class YouTubeRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=500)  # a watch / shorts / youtu.be link or the video id
+    title: str | None = Field(None, min_length=1, max_length=300)
+    artist: str | None = Field(None, max_length=300)
 
 
 class RetryRequest(BaseModel):

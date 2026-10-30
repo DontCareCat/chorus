@@ -2,7 +2,7 @@ export interface Searchable {
   title: string;
   artist: string;
   album: string | null;
-  file_name: string;
+  file_name: string | null;
 }
 
 export interface Matcher {
@@ -21,7 +21,7 @@ const MAX_PATTERN = 200;
 export function buildMatcher(query: string, regex: boolean): Matcher {
   const q = query.trim();
   if (!q) return { test: () => true, error: null };
-  const fields = (s: Searchable) => [s.title, s.artist, s.album ?? "", s.file_name];
+  const fields = (s: Searchable) => [s.title, s.artist, s.album ?? "", s.file_name ?? ""];
   if (!regex) {
     const words = q.toLowerCase().split(/\s+/);
     return { test: (s) => { const hay = fields(s).join(" \n ").toLowerCase(); return words.every((w) => hay.includes(w)); }, error: null };

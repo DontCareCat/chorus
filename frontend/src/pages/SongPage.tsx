@@ -25,7 +25,7 @@ export function SongPage({ songId }: { songId: number }) {
     <>
       <a className="crumb" href={paths.library()}>← {en.song.back}</a>
       <div className="page-head with-cover">
-        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="xl" />
+        <Cover songId={s.id} title={s.title} hasCover={s.has_cover} youtubeId={s.youtube_id} size="xl" />
         <div>
           <h1>{s.title}</h1>
           <div className="song-meta">

@@ -44,7 +44,7 @@ export function ScoresPage() {
       {tab === "all" ? <GlobalBoard mode={mode} /> : (
         <>
           <div className="song-pick">
-            {chosenSong && <Cover songId={chosenSong.id} title={chosenSong.title} hasCover={chosenSong.has_cover} size="large" />}
+            {chosenSong && <Cover songId={chosenSong.id} title={chosenSong.title} hasCover={chosenSong.has_cover} youtubeId={chosenSong.youtube_id} size="large" />}
             <label className="field">
               <span>{en.scores.chooseSong}</span>
               <Select value={chosen ?? ""} onChange={(v: number) => setSongId(v)} options={(songs.data ?? []).map((s) => ({ value: s.id, label: `${s.title} · ${s.artist}` }))} />

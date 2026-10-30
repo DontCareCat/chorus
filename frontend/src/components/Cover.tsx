@@ -10,17 +10,19 @@ interface Props {
   size?: "small" | "large" | "xl" | "row" | "label";
   /** Changes when the cover was replaced, so the browser fetches the new image. */
   version?: string | number;
+  /** A YouTube song shows the video's thumbnail, loaded from YouTube each time and never stored. */
+  youtubeId?: string | null;
 }
 
 /** Embedded album art; without it a tile with the title's first letter and a hue that is stable per song. */
-export function Cover({ songId, title, hasCover, size = "small", version }: Props) {
+export function Cover({ songId, title, hasCover, size = "small", version, youtubeId }: Props) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [hasCover, version]);
-  const show = hasCover !== false && !failed;
+  const show = (hasCover !== false || !!youtubeId) && !failed;
   const style = { "--hue": (songId * 47) % 360 } as CSSProperties;
   return (
     <div className="cover" data-size={size} data-empty={!show} style={style} aria-hidden={!show}>
-      {show ? <img src={api.coverUrl(songId, version)} alt="" loading="lazy" onError={() => setFailed(true)} /> : Array.from(title.trim())[0]?.toUpperCase() ?? "♪"}
+      {show ? <img src={youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg` : api.coverUrl(songId, version)} alt="" loading="lazy" onError={() => setFailed(true)} /> : Array.from(title.trim())[0]?.toUpperCase() ?? "♪"}
     </div>
   );
 }

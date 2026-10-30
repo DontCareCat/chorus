@@ -50,7 +50,7 @@ def _questions(session: Session, game: Game) -> list[Question]:
 def game_out(session: Session, game: Game) -> GameOut:
     song = session.get(Song, game.song_id)
     lyrics = session.get(Lyrics, game.lyrics_id)
-    if song.sample_rate is None and song.available:  # songs added before the rate was stored: look it up once
+    if song.sample_rate is None and song.available and song.file_path:  # songs added before the rate was stored: look it up once
         song.sample_rate = read_sample_rate(Path(song.file_path))
         session.commit()
     ordered = session.query(LyricLine).filter_by(lyrics_id=game.lyrics_id).order_by(LyricLine.sequence).all()

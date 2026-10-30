@@ -96,6 +96,14 @@ export function LibraryPage() {
       return en.library.importDone(r.added, r.skipped);
     });
 
+  const [ytLink, setYtLink] = useState("");
+  const addYouTube = () =>
+    run(async () => {
+      const song = await api.addYouTubeSong(ytLink.trim());
+      setYtLink("");
+      return en.library.youtubeAdded(song.title);
+    });
+
   const upload = (files: FileList | File[] | null) =>
     run(async () => {
       const list = Array.from(files ?? []).filter((f) => AUDIO_RE.test(f.name)); // a folder pick also contains art, text, …
@@ -118,7 +126,7 @@ export function LibraryPage() {
     });
 
   const remove = async (s: SongDto) => {
-    const sure = window.confirm(s.source === "library" ? en.library.removeLibrary(s.title) : en.library.removeCopy(s.title));
+    const sure = window.confirm(s.source === "library" ? en.library.removeLibrary(s.title) : s.source === "youtube" ? en.library.removeYouTube(s.title) : en.library.removeCopy(s.title));
     if (!sure) return;
     await run(async () => {
       await api.deleteSong(s.id);
@@ -243,6 +251,16 @@ export function LibraryPage() {
               <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
+          <form autoComplete="off" className="youtube-add" onSubmit={(e) => { e.preventDefault(); if (ytLink.trim()) void addYouTube(); }}>
+            <label className="field" style={{ marginBottom: 0 }}>
+              <span>{en.library.youtubeLink}</span>
+              <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
+                <input type="url" {...noAutofill("youtube-link")} value={ytLink} onChange={(e) => setYtLink(e.target.value)} placeholder={en.library.youtubePlaceholder} style={{ fontSize: 15 }} />
+                <button type="submit" className="btn inverse" disabled={busy || !ytLink.trim()} style={{ borderRadius: 10 }}>{en.library.youtubeAdd}</button>
+              </div>
+              <small>{en.library.youtubeHelp}</small>
+            </label>
+          </form>
           <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
             <div>
               <label className="field" style={{ marginBottom: 0 }}>
@@ -277,7 +295,7 @@ export function LibraryPage() {
 
       {unfinished && resumeSong && (
         <section className="continue" aria-label={en.library.continueTitle}>
-          <Cover songId={resumeSong.id} title={resumeSong.title} hasCover={resumeSong.has_cover} size="large" />
+          <Cover songId={resumeSong.id} title={resumeSong.title} hasCover={resumeSong.has_cover} youtubeId={resumeSong.youtube_id} size="large" />
           <div className="continue-body">
             <div className="eyebrow">{en.library.continueTitle}</div>
             <div className="continue-title">{resumeSong.title} <span>· {resumeSong.artist}</span></div>

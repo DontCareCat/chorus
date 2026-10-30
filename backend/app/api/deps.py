@@ -11,6 +11,7 @@ from app.services.library.covers import CoverClient
 from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.lrclib import LrclibClient
+from app.services.youtube import YouTubeClient
 from app.services.settings import RuntimeSettings, load_settings
 
 
@@ -35,6 +36,15 @@ def get_cover_client() -> CoverClient:  # overridden in tests
 @lru_cache
 def _translator() -> Translator:
     return Translator()
+
+
+@lru_cache
+def _youtube() -> YouTubeClient:
+    return YouTubeClient()
+
+
+def get_youtube_client() -> YouTubeClient:  # overridden in tests
+    return _youtube()
 
 
 def get_translator() -> Translator:  # overridden in tests

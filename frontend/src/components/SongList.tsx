@@ -266,13 +266,14 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, 
           <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
           <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
             {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
-            <Cover songId={s.id} title={s.title} hasCover={s.has_cover} size="row" />
+            <Cover songId={s.id} title={s.title} hasCover={s.has_cover} youtubeId={s.youtube_id} size="row" />
             <div className="song-text">
               <div className="song-title" title={s.title}>{s.title}{gone && <span className="dup-tag">{en.playlists.removedTag}</span>}</div>
               <div className="song-meta">
                 <span title={s.artist}>{s.artist}</span>
                 <span className="lang">{s.language}</span>
-                <span>{mmss(s.duration)}</span>
+                {s.source === "youtube" && <span className="dup-tag yt-tag">{en.library.youtubeBadge}</span>}
+                {(s.duration > 0 || s.source !== "youtube") && <span>{mmss(s.duration)}</span>}
                 {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
                 {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
               </div>

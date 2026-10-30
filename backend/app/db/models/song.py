@@ -13,6 +13,7 @@ class SongSource(str, enum.Enum):
     library = "library"  # discovered folder, used in place
     import_ = "import"  # copied from a server path into MEDIA_DIR
     upload = "upload"  # uploaded from the browser
+    youtube = "youtube"  # played by the YouTube player; no file
 
 
 class LyricsStatus(str, enum.Enum):
@@ -37,8 +38,11 @@ class Song(Base):
     language: Mapped[str] = mapped_column(String(16))  # language of the lyrics = language being learned
     lyrics_offset: Mapped[float] = mapped_column(Float, default=0.0)  # user timing correction, seconds
     source: Mapped[SongSource] = mapped_column(Enum(SongSource, native_enum=False, length=16))
-    file_path: Mapped[str] = mapped_column(String(1000))
-    file_name: Mapped[str] = mapped_column(String(300))
+    file_path: Mapped[str | None] = mapped_column(String(1000), default=None)  # None for YouTube songs
+    file_name: Mapped[str | None] = mapped_column(String(300), default=None)
+    youtube_id: Mapped[str | None] = mapped_column(String(16), unique=True, default=None)
+    youtube_channel: Mapped[str | None] = mapped_column(String(300), default=None)
+    youtube_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)  # YouTube's own facts (title, channel, length) are refreshed or dropped after 30 days
     available: Mapped[bool] = mapped_column(Boolean, default=True)
     removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())  # hidden library song
     has_cover: Mapped[bool | None] = mapped_column(Boolean, default=None)  # None = not checked yet

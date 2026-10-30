@@ -7,13 +7,13 @@ from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, path_access
+from app.api.deps import current_user, get_cfg, get_cover_client, get_lrclib_client, get_session_factory, get_song, get_youtube_client, path_access
 from app.core.config import settings as env
 from app.core.errors import AppError
 from app.db.models.types import utcnow
 from app.db.database import get_session
 from app.db.models import Game, Lyrics, LyricsStatus, Song, SongSource, User
-from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, RetryOut, RetryRequest, ScanOut, SongOut, SongPatch
+from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, RetryOut, RetryRequest, ScanOut, SongOut, SongPatch, YouTubeRequest
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
 from app.services.library.storage import check_extension, save_upload
@@ -26,6 +26,7 @@ from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.lyrics.stall import is_stalled
 from app.services.settings import RuntimeSettings, load_settings
+from app.services.youtube import YouTubeClient, YouTubeUnavailable, clean_title, parse_video_id
 
 router = APIRouter(prefix="/api", tags=["songs"], dependencies=[Depends(current_user)])
 
@@ -66,6 +67,40 @@ def upload_song(
     if created:
         background.add_task(discover_for_songs, factory, client, [song.id])
         background.add_task(fetch_covers_for_songs, factory, covers, [song.id])
+    return song
+
+
+@router.post("/songs/youtube", response_model=SongOut, status_code=201)
+def add_youtube_song(
+    body: YouTubeRequest, background: BackgroundTasks, response: Response, session: Session = Depends(get_session),
+    cfg: RuntimeSettings = Depends(get_cfg), factory: sessionmaker = Depends(get_session_factory),
+    client: LrclibClient = Depends(get_lrclib_client), youtube: YouTubeClient = Depends(get_youtube_client),
+):
+    """Add a song that is played from YouTube: only the video id and the facts YouTube shows publicly are kept."""
+    video_id = parse_video_id(body.url)
+    if video_id is None:
+        raise AppError("bad_youtube_link", "That is not a YouTube video link", 422)
+    existing = session.scalar(select(Song).where(Song.youtube_id == video_id))
+    if existing is not None:
+        if existing.removed:
+            existing.removed = False
+            session.commit()
+        response.status_code = 200
+        return existing
+    try:
+        info = youtube.info(video_id)
+    except YouTubeUnavailable as e:
+        raise AppError("youtube_unreachable", "YouTube could not be reached; try again in a moment", 503) from e
+    artist, title = clean_title(info.title, info.channel)
+    song = Song(
+        title=(body.title or title or video_id).strip(), artist=(body.artist if body.artist is not None else artist).strip(), duration=0.0,
+        language=cfg.default_language, source=SongSource.youtube, youtube_id=video_id, youtube_channel=info.channel or None,
+        youtube_checked_at=utcnow(), content_hash=f"youtube:{video_id}", available=True, has_cover=False, cover_source="youtube",
+        lyrics_status=LyricsStatus.pending,
+    )
+    session.add(song)
+    session.commit()
+    background.add_task(discover_for_songs, factory, client, [song.id])
     return song
 
 
@@ -340,6 +375,8 @@ def cover_remove(song: Song = Depends(get_song), session: Session = Depends(get_
 
 @router.get("/songs/{song_id}/audio")
 def stream_audio(song: Song = Depends(get_song)):
+    if song.file_path is None:
+        raise AppError("no_file", "This song is played from YouTube and has no audio file", 404)
     path = Path(song.file_path)
     if not path.is_file():
         raise AppError("file_missing", "The audio file is no longer available", 404)

@@ -53,7 +53,7 @@ export function QueueBar({ phone }: { phone: boolean }) {
     const over = c >= q.items.length;
     return (
       <>
-        {song ? <Cover songId={song.id} title={song.title} hasCover={song.has_cover} size="row" /> : <span className="cover-ph" aria-hidden="true" />}
+        {song ? <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" /> : <span className="cover-ph" aria-hidden="true" />}
         <span className="queue-bar-text">
           <strong><Marquee>{over ? en.queue.finishedTitle : song ? en.queue.nextUp(song.title) : "…"}</Marquee></strong>
           <small><Marquee>{(live && store.message) || (over ? en.queue.finishedSub(q.items.length) : `${en.queue.position(c + 1, q.items.length)}${song ? ` · ${song.artist}` : ""}`)}</Marquee></small>

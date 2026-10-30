@@ -122,7 +122,7 @@ function QueueRow({ item, song, phone, orderable, resolved, onLevel, onRemove, o
       <div className="swipe-reveal remove" aria-hidden="true">{en.queue.swipeRemove}<Icon name="trash" /></div>
       <div className="queue-face" data-swipe-face>
         {orderable && <button type="button" className="grip" data-grip aria-label={en.queue.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"><Icon name="grip" /></button>}
-        {song && <Cover songId={song.id} title={song.title} hasCover={song.has_cover} size="row" />}
+        {song && <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" />}
         <div className="queue-text">
           <strong title={title}>{title}</strong>
           <small>{song?.artist}{phone && <> · <LevelLabel level={item.difficulty === "progressive" ? resolved : item.difficulty} progressive={item.difficulty === "progressive"} size={14} /></>}</small>

@@ -3,7 +3,7 @@ export interface DuplicateCandidate {
   title: string;
   artist: string;
   duration: number;
-  file_name: string;
+  file_name: string | null;
 }
 
 export type DuplicateReason = "file_name" | "metadata";
@@ -49,7 +49,7 @@ export function findDuplicates(songs: readonly DuplicateCandidate[]): DuplicateG
   const byName = new Map<string, DuplicateCandidate[]>();
   const byTags = new Map<string, DuplicateCandidate[]>();
   for (const s of songs) {
-    const n = nameKey(s.file_name);
+    const n = s.file_name ? nameKey(s.file_name) : "";
     if (n) byName.set(n, [...(byName.get(n) ?? []), s]);
     const t = titleKey(s.title);
     if (t) byTags.set(`${t}|${fold(s.artist)}`, [...(byTags.get(`${t}|${fold(s.artist)}`) ?? []), s]);

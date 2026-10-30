@@ -64,7 +64,7 @@ export function CoverPicker({ song, onChanged, bare = false }: Props) {
     <section className={bare ? "cover-picker" : "panel cover-picker"}>
       {!bare && <h2>{en.cover.title}</h2>}
       <div className="cover-now">
-        <Cover songId={song.id} title={song.title} hasCover={song.has_cover} size="large" version={version} />
+        <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="large" version={version} />
         <p className="muted">{status}</p>
       </div>
       <div className="page-actions" style={{ marginTop: 14 }}>

@@ -52,11 +52,13 @@ export interface SongDto {
   language: string;
   language_source: "default" | "detected" | "manual";
   lyrics_offset: number;
-  source: "library" | "import" | "upload";
-  file_name: string;
+  source: "library" | "import" | "upload" | "youtube";
+  file_name: string | null;
+  youtube_id?: string | null;
+  youtube_channel?: string | null;
   available: boolean;
   has_cover: boolean | null;
-  cover_source: "embedded" | "online" | "custom" | "choose" | "none" | null;
+  cover_source: "embedded" | "online" | "custom" | "choose" | "none" | "youtube" | null;
   lyrics_status: "pending" | "found" | "needs_choice" | "not_found";
   lyrics_stalled?: boolean;
   created_at: string;
@@ -331,6 +333,7 @@ export const api = {
   songs: () => request<SongDto[]>("/api/songs"),
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
+  addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),
   listFolder: (path?: string, hidden = false) =>

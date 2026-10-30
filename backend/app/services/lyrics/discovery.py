@@ -80,6 +80,8 @@ def attach_candidate(
 
 
 def _sidecar_text(song: Song) -> str | None:
+    if song.file_path is None:
+        return None
     audio = Path(song.file_path)
     for p in (audio.with_suffix(".lrc"), audio.with_name(audio.name + ".lrc")):
         try:

@@ -154,11 +154,11 @@ def remove_song(session: Session, song: Song, media_dir: Path) -> str:
     for lyrics in session.scalars(select(Lyrics).where(Lyrics.song_id == song.id)):
         session.delete(lyrics)  # cascades to its lines
     session.flush()
-    path = Path(song.file_path)
+    path = Path(song.file_path) if song.file_path else None
     session.delete(song)
     session.commit()
     try:
-        if path.is_file() and media_dir.resolve() in path.resolve().parents:  # only ever delete our own copy
+        if path is not None and path.is_file() and media_dir.resolve() in path.resolve().parents:  # only ever delete our own copy
             path.unlink()
     except OSError:
         pass
