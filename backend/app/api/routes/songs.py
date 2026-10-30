@@ -28,7 +28,7 @@ from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.lyrics.stall import is_stalled
 from app.services.settings import RuntimeSettings, load_settings
-from app.services.youtube import YouTubeClient, YouTubeUnavailable, add_youtube_video, clean_title, has_stale, parse_video_id, refresh_stale
+from app.services.youtube import YouTubeClient, YouTubeUnavailable, add_youtube_video, clean_title, fill_lengths, has_stale, parse_video_id, refresh_stale
 
 IMPORT_SECONDS = 25  # of one import call
 
@@ -45,6 +45,8 @@ def list_songs(
     timeout, now = cfg.lyrics_timeout_minutes, utcnow()
     if cfg.youtube_enabled and any(s.source == SongSource.youtube for s in songs) and has_stale(session):
         background.add_task(refresh_stale, factory, youtube)
+    if cfg.youtube_enabled and any(s.source == SongSource.youtube and s.duration <= 0 for s in songs):
+        background.add_task(fill_lengths, factory, youtube)  # every song gets its real length, also the ones added before the length was read
     if not cfg.youtube_enabled:  # switched off: the songs stay, but cannot be played (shown like a missing file)
         for s in songs:
             if s.source == SongSource.youtube:
@@ -305,6 +307,22 @@ def patch_song(
     if learned_length and song.lyrics_status != LyricsStatus.found:
         # the length makes the lyrics match better: look again (lyrics already attached are never replaced; the status is whatever the lookup finds)
         background.add_task(discover_for_songs, factory, client, [song.id])
+    return song
+
+
+@router.post("/songs/{song_id}/length", response_model=SongOut)
+def ensure_length(
+    background: BackgroundTasks, song: Song = Depends(get_song), session: Session = Depends(get_session),
+    factory: sessionmaker = Depends(get_session_factory), client: LrclibClient = Depends(get_lrclib_client), youtube: YouTubeClient = Depends(get_youtube_client),
+):
+    """Looks up the song's real length when it is not known (a YouTube video's page); the song comes back as it is when that fails."""
+    if song.duration <= 0 and song.source == SongSource.youtube and song.youtube_id:
+        length = youtube.length(song.youtube_id)
+        if length > 0:
+            song.duration = length
+            session.commit()
+            if song.lyrics_status != LyricsStatus.found:
+                background.add_task(discover_for_songs, factory, client, [song.id])  # the length makes the lyrics match better
     return song
 
 

@@ -162,6 +162,42 @@ def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
         _refreshing.release()
 
 
+_filling = threading.Lock()
+
+
+def fill_lengths(factory, client: "YouTubeClient") -> int:
+    """Gives every YouTube song without a length its real one (read from the video's page). A few per pass, saved song by song; what
+    cannot be read now (offline, busy) is tried again at the next pass."""
+    from sqlalchemy import select
+
+    from app.db.models import Song, SongSource
+
+    if not _filling.acquire(blocking=False):
+        return 0
+    try:
+        done = 0
+        with factory() as session:
+            ids = session.scalars(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), Song.duration <= 0).limit(MAX_PER_PASS)).all()
+            for song_id in ids:
+                song = session.get(Song, song_id)
+                length = client.length(song.youtube_id)
+                if length > 0:
+                    song.duration = length
+                    session.commit()
+                    done += 1
+        return done
+    finally:
+        _filling.release()
+
+
+def has_unknown_length(session) -> bool:
+    from sqlalchemy import select
+
+    from app.db.models import Song, SongSource
+
+    return session.scalar(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), Song.duration <= 0).limit(1)) is not None
+
+
 def _stale(now):
     from app.db.models import Song
 

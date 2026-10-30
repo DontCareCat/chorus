@@ -451,7 +451,6 @@ export const en = {
     chooseHelp: "Pick the lyrics that match your recording. Your current lyrics stay until you choose.",
     switchedNote: "Games already started keep the lyrics they began with.",
     thisSong: (len: string) => `Your song is ${len} long. The closest lyrics come first.`,
-    lengthUnknown: "The length of this song is not known yet, so the closest lyrics cannot be put first.",
     off: (s: number) => (s === 0 ? "same length" : `${s > 0 ? "+" : "−"}${Math.abs(s)} s`),
     searchPlaceholder: "Artist and title",
     search: "Search",

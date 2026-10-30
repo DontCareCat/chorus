@@ -327,3 +327,23 @@ def test_length_from_the_public_page():
     c = YouTubeClient(httpx.Client(transport=httpx.MockTransport(handler)))
     assert c.length("ok123456789") == 215.0
     assert c.length("zzzzzzzzzzz") == 0.0
+
+
+def test_lengths_are_filled_in_and_the_dialog_can_ask(api, yt, session):
+    from sqlalchemy.orm import sessionmaker
+    from app.db.models import Song
+    from app.services.youtube import fill_lengths, has_unknown_length
+
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    with factory() as q:
+        q.get(Song, s["id"]).duration = 0
+        q.commit()
+        assert has_unknown_length(q)
+    assert fill_lengths(factory, yt.client()) == 1
+    with factory() as q:
+        assert q.get(Song, s["id"]).duration == 213 and not has_unknown_length(q)
+        q.get(Song, s["id"]).duration = 0
+        q.commit()
+    r = api.post(f"/api/songs/{s['id']}/length")
+    assert r.status_code == 200 and r.json()["duration"] == 213

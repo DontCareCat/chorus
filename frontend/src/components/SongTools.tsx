@@ -76,6 +76,14 @@ export function Finder({ song, hasLyrics, onAttached, bare = false }: { song: So
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
 
+  // the length is looked up quietly when the dialog opens without one; the list then shows it and ranks the lyrics by it
+  useEffect(() => {
+    if (song.duration > 0) return;
+    let live = true;
+    void api.ensureLength(song.id).then((s) => { if (live && s.duration > 0) onAttached(); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [song.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const guard = async (job: () => Promise<void>) => {
     setBusy(true);
     setNotice(null);
@@ -122,7 +130,7 @@ export function Finder({ song, hasLyrics, onAttached, bare = false }: { song: So
     <Wrap className={bare ? undefined : "panel"}>
       {!bare && <h2>{hasLyrics ? en.song.replace : en.song.find}</h2>}
       {hasLyrics && <p className="muted" style={{ marginBottom: 14 }}>{en.song.chooseHelp}</p>}
-      {(!bare || song.duration <= 0) && <p className="muted song-length" style={{ marginBottom: 10 }}>{song.duration > 0 ? en.song.thisSong(clock(song.duration)) : en.song.lengthUnknown}</p>}
+      {!bare && song.duration > 0 && <p className="muted song-length" style={{ marginBottom: 10 }}>{en.song.thisSong(clock(song.duration))}</p>}
       <p style={{ marginBottom: 14 }}><button type="button" className="btn" onClick={() => void auto()} disabled={busy}>{hasLyrics ? en.song.findAgain : en.song.findAuto}</button></p>
       <form autoComplete="off" className="inline" onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <label className="field">

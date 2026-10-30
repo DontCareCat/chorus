@@ -417,6 +417,7 @@ export const api = {
   coverUpload: (songId: number, file: File) => request<SongDto>(`/api/songs/${songId}/cover/upload`, form(file)),
   coverRemove: (songId: number) => request<SongDto>(`/api/songs/${songId}/cover`, { method: "DELETE" }),
   detectLanguage: (id: number) => request<SongDto>(`/api/songs/${id}/language/detect`, { method: "POST" }),
+  ensureLength: (id: number) => request<SongDto>(`/api/songs/${id}/length`, { method: "POST" }),
   patchSong: (id: number, patch: SongPatch) => request<SongDto>(`/api/songs/${id}`, json("PATCH", patch)),
 
   lyrics: (songId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`),
