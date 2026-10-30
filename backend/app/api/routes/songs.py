@@ -235,8 +235,7 @@ def patch_song(
                 song.language_source = "manual"  # a language somebody chose is never overridden by detection
     session.commit()
     if learned_length and song.lyrics_status != LyricsStatus.found:
-        song.lyrics_status = LyricsStatus.pending  # the length makes the lyrics match better: look again
-        session.commit()
+        # the length makes the lyrics match better: look again (lyrics already attached are never replaced; the status is whatever the lookup finds)
         background.add_task(discover_for_songs, factory, client, [song.id])
     return song
 

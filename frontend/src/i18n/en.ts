@@ -345,6 +345,7 @@ export const en = {
     back: "Back to library",
     youtubeSyncHelp: "Videos often start with an intro. Play the video and tap Sync start the moment the first line begins; then fine-tune with Earlier and Later.",
     syncStart: "Sync start",
+    offsetLimit: "The timing is limited to 60 seconds. If the lyrics start later than that, this is probably a different version of the song.",
     currentLyrics: "Current lyrics",
     noLyrics: "This song has no lyrics yet.",
     timing: "Timing",

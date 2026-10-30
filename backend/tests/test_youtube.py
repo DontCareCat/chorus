@@ -131,3 +131,15 @@ def test_a_file_songs_length_cannot_be_changed(api, tmp_path):
     with make_wav(tmp_path / "A - B.wav", seconds=2).open("rb") as f:
         s = api.post("/api/songs", files={"file": ("A - B.wav", f, "audio/wav")}).json()
     assert api.patch(f"/api/songs/{s['id']}", json={"duration": 500}).json()["duration"] == s["duration"]
+
+
+def test_looking_again_never_leaves_a_song_pending_or_replaces_lyrics(api, yt, lrclib, tmp_path):
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    lrc = tmp_path / "x.lrc"
+    lrc.write_text("[00:01.00] eins\n[00:05.00] zwei\n")
+    with lrc.open("rb") as f:
+        api.post(f"/api/songs/{s['id']}/lyrics/upload", files={"file": ("x.lrc", f, "text/plain")})
+    api.patch(f"/api/songs/{s['id']}", json={"duration": 200})
+    after = [x for x in api.get("/api/songs").json() if x["id"] == s["id"]][0]
+    assert after["lyrics_status"] != "pending"
+    assert api.get(f"/api/songs/{s['id']}/lyrics").json()["source"] == "upload"

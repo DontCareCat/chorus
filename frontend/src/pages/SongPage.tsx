@@ -62,15 +62,16 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
   const ytHost = useRef<HTMLDivElement>(null);
   const [yt, setYt] = useState<GameEngine | null>(null);
   const [ytError, setYtError] = useState<string | null>(null);
+  const [ytPlaying, setYtPlaying] = useState(false); // really playing (not buffering: an ad or a stall)
   useEffect(() => {
     if (!youtubeId || !ytHost.current) return;
     let gone = false, made: GameEngine | null = null;
     createYouTubeEngine(ytHost.current, youtubeId).then(
-      (e) => { if (gone) { e.dispose(); return; } made = e; setYt(e); e.onError(setYtError); e.onStateChange((st) => setPlaying(st === "playing" || st === "buffering")); },
+      (e) => { if (gone) { e.dispose(); return; } made = e; setYt(e); e.onError(setYtError); e.onStateChange((st) => { setPlaying(st === "playing" || st === "buffering"); setYtPlaying(st === "playing"); }); },
       (err: Error) => { if (!gone) setYtError(err.message); },
     );
     return () => { gone = true; made?.dispose(); setYt(null); };
-  }, [youtubeId, !!lyrics]); // the player's place exists once the lyrics have loaded
+  }, [youtubeId]);
   const lengthSaved = useRef(false);
   useEffect(() => { // the player tells the video's length: keep it (it makes the lyrics match better)
     if (!yt || song.duration > 0 || lengthSaved.current) return;
@@ -99,7 +100,14 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
     }
   };
   const firstStart = lines.find((l) => l.start_time !== null)?.start_time ?? null;
-  const syncStart = () => { if (firstStart !== null) setOffset(Math.min(60, Math.max(-60, Math.round((now - firstStart) * 10) / 10))); };
+  const [clamped, setClamped] = useState(false);
+  const syncStart = () => {
+    if (firstStart === null || !yt) return;
+    const raw = Math.round((yt.getCurrentTime() - firstStart) * 10) / 10;
+    const value = Math.min(60, Math.max(-60, raw));
+    setClamped(value !== raw);
+    setOffset(value);
+  };
   const seekTo = (t: number) => {
     if (yt) { void yt.seek(t).then(() => yt.play()).catch(() => undefined); return; }
     if (audio.current) { audio.current.currentTime = t; void audio.current.play(); }
@@ -116,16 +124,15 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
     <section className="section">
       <h2>{en.song.currentLyrics}</h2>
       {!lyrics && <p className="muted">{en.song.noLyrics}</p>}
+      {youtubeId && (
+        <>
+          <div className="yt-stage"><div className="yt-player" ref={ytHost} /></div>
+          {ytError && <p className="notice error" role="alert">{ytError} <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></p>}
+        </>
+      )}
       {lyrics && (
         <>
-          {youtubeId ? (
-            <>
-              <div className="yt-stage"><div className="yt-player" ref={ytHost} /></div>
-              {ytError && <p className="notice error" role="alert">{ytError} <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></p>}
-            </>
-          ) : (
-            <audio ref={audio} src={api.audioUrl(song.id)} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
-          )}
+          {!youtubeId && <audio ref={audio} src={api.audioUrl(song.id)} preload="metadata" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />}
           <div className="controls" style={{ gap: 12 }}>
             <button type="button" className="icon-btn big" onClick={toggle} aria-label={playing ? en.game.pause : en.game.play} title={playing ? en.game.pause : en.game.play}>
               <Icon name={playing ? "pause" : "play"} />
@@ -139,9 +146,10 @@ function Timing({ song, lyrics, onSaved }: { song: SongDto; lyrics: LyricsDto | 
                 <button type="button" className="btn secondary small" onClick={() => nudge(-0.1)}>{en.song.earlier}</button>
                 <span className="offset-value" aria-live="polite">{offset > 0 ? "+" : ""}{offset.toFixed(1)} s</span>
                 <button type="button" className="btn secondary small" onClick={() => nudge(0.1)}>{en.song.later}</button>
-                {youtubeId && <button type="button" className="btn secondary small" onClick={syncStart} disabled={!yt || !playing || firstStart === null}>{en.song.syncStart}</button>}
+                {youtubeId && <button type="button" className="btn secondary small" onClick={syncStart} disabled={!yt || !ytPlaying || firstStart === null}>{en.song.syncStart}</button>}
                 <button type="button" className="btn small" onClick={() => void save()} disabled={offset === song.lyrics_offset}>{en.song.saveOffset}</button>
               </div>
+              {clamped && <p className="notice" role="status">{en.song.offsetLimit}</p>}
               {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
             </>
           ) : (
