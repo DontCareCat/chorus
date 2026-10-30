@@ -272,7 +272,7 @@ function GameScreen({ game }: { game: GameDto }) {
     if (arrival.current?.autostart) startRef.current();
     clearArrival();
   }, []);
-  // Dialogs and sheets stop at the player's edge (styles.css reads these), and the video is paused when one opens.
+  // Dialogs and sheets stop at the player's edge (styles.css reads these), and the video is paused once when one opens.
   useEffect(() => {
     if (!youtubeId) return;
     const root = document.documentElement;
@@ -287,18 +287,19 @@ function GameScreen({ game }: { game: GameDto }) {
     set();
     const ro = host && typeof ResizeObserver !== "undefined" ? new ResizeObserver(set) : null;
     if (host) ro?.observe(host);
-    window.addEventListener("resize", set);
-    return () => { ro?.disconnect(); window.removeEventListener("resize", set); root.classList.remove("yt-game", "yt-cols"); root.style.removeProperty("--yt-bottom"); root.style.removeProperty("--yt-right"); };
-  }, [youtubeId, arrangement.columns]);
-  useEffect(() => { document.documentElement.classList.toggle("yt-cols", !!youtubeId && arrangement.columns); }, [youtubeId, arrangement.columns]);
-  useEffect(() => {
-    if (!youtubeId) return;
+    let overlay = false;
     const mo = new MutationObserver(() => {
-      if (document.querySelector(".sheet-scrim, .dialog-scrim") && stateName.current !== "PAUSED" && stateName.current !== "IDLE" && stateName.current !== "PAUSED_FOR_QUESTION") playback.pause();
+      const now = !!document.querySelector(".sheet-scrim, .dialog-scrim");
+      if (now) set(); // the player may have moved since it was last measured (the keyboard went, the bar came back)
+      if (now && !overlay && (stateName.current === "PLAYING" || stateName.current === "FADING_IN")) playback.pause();
+      overlay = now;
     });
     mo.observe(document.body, { childList: true, subtree: true });
-    return () => mo.disconnect();
-  }, [youtubeId, playback]);
+    const poll = window.setInterval(set, 700);
+    window.addEventListener("resize", set);
+    return () => { ro?.disconnect(); mo.disconnect(); window.clearInterval(poll); window.removeEventListener("resize", set); root.classList.remove("yt-game", "yt-cols"); root.style.removeProperty("--yt-bottom"); root.style.removeProperty("--yt-right"); };
+  }, [youtubeId, arrangement.columns, playback]);
+  useEffect(() => { document.documentElement.classList.toggle("yt-cols", !!youtubeId && arrangement.columns); }, [youtubeId, arrangement.columns]);
   // typing needs the keyboard, and with less than 216 px visible the player cannot keep its 200 px: the video waits until the screen is turned
   const tooShortToType = !!youtubeId && game.mode === "typing" && arrangement.keyboard && arrangement.visibleHeight < 216;
   useEffect(() => {
@@ -402,11 +403,11 @@ function GameScreen({ game }: { game: GameDto }) {
     </div>
   );
 
-  const kbMode = arrangement.keyboard && game.mode === "typing" && arrangement.visibleHeight < 380;
+  const kbMode = !!youtubeId && arrangement.keyboard && game.mode === "typing" && arrangement.visibleHeight < 380;
   const stage = youtubeId ? <div className="yt-stage" data-testid="yt-stage"><div className="yt-player" ref={ytHost} /></div> : null;
 
   return (
-    <div className="game" data-layout={layout} data-game={arrangement.columns ? "two" : "one"} data-short={arrangement.short || undefined} data-kb={arrangement.keyboard || undefined} data-kbmode={kbMode || undefined} data-yt={youtubeId ? "" : undefined}>
+    <div className="game" data-layout={layout} data-game={arrangement.columns ? "two" : "one"} data-short={arrangement.short || undefined} data-land={arrangement.land || undefined} data-kb={arrangement.keyboard || undefined} data-kbmode={kbMode || undefined} data-yt={youtubeId ? "" : undefined}>
       <div className="game-bar wrap">
         <a className="back" href={paths.library()} aria-label={en.game.backToLibrary} title={en.game.backToLibrary}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
@@ -431,7 +432,7 @@ function GameScreen({ game }: { game: GameDto }) {
             <div className="game-main">
               {g.error && <p className="notice error">{g.error}</p>}
               {finished}
-              {kbMode && focusedQ && <p className="kb-line" title={focusedQ.questionText}>{focusedQ.questionText}</p>}
+              {kbMode && focusedQ && <p className="kb-line" title={hint ?? focusedQ.questionText}>{hint ?? focusedQ.questionText}</p>}
               {questionBlock}
               {kbMode && <span className="kb-score" aria-hidden="true">{g.standing.points}</span>}
             </div>

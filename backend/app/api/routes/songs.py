@@ -123,6 +123,10 @@ def add_youtube_song(
     if existing is not None:
         if existing.removed:
             existing.removed = False
+            if body.title:
+                existing.title = body.title.strip()
+            if body.artist is not None:
+                existing.artist = body.artist.strip()
             session.commit()
         response.status_code = 200
         return existing

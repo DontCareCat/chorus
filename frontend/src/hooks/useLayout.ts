@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { keyboardFit } from "../lib/keyboard-fit";
+import { useEffect, useRef, useState } from "react";
+import { KEYBOARD_MIN, keyboardFit } from "../lib/keyboard-fit";
 
 export type Layout = "phone" | "compact" | "desktop";
 
@@ -107,8 +107,6 @@ export function useKeyboardFit(active: boolean): void {
   }, [active]);
 }
 
-let calmHeight = 0; // the visible height while no keyboard is open
-
 export interface GameArrangement {
   /** Two columns (the player and the question on the left, the lyrics on the right) instead of one. */
   columns: boolean;
@@ -116,6 +114,8 @@ export interface GameArrangement {
   short: boolean;
   /** Typing with the on-screen keyboard open. */
   keyboard: boolean;
+  /** Two columns on a screen 520 px high or less (a phone on its side, a tablet with the keyboard up) */
+  land: boolean;
   /** What can be seen right now (the visible viewport), in px. */
   visibleHeight: number;
   visibleWidth: number;
@@ -126,22 +126,27 @@ export function arrangementFor(width: number, visibleHeight: number, keyboard: b
   const h = keyboard ? fullHeight : visibleHeight; // with the keyboard open the shape is that of the whole screen: the keyboard does not turn a phone sideways
   const landscapePhone = width > h && h <= 520;
   const wide = width >= 900 && width / h >= 1.2;
-  return { columns: landscapePhone || wide, short: h < 600, keyboard, visibleHeight, visibleWidth: width };
+  return { columns: landscapePhone || wide, land: landscapePhone, short: h < 600, keyboard, visibleHeight, visibleWidth: width };
 }
 
 /** Watches the viewport, the keyboard and the focus; re-reads on a timer too, because keyboards do not always say when they move. */
 export function useGameArrangement(active: boolean): GameArrangement {
+  const calm = useRef({ height: 0, width: 0 }); // the visible height while no keyboard is up (this screen's own)
   const read = (): GameArrangement => {
     const vv = window.visualViewport;
     const visible = Math.round(vv && vv.scale <= 1.01 ? vv.height : window.innerHeight);
-    const open = document.documentElement.classList.contains("kb-open") || (typing() && window.matchMedia?.("(pointer: coarse)").matches === true);
-    if (!open || calmHeight === 0) calmHeight = visible; // the height before the keyboard came up
-    return arrangementFor(Math.round(window.innerWidth), visible, open, calmHeight);
+    const width = Math.round(window.innerWidth);
+    if (calm.current.width !== width) calm.current = { height: 0, width }; // turned round (or resized): the old height means nothing
+    // a keyboard is up when the screen really shrank under a focused field; a field that merely has focus (a hardware keyboard, iOS ignoring focus()) is not one
+    const shrunk = calm.current.height > 0 && calm.current.height - visible > KEYBOARD_MIN;
+    const open = document.documentElement.classList.contains("kb-open") || (typing() && shrunk);
+    if (!open || calm.current.height === 0) calm.current.height = visible;
+    return arrangementFor(width, visible, open, calm.current.height);
   };
   const [a, setA] = useState<GameArrangement>(read);
   useEffect(() => {
     if (!active) return;
-    const update = () => setA((old) => { const n = read(); return old.columns === n.columns && old.short === n.short && old.keyboard === n.keyboard && old.visibleHeight === n.visibleHeight && old.visibleWidth === n.visibleWidth ? old : n; });
+    const update = () => setA((old) => { const n = read(); return old.columns === n.columns && old.land === n.land && old.short === n.short && old.keyboard === n.keyboard && old.visibleHeight === n.visibleHeight && old.visibleWidth === n.visibleWidth ? old : n; });
     const vv = window.visualViewport;
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);

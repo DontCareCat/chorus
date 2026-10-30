@@ -24,6 +24,7 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
     setAddError(null);
     const text = link.trim();
     if (!text) { setCheck({ state: "idle" }); return; }
+    setCheck((c) => (c.state === "ready" ? { state: "checking" } : c)); // an old preview is not offered for a new link
     let stale = false;
     const delay = immediate.current ? 0 : CHECK_DELAY;
     immediate.current = false;
@@ -54,7 +55,7 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
     setAdding(true);
     setAddError(null);
     try {
-      const song = await api.addYouTubeSong(link.trim(), title.trim() || undefined, artist.trim());
+      const song = await api.addYouTubeSong(preview.video_id, title.trim() || undefined, artist.trim());
       setLink("");
       setCheck({ state: "idle" });
       onAdded(song);
@@ -73,7 +74,7 @@ export function YouTubeAdd({ phone, onAdded, onShow }: { phone: boolean; onAdded
         <span>{en.library.youtubeLink}</span>
         <div className="inline yt-field">
           <input
-            type="url" {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
+            type="url" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
             placeholder={en.library.ytPlaceholder} aria-invalid={!!problem || undefined} aria-describedby={problem ? "yt-problem" : undefined} style={{ fontSize: 15 }}
           />
           {canPaste && (
