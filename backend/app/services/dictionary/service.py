@@ -118,7 +118,7 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
     try:
         hint = noun_hint(entry)
         info = cached_word_info(session, wiktionary, entry.surface, source, hint, fresh)
-        if info.found and not info.is_noun and hint is None and entry.surface[:1].isupper():
+        if info.found and info.lemma and not info.is_noun and hint is None and entry.surface[:1].isupper():
             entry.surface = entry.surface.lower()  # capitalised only because it began the line: the headword is the lowercase word
         lemma = info.lemma if info.lemma and info.lemma.casefold() != entry.surface.casefold() else None
         entry.lemma = lemma
@@ -219,9 +219,13 @@ def _enrich_once(factory: sessionmaker, translator: Translator, wiktionary: Wikt
                 return
             q = session.query(DictionaryEntry).filter_by(user_id=user_id)
             q = q.filter_by(id=entry_id) if entry_id is not None else q.filter_by(enrich_status="pending")
+            unreachable = 0
             for entry in q.order_by(DictionaryEntry.id).all():
+                if unreachable >= 3:
+                    break  # the services do not answer: the rest waits for the next try instead of asking one by one
                 try:
                     enrich_entry(session, entry, user.translation_language, translator, wiktionary, fresh=entry_id is not None)
+                    unreachable = unreachable + 1 if entry.enrich_status == "failed" else 0
                 except Exception:
                     log.exception("enriching dictionary entry %s failed", entry.id)
                     session.rollback()
@@ -403,6 +407,8 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
         if note_lang not in cache:
             cache[note_lang] = {e.word: e for e in session.query(DictionaryEntry).filter_by(user_id=user.id, language=note_lang)}
         translation = (n.back.split("\n")[0].strip()[:300]) if n.back else ""
+        if bad_meaning(translation):
+            translation = ""  # an exported ")" is looked up again instead
         entry = cache[note_lang].get(key)
         if entry is not None:
             if translation and not entry.translation:

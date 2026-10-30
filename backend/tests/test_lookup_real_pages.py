@@ -48,3 +48,9 @@ def test_clean_gloss_drops_pointers_and_empty_brackets():
     assert L.clean_gloss("who; what, which (one) (see usage notes)") == "who; what, which (one)"
     assert L.clean_gloss("{{clipping of|de|Uhrzeit}})") == ""
     assert L.clean_gloss("()") == ""
+
+
+def test_a_capitalised_line_start_word_is_not_lowercased_unless_it_is_a_form(wk):
+    # "Zeit" at the start of a line: the preposition page must not turn the noun's headword into "zeit"
+    i = wk.info("Zeit", "de", None)
+    assert i.lemma is None  # so the headword stays as sung
