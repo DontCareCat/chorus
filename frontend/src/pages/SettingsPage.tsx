@@ -172,6 +172,10 @@ export function SettingsPage() {
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />
             <span><strong>{en.settings.translationEnabled}</strong><small>{en.settings.translationEnabledHelp}</small></span>
           </label>
+          <div className="field">
+            <label className="field"><span>{en.settings.youtubeKey}</span><input type="password" {...noAutofill("youtube-api-key")} autoComplete="new-password" value={form.youtube_api_key === "********" ? "" : form.youtube_api_key} placeholder={form.youtube_api_key === "********" ? en.settings.youtubeKeySaved : ""} onChange={(e) => { const v = e.target.value.trim(); set("youtube_api_key", v === "" && loaded.data?.youtube_api_key === "********" ? "********" : v); }} style={{ fontSize: 15 }} /></label>
+            <small>{en.settings.youtubeKeyHelp} <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer">{en.settings.youtubeKeyConsole}</a></small>
+          </div>
           <label className="check">
             <input type="checkbox" checked={form.youtube_enabled} onChange={(e) => set("youtube_enabled", e.target.checked)} />
             <span>

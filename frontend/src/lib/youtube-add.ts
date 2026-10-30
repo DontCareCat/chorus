@@ -69,3 +69,17 @@ export function parseSpotifyPlaylistId(input: string): string | null {
 
 /** Where to look for a track on YouTube (a normal search page: the person picks the video and pastes its link). */
 export const youtubeSearchUrl = (artist: string, title: string): string => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${title}`.trim())}`;
+
+export type InputKind = "empty" | "video" | "playlist" | "spotify" | "link" | "search";
+
+/** What the one field of Add music was given: a YouTube video, a YouTube playlist, a Spotify playlist, another link, or words to search for. */
+export function classifyInput(input: string): InputKind {
+  const text = input.trim();
+  if (!text) return "empty";
+  if (parsePlaylistId(text)) return "playlist";
+  if (parseSpotifyPlaylistId(text)) return "spotify";
+  if (/^spotify:/i.test(text)) return "link";
+  const looksLikeLink = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) || /^(www\.|m\.|music\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|open\.spotify\.com)(\/|$)/i.test(text) || /^[^\s/]+\.[a-z]{2,}\/\S*$/i.test(text);
+  if (!looksLikeLink) return "search";
+  return /youtube\.com|youtu\.be|youtube-nocookie\.com/i.test(text) ? "video" : "link";
+}

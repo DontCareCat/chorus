@@ -56,8 +56,14 @@ class YouTubePreviewOut(BaseModel):
     existing_title: str | None = None
 
 
+class YouTubeName(BaseModel):
+    title: str = Field(min_length=1, max_length=300)
+    artist: str = Field("", max_length=300)
+
+
 class YouTubeImportRequest(BaseModel):
     video_ids: list[str] = Field(min_length=1, max_length=25)  # a batch of a playlist's videos
+    names: dict[str, "YouTubeName"] = Field(default_factory=dict)  # title and artist to give a video (from a Spotify track), by video id
     lookup: bool = True  # look for lyrics at once; a playlist import turns it off and asks once for all the songs at the end
 
 
@@ -138,3 +144,31 @@ class TrackMatch(BaseModel):
 
 class TrackMatchOut(BaseModel):
     matches: list[TrackMatch]
+
+
+class SpotifyTrackOut(BaseModel):
+    spotify_id: str
+    title: str
+    artist: str
+    duration: float
+    song_id: int | None = None  # the song already in the library that this track is
+    song_title: str | None = None
+
+
+class SpotifyPlaylistOut(BaseModel):
+    playlist_id: str
+    name: str
+    owner: str
+    tracks: list[SpotifyTrackOut]
+    matched: int
+
+
+class SearchHitOut(BaseModel):
+    video_id: str
+    title: str
+    channel: str
+    existing_id: int | None = None  # the song already in the library for this video
+
+
+class SearchOut(BaseModel):
+    hits: list[SearchHitOut]

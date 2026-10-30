@@ -24,6 +24,30 @@ export interface TrackMatchDto {
   matches: { index: number; song_id: number; song_title: string }[];
 }
 
+export interface SpotifyTrackDto {
+  spotify_id: string;
+  title: string;
+  artist: string;
+  duration: number;
+  song_id: number | null;
+  song_title: string | null;
+}
+
+export interface SpotifyPlaylistDto {
+  playlist_id: string;
+  name: string;
+  owner: string;
+  tracks: SpotifyTrackDto[];
+  matched: number;
+}
+
+export interface SearchHitDto {
+  video_id: string;
+  title: string;
+  channel: string;
+  existing_id: number | null;
+}
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -150,6 +174,7 @@ export interface SettingsDto {
   library_dirs: string[];
   translation_enabled: boolean;
   youtube_enabled: boolean;
+  youtube_api_key: string; // "********" when one is saved: never the key itself
   allow_guest: boolean;
   allow_registration: boolean;
 }
@@ -357,8 +382,10 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
+  spotifyPlaylist: (url: string) => request<SpotifyPlaylistDto>(`/api/spotify/playlist?url=${encodeURIComponent(url)}`),
+  youtubeSearch: (q: string) => request<{ hits: SearchHitDto[] }>(`/api/youtube/search?q=${encodeURIComponent(q)}`),
   matchTracks: (tracks: { title: string; artist: string; duration: number }[]) => request<TrackMatchDto>("/api/tracks/match", json("POST", { tracks })),
-  importYouTubeVideos: (videoIds: string[], lookup = true) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds, lookup })),
+  importYouTubeVideos: (videoIds: string[], lookup = true, names: Record<string, { title: string; artist: string }> = {}) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds, lookup, names })),
   previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),

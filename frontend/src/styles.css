@@ -1344,3 +1344,12 @@ button.queue-bar-face { cursor: pointer; }
 .sp-missing ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
 .sp-missing li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .sp-missing li a { flex: none; }
+/* search results and proposed videos (Add music) */
+.yt-hits { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 10px; }
+.yt-hits li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.yt-hits img, .yt-nothumb { width: 112px; height: 63px; border-radius: 8px; background: #000; object-fit: cover; display: block; }
+.yt-nothumb { background: var(--surface-2); }
+.yt-hit-text { display: grid; gap: 2px; min-width: 0; }
+.yt-hit-text strong, .yt-hit-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-layout="phone"] .yt-hits li { grid-template-columns: auto minmax(0, 1fr); }
+[data-layout="phone"] .yt-hits li > :last-child { grid-column: 1 / -1; justify-self: start; }

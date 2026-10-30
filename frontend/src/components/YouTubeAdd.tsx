@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { isTopicChannel, parsePlaylistId, parseSpotifyPlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { classifyInput, isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
 import { TrackListImport } from "./TrackListImport";
+import { YouTubeSearch } from "./YouTubeSearch";
 import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
 import { api, ApiError } from "../services/api";
 import type { SongDto, YouTubePreviewDto } from "../services/api";
@@ -20,14 +22,15 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  const [fromSpotify, setFromSpotify] = useState(false);
+  const [searchFor, setSearchFor] = useState<string | null>(null);
   const immediate = useRef(false);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
 
   useEffect(() => {
     setAddError(null);
     const text = link.trim();
-    if (!text || parsePlaylistId(text) || parseSpotifyPlaylistId(text)) { setCheck({ state: "idle" }); return; } // a playlist link is read by the playlist import below
+    const kind = classifyInput(text);
+    if (kind !== "video" && kind !== "link") { setCheck({ state: "idle" }); return; } // playlists, searches and an empty field have their own parts below
     setCheck((c) => (c.state === "ready" ? { state: "checking" } : c)); // an old preview is not offered for a new link
     let stale = false;
     const delay = immediate.current ? 0 : CHECK_DELAY;
@@ -70,21 +73,22 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
     }
   };
 
-  const playlistId = parsePlaylistId(link);
-  const spotifyId = parseSpotifyPlaylistId(link);
-  useEffect(() => { if (spotifyId) { setListOpen(true); setFromSpotify(true); } }, [spotifyId]); // the list stays when the next link is pasted
+  const kind = classifyInput(link);
+  const playlistId = kind === "playlist" ? parsePlaylistId(link) : null;
+  useEffect(() => { if (kind !== "search") setSearchFor(null); }, [kind, link]);
   const problem = check.state === "error" ? check.message : addError;
   const checking = check.state === "checking";
   return (
-    <form autoComplete="off" className="yt-add" onSubmit={(e) => { e.preventDefault(); void add(); }}>
+    <form autoComplete="off" className="yt-add" onSubmit={(e) => { e.preventDefault(); if (kind === "search") setSearchFor(link.trim()); else void add(); }}>
       <label className="field" style={{ marginBottom: 0 }}>
         <span>{en.library.youtubeLink}</span>
         <div className="inline yt-field">
           <input
-            type="url" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
+            type="text" inputMode="url" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onChange={(e) => setLink(e.target.value)} onPaste={() => { immediate.current = true; }}
             placeholder={en.library.ytPlaceholder} aria-invalid={!!problem || undefined} aria-describedby={problem ? "yt-problem" : undefined} style={{ fontSize: 15 }}
           />
-          {canPaste && (
+          {kind === "search" && <button type="submit" className="btn inverse" style={{ borderRadius: 10 }}>{en.library.ytSearch}</button>}
+          {canPaste && kind !== "search" && (
             <button type="button" className="btn secondary" onClick={() => void paste()} disabled={checking} style={{ borderRadius: 10 }}>
               {checking ? <><span className="yt-spin" aria-hidden="true" />{en.library.ytChecking}</> : en.library.ytPaste}
             </button>
@@ -92,10 +96,13 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         </div>
         {!canPaste && checking && <small role="status">{en.library.ytChecking}…</small>}
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
-        {!problem && !preview && !checking && !playlistId && !spotifyId && <small>{en.library.youtubeHelp}</small>}
+        {!problem && !preview && !checking && kind === "empty" && <small>{en.library.youtubeHelp}</small>}
+        {kind === "search" && searchFor === null && <small>{en.library.ytSearchHint(link.trim())}</small>}
       </label>
-      {listOpen && <TrackListImport spotify={fromSpotify} onMade={() => onPlaylistAdded?.()} />}
-      {!listOpen && !playlistId && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
+      {kind === "spotify" && <SpotifyPlaylistImport key={link.trim()} link={link.trim()} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />}
+      {kind === "search" && searchFor !== null && <YouTubeSearch query={searchFor} onAdded={onAdded} onShow={onShow} />}
+      {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
+      {!listOpen && kind !== "playlist" && kind !== "spotify" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">
