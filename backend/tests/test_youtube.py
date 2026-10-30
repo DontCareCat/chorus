@@ -156,7 +156,10 @@ def test_switching_youtube_off_stops_adding_and_playing(api, yt, tmp_path):
     settings = api.get("/api/settings").json()
     api.put("/api/settings", json={**settings, "youtube_enabled": False})
     assert api.post("/api/songs/youtube", json={"url": "dQw4w9WgXcQ"}).json()["error"]["code"] == "youtube_disabled"
-    assert api.get(f"/api/games/{game.json()['public_id']}").status_code == 403
+    assert api.get(f"/api/games/{game.json()['public_id']}").status_code == 403  # not finished: not played while off
+    before = len(api.get("/api/games").json())
+    assert api.post("/api/games", json={"song_id": s["id"]}).status_code == 403
+    assert len(api.get("/api/games").json()) == before  # no stray game
     assert [x["available"] for x in api.get("/api/songs").json()] == [False]
     api.put("/api/settings", json={**settings, "youtube_enabled": True})
     assert [x["available"] for x in api.get("/api/songs").json()] == [True]
@@ -182,3 +185,49 @@ def test_stale_youtube_facts_are_checked_again_after_30_days(api, yt, session):
     with factory() as q:
         gone = q.get(Song, s["id"])
         assert gone.available is False and gone.youtube_channel is None
+
+
+def test_refresh_backs_off_when_youtube_is_unreachable_and_runs_one_at_a_time(api, yt, session):
+    from datetime import timedelta
+    from sqlalchemy.orm import sessionmaker
+    from app.db.models import Song
+    from app.db.models.types import utcnow
+    from app.services.youtube import _refreshing, refresh_stale
+    ids = [api.post("/api/songs/youtube", json={"url": v}).json()["id"] for v in (VID, "9bZkp7q19f0")]
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    with factory() as q:
+        for i in ids:
+            q.get(Song, i).youtube_checked_at = utcnow() - timedelta(days=40)
+        q.commit()
+    yt.status = 503
+    calls = yt.calls
+    assert refresh_stale(factory, yt.client()) == 0 and yt.calls == calls + 1  # stops at the first failure
+    yt.status = 200
+    assert refresh_stale(factory, yt.client()) == 1  # the other song is still due (the failed one waits a day)
+    with factory() as q:
+        songs = [q.get(Song, i) for i in ids]
+        assert all(s.available for s in songs)
+    assert _refreshing.acquire(blocking=False)
+    try:
+        assert refresh_stale(factory, yt.client()) == 0  # one pass at a time
+    finally:
+        _refreshing.release()
+
+
+def test_refresh_updates_the_channel_and_drops_the_length(api, yt, session):
+    from datetime import timedelta
+    from sqlalchemy.orm import sessionmaker
+    from app.db.models import Song
+    from app.db.models.types import utcnow
+    from app.services.youtube import refresh_stale
+    s = api.post("/api/songs/youtube", json={"url": VID}).json()
+    api.patch(f"/api/songs/{s['id']}", json={"duration": 213})
+    factory = sessionmaker(bind=session.get_bind(), expire_on_commit=False)
+    with factory() as q:
+        song = q.get(Song, s["id"])
+        song.youtube_checked_at, song.youtube_channel = utcnow() - timedelta(days=40), "old"
+        q.commit()
+    assert refresh_stale(factory, yt.client()) == 1
+    with factory() as q:
+        song = q.get(Song, s["id"])
+        assert song.youtube_channel == "Rammstein" and song.duration == 0

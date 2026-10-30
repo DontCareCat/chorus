@@ -3,7 +3,9 @@
 Only the video id and the user's own data are kept. The video itself is played by YouTube's own player in the browser.
 """
 import re
+import threading
 from dataclasses import dataclass
+from datetime import timedelta
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -96,47 +98,63 @@ class YouTubeClient:
 REFRESH_AFTER_DAYS = 30
 
 
+_refreshing = threading.Lock()
+MAX_PER_PASS = 40
+RETRY_AFTER_FAILURE_DAYS = 1  # offline or YouTube busy: ask again tomorrow
+RETRY_UNPLAYABLE_DAYS = 7  # gone, private or not embeddable: look again in a week
+
+
 def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
-    """YouTube's own facts about a song (channel, whether it can still be played) are checked again after 30 days.
+    """YouTube's own facts about a song are checked again after 30 days: the channel and whether it can still be played;
+    the length is dropped, so the player supplies it again the next time the song plays.
 
-    What the user confirmed (title, artist, timing) stays. A video that is gone is marked unavailable and its channel dropped.
+    What the user confirmed (title, artist, timing) stays. One pass at a time, a few songs per pass, saved song by song.
     """
-    from datetime import timedelta
-
     from sqlalchemy import select
 
     from app.db.models import Song, SongSource
     from app.db.models.types import utcnow
 
-    now = now or utcnow()
-    done = 0
-    with factory() as session:
-        stale = session.scalars(
-            select(Song).where(Song.source == SongSource.youtube, (Song.youtube_checked_at.is_(None)) | (Song.youtube_checked_at < now - timedelta(days=REFRESH_AFTER_DAYS)))
-        ).all()
-        for song in stale:
-            try:
-                info = client.info(song.youtube_id)
-                song.youtube_channel, song.available = info.channel or None, True
-            except AppError:
-                song.youtube_channel, song.available = None, False  # removed, private or not embeddable
-            except YouTubeUnavailable:
-                continue  # offline: try again next time
-            song.youtube_checked_at = now
-            done += 1
-        session.commit()
-    return done
+    if not _refreshing.acquire(blocking=False):
+        return 0
+    try:
+        now = now or utcnow()
+        done = 0
+        with factory() as session:
+            ids = session.scalars(
+                select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), _stale(now)).order_by(Song.youtube_checked_at).limit(MAX_PER_PASS)
+            ).all()
+            for song_id in ids:
+                song = session.get(Song, song_id)
+                try:
+                    info = client.info(song.youtube_id)
+                    song.youtube_channel, song.available, song.duration = info.channel or None, True, 0.0
+                    song.youtube_checked_at = now
+                except AppError:
+                    song.youtube_channel, song.available = None, False  # removed, private or not embeddable
+                    song.youtube_checked_at = now - timedelta(days=REFRESH_AFTER_DAYS - RETRY_UNPLAYABLE_DAYS)
+                except YouTubeUnavailable:
+                    song.youtube_checked_at = now - timedelta(days=REFRESH_AFTER_DAYS - RETRY_AFTER_FAILURE_DAYS)
+                    session.commit()
+                    break  # offline or busy: the rest waits for tomorrow too
+                session.commit()
+                done += 1
+        return done
+    finally:
+        _refreshing.release()
+
+
+def _stale(now):
+    from app.db.models import Song
+
+    return (Song.youtube_checked_at.is_(None)) | (Song.youtube_checked_at < now - timedelta(days=REFRESH_AFTER_DAYS))
 
 
 def has_stale(session, now=None) -> bool:
-    from datetime import timedelta
-
     from sqlalchemy import select
 
     from app.db.models import Song, SongSource
     from app.db.models.types import utcnow
 
     now = now or utcnow()
-    return session.scalar(
-        select(Song.id).where(Song.source == SongSource.youtube, (Song.youtube_checked_at.is_(None)) | (Song.youtube_checked_at < now - timedelta(days=REFRESH_AFTER_DAYS))).limit(1)
-    ) is not None
+    return session.scalar(select(Song.id).where(Song.source == SongSource.youtube, Song.removed.is_(False), _stale(now)).limit(1)) is not None

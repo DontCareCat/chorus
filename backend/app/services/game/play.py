@@ -50,7 +50,7 @@ def _questions(session: Session, game: Game) -> list[Question]:
 
 def game_out(session: Session, game: Game) -> GameOut:
     song = session.get(Song, game.song_id)
-    if song.source == SongSource.youtube and not load_settings(session).youtube_enabled:
+    if song.source == SongSource.youtube and game.finished_at is None and not load_settings(session).youtube_enabled:  # finished games stay readable
         raise AppError("youtube_disabled", "YouTube songs are switched off in Settings", 403)
     lyrics = session.get(Lyrics, game.lyrics_id)
     if song.sample_rate is None and song.available and song.file_path:  # songs added before the rate was stored: look it up once

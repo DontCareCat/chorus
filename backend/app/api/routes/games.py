@@ -3,11 +3,13 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import current_user, get_session_factory, get_song, get_translator, get_wiktionary
 from app.db.database import get_session
-from app.db.models import Game, Question, Song, User
+from app.core.errors import AppError
+from app.db.models import Game, Question, Song, SongSource, User
 from app.schemas.game import AnswerIn, AnswerResult, GameCreate, GameOut, GameSummary
 from app.services.dictionary import service as dictionary
 from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.game import play
+from app.services.settings import load_settings
 
 router = APIRouter(prefix="/api", tags=["games"], dependencies=[Depends(current_user)])
 
@@ -15,6 +17,8 @@ router = APIRouter(prefix="/api", tags=["games"], dependencies=[Depends(current_
 @router.post("/games", response_model=GameOut, status_code=201)
 def create_game(body: GameCreate, session: Session = Depends(get_session), user: User = Depends(current_user)):
     song = get_song(body.song_id, session)
+    if song.source == SongSource.youtube and (not load_settings(session).youtube_enabled or not song.available):
+        raise AppError("youtube_disabled" if song.available else "video_unavailable", "This YouTube song cannot be played (switched off in Settings, or the video is gone)", 403)
     return play.game_out(session, play.create_game(session, song, body.difficulty, user, body.mode))
 
 

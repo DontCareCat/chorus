@@ -42,7 +42,7 @@ class Song(Base):
     file_name: Mapped[str | None] = mapped_column(String(300), default=None)
     youtube_id: Mapped[str | None] = mapped_column(String(16), unique=True, default=None)
     youtube_channel: Mapped[str | None] = mapped_column(String(300), default=None)
-    youtube_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)  # YouTube's own facts (title, channel, length) are refreshed or dropped after 30 days
+    youtube_checked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)  # the channel and playability are checked again, and the length dropped, after 30 days (title and artist are the user's own)
     available: Mapped[bool] = mapped_column(Boolean, default=True)
     removed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())  # hidden library song
     has_cover: Mapped[bool | None] = mapped_column(Boolean, default=None)  # None = not checked yet
