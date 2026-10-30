@@ -1,0 +1,48 @@
+<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
+<title>yt spike</title>
+<div id=p style="width:100%;height:220px"></div><pre id=out style="white-space:pre-wrap;font:12px monospace"></pre>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+const q = new URLSearchParams(location.search), VID = q.get("v") || "dQw4w9WgXcQ";
+const out = document.getElementById("out"), res = { ua: navigator.userAgent, origin: location.origin, referrer: document.referrer, events: [], errors: [] };
+window.__spike = res; const t0 = performance.now(), now = () => Math.round(performance.now() - t0);
+const log = (m) => { res.events.push(now() + " " + m); out.textContent = res.events.slice(-14).join("\n"); };
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+function waitFor(f, ms, step = 20) { return new Promise(async (ok) => { const s = performance.now(); while (performance.now() - s < ms) { if (f()) return ok(Math.round(performance.now() - s)); await sleep(step); } ok(null); }); }
+let player;
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player("p", { videoId: VID, host: q.get("host") || undefined, playerVars: { playsinline: 1, controls: 1, rel: 0, origin: q.get("origin") || undefined },
+    events: { onReady: () => { log("ready"); res.ready = now(); run(); }, onStateChange: (e) => log("state " + e.data), onError: (e) => { res.errors.push(e.data); log("error " + e.data); } } });
+};
+async function run() {
+  try {
+    player.setVolume(100); player.playVideo();
+    res.startMs = await waitFor(() => player.getPlayerState() === 1, 20000); log("playing after " + res.startMs);
+    if (res.startMs === null) { res.done = true; return; }
+    await sleep(1500);
+    // clock granularity
+    const samples = []; let last = -1;
+    for (let i = 0; i < 300; i++) { const t = player.getCurrentTime(); if (t !== last) { samples.push([now(), +t.toFixed(3)]); last = t; } await sleep(10); }
+    const gaps = samples.slice(1).map((s, i) => s[0] - samples[i][0]), jumps = samples.slice(1).map((s, i) => +(s[1] - samples[i][1]).toFixed(3));
+    const med = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
+    res.clock = { changes: samples.length, medianGapMs: med(gaps), medianJumpS: med(jumps), maxJumpS: Math.max(...jumps) };
+    // seek latency forward and back
+    res.seeks = [];
+    for (const target of [60, 20, 90, 45]) {
+      const s = performance.now(); player.seekTo(target, true);
+      const ms = await waitFor(() => Math.abs(player.getCurrentTime() - target) < 0.5 && player.getPlayerState() === 1, 10000);
+      res.seeks.push({ target, ms, got: +player.getCurrentTime().toFixed(2) });
+      await sleep(800);
+    }
+    // paused seek
+    player.pauseVideo(); await waitFor(() => player.getPlayerState() === 2, 3000);
+    const s2 = performance.now(); player.seekTo(30, true);
+    res.pausedSeekMs = await waitFor(() => Math.abs(player.getCurrentTime() - 30) < 0.5, 5000); res.pausedState = player.getPlayerState();
+    // volume steps
+    res.volume = []; for (const v of [0, 25, 50, 100]) { player.setVolume(v); await sleep(60); res.volume.push([v, player.getVolume()]); }
+    player.playVideo(); await waitFor(() => player.getPlayerState() === 1, 5000); await sleep(1000);
+    res.duration = player.getDuration();
+    res.done = true; log("done");
+  } catch (e) { res.errors.push(String(e)); res.done = true; }
+}
+</script>
