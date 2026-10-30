@@ -120,19 +120,21 @@ class ScanOut(BaseModel):
     errors: list[str]
 
 
-class SpotifyTrackOut(BaseModel):
-    spotify_id: str
-    title: str
-    artist: str
-    album: str
-    duration: float
-    song_id: int | None = None  # the song already in the library that this track is
-    song_title: str | None = None
+class TrackIn(BaseModel):
+    title: str = Field(max_length=300)
+    artist: str = Field("", max_length=300)
+    duration: float = Field(0, ge=0, le=86_400)
 
 
-class SpotifyPlaylistOut(BaseModel):
-    playlist_id: str
-    name: str
-    total: int  # tracks in the playlist (at most 1000 are read)
-    tracks: list[SpotifyTrackOut]
-    matched: int
+class TrackMatchRequest(BaseModel):
+    tracks: list[TrackIn] = Field(min_length=1, max_length=2000)
+
+
+class TrackMatch(BaseModel):
+    index: int
+    song_id: int
+    song_title: str
+
+
+class TrackMatchOut(BaseModel):
+    matches: list[TrackMatch]

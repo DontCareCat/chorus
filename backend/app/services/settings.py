@@ -22,8 +22,6 @@ class RuntimeSettings(BaseModel):
     auto_fetch_covers: bool = True  # look up missing album covers online (artist and album are sent to MusicBrainz)
     translation_enabled: bool = True  # dictionary: look up translations and articles online (the words and sentences are sent to the translation service and Wiktionary)
     youtube_enabled: bool = True  # YouTube songs: add them and play them in YouTube's own player (the video id and titles are looked up at YouTube)
-    spotify_client_id: str = Field("", max_length=100)  # the person's own Spotify app (developer.spotify.com): lets Chorus read public playlists
-    spotify_client_secret: str = Field("", max_length=100)  # never sent back to the browser (see routes/settings.py)
     allow_guest: bool = True  # administrator only: may people use Chorus without signing in
     allow_registration: bool = True  # administrator only: may new accounts be created
 

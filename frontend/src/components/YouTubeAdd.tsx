@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
 import { isTopicChannel, parsePlaylistId, parseSpotifyPlaylistId, youtubeThumb } from "../lib/youtube-add";
-import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
+import { TrackListImport } from "./TrackListImport";
 import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
 import { api, ApiError } from "../services/api";
 import type { SongDto, YouTubePreviewDto } from "../services/api";
@@ -19,6 +19,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const [artist, setArtist] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [listOpen, setListOpen] = useState(false);
   const immediate = useRef(false);
   const canPaste = typeof navigator !== "undefined" && !!navigator.clipboard?.readText;
 
@@ -91,7 +92,8 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
         {!problem && !preview && !checking && !playlistId && !spotifyId && <small>{en.library.youtubeHelp}</small>}
       </label>
-      {spotifyId && <SpotifyPlaylistImport key={spotifyId} link={link.trim()} onMade={() => onPlaylistAdded?.()} />}
+      {(spotifyId || listOpen) && <TrackListImport spotify={!!spotifyId} onMade={() => onPlaylistAdded?.()} />}
+      {!spotifyId && !listOpen && !playlistId && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">

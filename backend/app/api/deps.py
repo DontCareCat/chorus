@@ -11,7 +11,6 @@ from app.services.library.covers import CoverClient
 from app.services.dictionary.lookup import Translator, Wiktionary
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.lrclib import LrclibClient
-from app.services.spotify import SpotifyClient
 from app.services.youtube import YouTubeClient
 from app.services.settings import RuntimeSettings, load_settings
 
@@ -46,15 +45,6 @@ def _youtube() -> YouTubeClient:
 
 def get_youtube_client() -> YouTubeClient:  # overridden in tests
     return _youtube()
-
-
-@lru_cache
-def _spotify() -> SpotifyClient:
-    return SpotifyClient()
-
-
-def get_spotify_client() -> SpotifyClient:  # overridden in tests
-    return _spotify()
 
 
 def get_translator() -> Translator:  # overridden in tests
