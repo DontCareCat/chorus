@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { en } from "../i18n/en";
 import { youtubeSearchUrl } from "../lib/youtube-add";
 import { api, ApiError } from "../services/api";
-import type { SongDto, SpotifyTrackDto } from "../services/api";
-import { YouTubeSearch } from "./YouTubeSearch";
+import type { SpotifyTrackDto } from "../services/api";
 
-/** A Spotify song link: read from Spotify, then looked for on YouTube (the videos found are added under the Spotify song's own title and artist). */
-export function SpotifyTrackImport({ link, onAdded, onShow }: { link: string; onAdded: (song: SongDto) => void; onShow: (title: string) => void }) {
+/** A Spotify song link: read from Spotify; if the song is in the library it says so, otherwise it links to the YouTube search for it. */
+export function SpotifyTrackImport({ link, onShow }: { link: string; onShow: (title: string) => void }) {
   const [track, setTrack] = useState<SpotifyTrackDto | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,8 +34,7 @@ export function SpotifyTrackImport({ link, onAdded, onShow }: { link: string; on
       ) : (
         <>
           <p className="muted">{en.library.stPick}</p>
-          <YouTubeSearch query={`${first} ${track.title}`.trim()} onAdded={onAdded} onShow={onShow} names={{ title: track.title, artist: track.artist }} />
-          <a href={youtubeSearchUrl(first, track.title)} target="_blank" rel="noreferrer">{en.library.ytSearchOnYouTube}</a>
+          <div><a className="btn inverse" href={youtubeSearchUrl(first, track.title)} target="_blank" rel="noreferrer">{en.library.spFind}</a></div>
         </>
       )}
     </div>

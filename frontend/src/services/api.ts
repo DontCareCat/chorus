@@ -41,13 +41,6 @@ export interface SpotifyPlaylistDto {
   matched: number;
 }
 
-export interface SearchHitDto {
-  video_id: string;
-  title: string;
-  channel: string;
-  existing_id: number | null;
-}
-
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -174,7 +167,6 @@ export interface SettingsDto {
   library_dirs: string[];
   translation_enabled: boolean;
   youtube_enabled: boolean;
-  youtube_api_key: string; // "********" when one is saved: never the key itself
   allow_guest: boolean;
   allow_registration: boolean;
 }
@@ -384,7 +376,6 @@ export const api = {
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
   spotifyPlaylist: (url: string) => request<SpotifyPlaylistDto>(`/api/spotify/playlist?url=${encodeURIComponent(url)}`),
   spotifyTrack: (url: string) => request<SpotifyTrackDto>(`/api/spotify/track?url=${encodeURIComponent(url)}`),
-  youtubeSearch: (q: string) => request<{ hits: SearchHitDto[] }>(`/api/youtube/search?q=${encodeURIComponent(q)}`),
   matchTracks: (tracks: { title: string; artist: string; duration: number }[]) => request<TrackMatchDto>("/api/tracks/match", json("POST", { tracks })),
   importYouTubeVideos: (videoIds: string[], lookup = true, names: Record<string, { title: string; artist: string }> = {}) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds, lookup, names })),
   previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),

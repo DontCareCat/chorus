@@ -13,7 +13,6 @@ from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.lrclib import LrclibClient
 from app.services.spotify_page import SpotifyPageClient
 from app.services.youtube import YouTubeClient
-from app.services.youtube_search import YouTubeSearchClient
 from app.services.settings import RuntimeSettings, load_settings
 
 
@@ -56,15 +55,6 @@ def _spotify_page() -> SpotifyPageClient:
 
 def get_spotify_client() -> SpotifyPageClient:  # overridden in tests
     return _spotify_page()
-
-
-@lru_cache
-def _youtube_search() -> YouTubeSearchClient:
-    return YouTubeSearchClient()
-
-
-def get_youtube_search_client() -> YouTubeSearchClient:  # overridden in tests
-    return _youtube_search()
 
 
 def get_translator() -> Translator:  # overridden in tests

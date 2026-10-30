@@ -161,14 +161,3 @@ class SpotifyPlaylistOut(BaseModel):
     owner: str
     tracks: list[SpotifyTrackOut]
     matched: int
-
-
-class SearchHitOut(BaseModel):
-    video_id: str
-    title: str
-    channel: str
-    existing_id: int | None = None  # the song already in the library for this video
-
-
-class SearchOut(BaseModel):
-    hits: list[SearchHitOut]

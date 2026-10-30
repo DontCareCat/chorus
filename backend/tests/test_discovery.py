@@ -4,10 +4,9 @@ from pathlib import Path
 import httpx
 import pytest
 
-from app.api.deps import get_spotify_client, get_youtube_search_client
+from app.api.deps import get_spotify_client
 from app.main import app
 from app.services.spotify_page import SpotifyPageClient, parse_embed, parse_playlist_id
-from app.services.youtube_search import YouTubeSearchClient
 
 PID = "5auhc1NwZLVFKAfywWk5kN"
 VID = "dQw4w9WgXcQ"
@@ -89,65 +88,6 @@ def test_spotify_route_errors(api, sp):
     assert api.get("/api/spotify/playlist", params={"url": f"spotify:playlist:{PID}"}).json()["error"]["code"] == "spotify_page_unreadable"
 
 
-class FakeSearch:
-    def __init__(self):
-        self.status, self.reason, self.calls, self.headers = 200, "", [], []
-
-    def client(self) -> YouTubeSearchClient:
-        def handler(request: httpx.Request) -> httpx.Response:
-            self.calls.append(dict(request.url.params))
-            self.headers.append(request.headers.get("x-goog-api-key"))
-            if self.status != 200:
-                return httpx.Response(self.status, json={"error": {"errors": [{"reason": self.reason}]}})
-            return httpx.Response(200, json={"items": [{"id": {"videoId": VID}, "snippet": {"title": "Rammstein - Du Hast &amp; more", "channelTitle": "Rammstein"}}, {"id": {"channelId": "x"}, "snippet": {}}]})
-        return YouTubeSearchClient(httpx.Client(transport=httpx.MockTransport(handler)))
-
-
-@pytest.fixture
-def search(api):
-    fake = FakeSearch()
-    c = fake.client()
-    app.dependency_overrides[get_youtube_search_client] = lambda: c
-    return fake
-
-
-def set_key(api, key="AIza-test-key"):
-    s = api.get("/api/settings").json()
-    return api.put("/api/settings", json={**s, "youtube_api_key": key})
-
-
-def test_search_needs_a_key_then_finds_embeddable_videos(api, search):
-    r = api.get("/api/youtube/search", params={"q": "rammstein du hast"})
-    assert r.status_code == 422 and r.json()["error"]["code"] == "youtube_key_missing"
-    put = set_key(api)
-    assert put.status_code == 200 and put.json()["youtube_api_key"] == "********"
-    assert api.get("/api/settings").json()["youtube_api_key"] == "********"
-    r = api.get("/api/youtube/search", params={"q": "rammstein du hast"}).json()
-    assert r["hits"] == [{"video_id": VID, "title": "Rammstein - Du Hast & more", "channel": "Rammstein", "existing_id": None}]
-    assert "key" not in search.calls[0] and search.headers[0] == "AIza-test-key" and search.calls[0]["videoEmbeddable"] == "true" and search.calls[0]["type"] == "video"
-
-
-def test_search_marks_videos_already_in_the_library_and_keeps_the_key_when_other_settings_are_saved(api, search):
-    set_key(api)
-    s = api.get("/api/settings").json()
-    api.put("/api/settings", json={**s, "default_language": "en"})  # the browser sends the mask back
-    song = api.post("/api/songs/youtube", json={"url": VID}).json()  # (oEmbed is not faked here: ok if it fails)
-    r = api.get("/api/youtube/search", params={"q": "rammstein"})
-    assert r.status_code == 200  # the real key was kept
-    if song.get("id"):
-        assert r.json()["hits"][0]["existing_id"] == song["id"]
-
-
-def test_search_errors_are_said_plainly(api, search):
-    set_key(api)
-    search.status, search.reason = 403, "quotaExceeded"
-    assert api.get("/api/youtube/search", params={"q": "abc"}).json()["error"]["code"] == "youtube_quota"
-    search.reason = "keyInvalid"
-    assert api.get("/api/youtube/search", params={"q": "abc"}).json()["error"]["code"] == "youtube_key_invalid"
-    search.status = 503
-    assert api.get("/api/youtube/search", params={"q": "abc"}).status_code == 503
-
-
 def test_import_gives_names_to_videos(api):
     from tests.test_youtube import FakeYouTube
     from app.api.deps import get_youtube_client
@@ -182,18 +122,3 @@ def test_a_malformed_page_does_not_crash():
     from app.services.spotify_page import parse_embed
     p = parse_embed(embed_page([None, "x", {"uri": "spotify:track:a", "title": "T", "subtitle": "A", "duration": "soon"}]))
     assert p is not None and [(t.title, t.duration) for t in p.tracks] == [("T", 0.0)]
-
-
-def test_searching_too_fast_is_refused(api, search):
-    import app.api.routes.discovery as d
-    set_key(api)
-    d._searches.clear()
-    codes = [api.get("/api/youtube/search", params={"q": f"song {i}"}).status_code for i in range(d.SEARCHES_PER_MINUTE + 2)]
-    assert codes[: d.SEARCHES_PER_MINUTE] == [200] * d.SEARCHES_PER_MINUTE and codes[-1] == 429
-    d._searches.clear()
-
-
-def test_only_the_administrator_changes_the_key_once_people_have_signed_up(api, search):
-    assert set_key(api).status_code == 200  # nobody has signed up: the Guest is the owner
-    api.post("/api/auth/register", json={"username": "owner", "password": "passw0rd-long"})
-    assert set_key(api, "another").status_code in (200, 403)
