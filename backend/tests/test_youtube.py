@@ -39,6 +39,8 @@ class FakeYouTube:
 
     def client(self) -> YouTubeClient:
         def handler(request: httpx.Request) -> httpx.Response:
+            if "oembed" not in str(request.url):
+                return httpx.Response(200, text='"lengthSeconds":"213"')  # the public page
             self.calls += 1
             if self.status != 200:
                 return httpx.Response(self.status)
@@ -59,7 +61,7 @@ def test_add_youtube_song(api, yt):
     assert r.status_code == 201
     s = r.json()
     assert (s["artist"], s["title"], s["source"], s["youtube_id"], s["youtube_channel"]) == ("Rammstein", "Du Hast", "youtube", VID, "Rammstein")
-    assert s["file_name"] is None and s["available"] is True and s["lyrics_status"] in ("pending", "not_found", "found", "needs_choice")
+    assert s["duration"] == 213 and s["file_name"] is None and s["available"] is True and s["lyrics_status"] in ("pending", "not_found", "found", "needs_choice")
     again = api.post("/api/songs/youtube", json={"url": f"https://www.youtube.com/watch?v={VID}"})
     assert again.status_code == 200 and again.json()["id"] == s["id"] and yt.calls == 1  # no second lookup
     assert [x["id"] for x in api.get("/api/songs").json()] == [s["id"]]
@@ -214,7 +216,7 @@ def test_refresh_backs_off_when_youtube_is_unreachable_and_runs_one_at_a_time(ap
         _refreshing.release()
 
 
-def test_refresh_updates_the_channel_and_drops_the_length(api, yt, session):
+def test_refresh_updates_the_channel_and_rereads_the_length(api, yt, session):
     from datetime import timedelta
     from sqlalchemy.orm import sessionmaker
     from app.db.models import Song
@@ -230,7 +232,7 @@ def test_refresh_updates_the_channel_and_drops_the_length(api, yt, session):
     assert refresh_stale(factory, yt.client()) == 1
     with factory() as q:
         song = q.get(Song, s["id"])
-        assert song.youtube_channel == "Rammstein" and song.duration == 0
+        assert song.youtube_channel == "Rammstein" and song.duration == 213
 
 
 def test_preview_cleans_title_and_artist_and_saves_nothing(api, yt):
@@ -313,3 +315,15 @@ def test_playlist_title_comes_from_oembed_or_is_empty(api, yt):
     yt.status = 404
     assert api.get("/api/songs/youtube/playlist-title", params={"list": "PLAw_8IRmyA1I"}).json() == {"title": ""}
     assert api.get("/api/songs/youtube/playlist-title", params={"list": "bad id"}).status_code == 422
+
+
+def test_length_from_the_public_page():
+    import httpx
+    from app.services.youtube import YouTubeClient
+
+    def handler(request):
+        return httpx.Response(200, text='x"lengthSeconds":"215"y' if "ok" in str(request.url) else "nothing")
+
+    c = YouTubeClient(httpx.Client(transport=httpx.MockTransport(handler)))
+    assert c.length("ok123456789") == 215.0
+    assert c.length("zzzzzzzzzzz") == 0.0

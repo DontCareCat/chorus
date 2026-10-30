@@ -5,7 +5,7 @@ import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
 import { SongMenu } from "./SongMenu";
 import type { MenuExtra, SongAction } from "./SongMenu";
-import { Details, Finder } from "./SongTools";
+import { clock, Details, Finder } from "./SongTools";
 import { StatusBadge } from "./StatusBadge";
 import { useAsync } from "../hooks/useAsync";
 import { useLongPress } from "../hooks/useLongPress";
@@ -191,7 +191,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
         const s = songs.find((x) => x.id === tool.id);
         if (!s) return null;
         return (
-          <Dialog title={en.songMenu.titles[tool.kind] ?? ""} subtitle={`${s.title} · ${s.artist}`} onClose={closeTool}>
+          <Dialog title={en.songMenu.titles[tool.kind] ?? ""} subtitle={`${s.title} · ${s.artist}${s.duration > 0 ? ` · ${clock(s.duration)}` : ""}`} onClose={closeTool}>
             {tool.kind === "lyrics" && <Finder bare song={s} hasLyrics={s.lyrics_status === "found"} onAttached={reload} />}
             {tool.kind === "cover" && <CoverPicker bare song={s} onChanged={reload} />}
             {tool.kind === "language" && <Details bare part="language" song={s} onSaved={reload} />}

@@ -65,7 +65,7 @@ export function Details({ song, onSaved, part = "all", bare = false }: { song: S
 
 
 /** m:ss */
-const clock = (seconds: number): string => { const total = Math.round(seconds); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`; };
+export const clock = (seconds: number): string => { const total = Math.round(seconds); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`; };
 
 export function Finder({ song, hasLyrics, onAttached, bare = false }: { song: SongDto; hasLyrics: boolean; onAttached: () => void; bare?: boolean }) {
   const [q, setQ] = useState(`${song.artist} ${song.title}`.trim());
@@ -122,7 +122,7 @@ export function Finder({ song, hasLyrics, onAttached, bare = false }: { song: So
     <Wrap className={bare ? undefined : "panel"}>
       {!bare && <h2>{hasLyrics ? en.song.replace : en.song.find}</h2>}
       {hasLyrics && <p className="muted" style={{ marginBottom: 14 }}>{en.song.chooseHelp}</p>}
-      <p className="muted song-length" style={{ marginBottom: 10 }}>{song.duration > 0 ? en.song.thisSong(clock(song.duration)) : en.song.lengthUnknown}</p>
+      {(!bare || song.duration <= 0) && <p className="muted song-length" style={{ marginBottom: 10 }}>{song.duration > 0 ? en.song.thisSong(clock(song.duration)) : en.song.lengthUnknown}</p>}
       <p style={{ marginBottom: 14 }}><button type="button" className="btn" onClick={() => void auto()} disabled={busy}>{hasLyrics ? en.song.findAgain : en.song.findAuto}</button></p>
       <form autoComplete="off" className="inline" onSubmit={(e) => { e.preventDefault(); void search(); }}>
         <label className="field">

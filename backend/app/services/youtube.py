@@ -87,6 +87,15 @@ class YouTubeClient:
         except (httpx.HTTPError, ValueError):
             return ""
 
+    def length(self, video_id: str) -> float:
+        """The video's length in seconds from its public page (no key, nothing played); 0 when it cannot be read: the player supplies it later."""
+        try:
+            r = self.http.get(f"https://www.youtube.com/watch?v={video_id}", headers={"Accept-Language": "en"}, follow_redirects=True)
+            m = re.search(r'"lengthSeconds":"(\d{1,6})"', r.text) if r.status_code == 200 else None
+            return float(m.group(1)) if m else 0.0
+        except (httpx.HTTPError, ValueError):
+            return 0.0
+
     def info(self, video_id: str) -> VideoInfo:
         try:
             r = self.http.get(OEMBED_URL, params={"url": f"https://www.youtube.com/watch?v={video_id}", "format": "json"})
@@ -114,7 +123,7 @@ RETRY_UNPLAYABLE_DAYS = 7  # gone, private or not embeddable: look again in a we
 
 def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
     """YouTube's own facts about a song are checked again after 30 days: the channel and whether it can still be played;
-    the length is dropped, so the player supplies it again the next time the song plays.
+    the length is read again from the public page (kept when that fails).
 
     What the user confirmed (title, artist, timing) stays. One pass at a time, a few songs per pass, saved song by song.
     """
@@ -136,7 +145,8 @@ def refresh_stale(factory, client: "YouTubeClient", now=None) -> int:
                 song = session.get(Song, song_id)
                 try:
                     info = client.info(song.youtube_id)
-                    song.youtube_channel, song.available, song.duration = info.channel or None, True, 0.0
+                    song.youtube_channel, song.available = info.channel or None, True
+                    song.duration = client.length(song.youtube_id) or song.duration
                     song.youtube_checked_at = now
                 except AppError:
                     song.youtube_channel, song.available = None, False  # removed, private or not embeddable
@@ -190,7 +200,7 @@ def add_youtube_video(session, cfg, youtube: "YouTubeClient", video_id: str, tit
     info = youtube.info(video_id)  # raises AppError (gone / not embeddable) or YouTubeUnavailable
     clean_artist, clean_song = clean_title(info.title, info.channel)
     song = Song(
-        title=(title or clean_song or video_id).strip(), artist=(artist if artist is not None else clean_artist).strip(), duration=0.0,
+        title=(title or clean_song or video_id).strip(), artist=(artist if artist is not None else clean_artist).strip(), duration=youtube.length(video_id),
         language=cfg.default_language, source=SongSource.youtube, youtube_id=video_id, youtube_channel=info.channel or None,
         youtube_checked_at=utcnow(), content_hash=f"youtube:{video_id}", available=True, has_cover=False, cover_source="youtube",
         lyrics_status=LyricsStatus.pending,

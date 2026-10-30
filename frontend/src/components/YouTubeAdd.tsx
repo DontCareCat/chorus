@@ -110,7 +110,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         ? <SpotifyPlaylistImport key={spotifyKey(link)} link={cleanInput(link)} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />
         : <p className="muted" role="status">{en.library.spOnHold}</p>)}
       {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
-      {!listOpen && kind !== "playlist" && (kind !== "spotify" || !SPOTIFY_PLAYLISTS) && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
+      {!listOpen && kind !== "playlist" && (kind !== "spotify" || !SPOTIFY_PLAYLISTS) && kind !== "spotifyTrack" && <div><button type="button" className="link-btn" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">
