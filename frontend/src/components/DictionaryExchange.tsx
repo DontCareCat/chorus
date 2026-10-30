@@ -61,7 +61,7 @@ export function DictionaryExchange({ mode, scope, shown, defaultLanguage, onClos
             <div className="inline">
               <button type="button" className="btn secondary" onClick={() => input.current?.click()}>{file ? t.otherFile : t.chooseFile}</button>
               <span className="muted exchange-file">{file?.name ?? t.noFile}</span>
-              <input ref={input} type="file" accept=".apkg,.txt,.csv,.tsv,text/*" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
+              <input ref={input} type="file" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
             </div>
             <label className="field"><span>{t.language}</span><LanguageSelect id="exchange-language" value={language} onChange={setLanguage} /></label>
             {file?.name.toLowerCase().endsWith(".apkg") && (

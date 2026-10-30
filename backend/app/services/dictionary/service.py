@@ -146,10 +146,9 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
         try:
             meaning = fallback_meaning(session, translator, entry, info, source, target)
         except LookupUnavailable as e:
-            log.warning("meaning lookup failed for %r: %s", entry.surface, e)
-            failed = True
+            log.warning("meaning lookup failed for %r: %s", entry.surface, e)  # a bonus here: the word stays done
             meaning = None
-        if meaning and not entry.translation:
+        if meaning:
             entry.translation, entry.translation_language = meaning
     entry.enrich_status = "failed" if failed else "done"
     session.commit()
