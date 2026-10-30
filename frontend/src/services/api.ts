@@ -20,6 +20,24 @@ export interface YouTubeImportDto {
   not_tried: string[];
 }
 
+export interface SpotifyTrackDto {
+  spotify_id: string;
+  title: string;
+  artist: string;
+  album: string;
+  duration: number;
+  song_id: number | null;
+  song_title: string | null;
+}
+
+export interface SpotifyPlaylistDto {
+  playlist_id: string;
+  name: string;
+  total: number;
+  tracks: SpotifyTrackDto[];
+  matched: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -146,6 +164,8 @@ export interface SettingsDto {
   library_dirs: string[];
   translation_enabled: boolean;
   youtube_enabled: boolean;
+  spotify_client_id: string;
+  spotify_client_secret: string; // "********" when one is saved: never the secret itself
   allow_guest: boolean;
   allow_registration: boolean;
 }
@@ -353,6 +373,7 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
+  spotifyPlaylist: (url: string) => request<SpotifyPlaylistDto>(`/api/spotify/playlist?url=${encodeURIComponent(url)}`),
   importYouTubeVideos: (videoIds: string[], lookup = true) => request<YouTubeImportDto>("/api/songs/youtube/import", json("POST", { video_ids: videoIds, lookup })),
   previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),

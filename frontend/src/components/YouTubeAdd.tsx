@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { noAutofill } from "../lib/noAutofill";
-import { isTopicChannel, parsePlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { isTopicChannel, parsePlaylistId, parseSpotifyPlaylistId, youtubeThumb } from "../lib/youtube-add";
+import { SpotifyPlaylistImport } from "./SpotifyPlaylistImport";
 import { YouTubePlaylistImport } from "./YouTubePlaylistImport";
 import { api, ApiError } from "../services/api";
 import type { SongDto, YouTubePreviewDto } from "../services/api";
@@ -24,7 +25,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   useEffect(() => {
     setAddError(null);
     const text = link.trim();
-    if (!text || parsePlaylistId(text)) { setCheck({ state: "idle" }); return; } // a playlist link is read by the playlist import below
+    if (!text || parsePlaylistId(text) || parseSpotifyPlaylistId(text)) { setCheck({ state: "idle" }); return; } // a playlist link is read by the playlist import below
     setCheck((c) => (c.state === "ready" ? { state: "checking" } : c)); // an old preview is not offered for a new link
     let stale = false;
     const delay = immediate.current ? 0 : CHECK_DELAY;
@@ -68,6 +69,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   };
 
   const playlistId = parsePlaylistId(link);
+  const spotifyId = parseSpotifyPlaylistId(link);
   const problem = check.state === "error" ? check.message : addError;
   const checking = check.state === "checking";
   return (
@@ -87,8 +89,9 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
         </div>
         {!canPaste && checking && <small role="status">{en.library.ytChecking}…</small>}
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
-        {!problem && !preview && !checking && !playlistId && <small>{en.library.youtubeHelp}</small>}
+        {!problem && !preview && !checking && !playlistId && !spotifyId && <small>{en.library.youtubeHelp}</small>}
       </label>
+      {spotifyId && <SpotifyPlaylistImport key={spotifyId} link={link.trim()} onMade={() => onPlaylistAdded?.()} />}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">

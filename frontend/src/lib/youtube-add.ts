@@ -50,3 +50,22 @@ export function parsePlaylistId(input: string): string | null {
 
 /** Videos asked of the server in one call. */
 export const IMPORT_BATCH = 20;
+
+/** The id of a Spotify playlist link (open.spotify.com/playlist/… or spotify:playlist:…). */
+export function parseSpotifyPlaylistId(input: string): string | null {
+  const text = input.trim();
+  const uri = /^spotify:playlist:([A-Za-z0-9]{22})$/.exec(text);
+  if (uri) return uri[1]!;
+  try {
+    const u = new URL(text.includes("://") ? text : `https://${text}`);
+    if (!["open.spotify.com", "play.spotify.com"].includes(u.hostname.toLowerCase())) return null;
+    const parts = u.pathname.split("/").filter(Boolean);
+    const rest = parts[0]?.startsWith("intl-") ? parts.slice(1) : parts;
+    return rest[0] === "playlist" && /^[A-Za-z0-9]{22}$/.test(rest[1] ?? "") ? rest[1]! : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Where to look for a track on YouTube (a normal search page: the person picks the video and pastes its link). */
+export const youtubeSearchUrl = (artist: string, title: string): string => `https://www.youtube.com/results?search_query=${encodeURIComponent(`${artist} ${title}`.trim())}`;

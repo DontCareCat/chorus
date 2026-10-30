@@ -172,6 +172,12 @@ export function SettingsPage() {
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />
             <span><strong>{en.settings.translationEnabled}</strong><small>{en.settings.translationEnabledHelp}</small></span>
           </label>
+          <div className="field">
+            <span><strong>{en.settings.spotifyTitle}</strong></span>
+            <small>{en.settings.spotifyHelp} <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">{en.settings.spotifyDashboard}</a></small>
+            <label className="field"><span>{en.settings.spotifyClientId}</span><input type="text" {...noAutofill("spotify-client-id")} value={form.spotify_client_id} onChange={(e) => set("spotify_client_id", e.target.value.trim())} style={{ fontSize: 15 }} /></label>
+            <label className="field"><span>{en.settings.spotifyClientSecret}</span><input type="password" {...noAutofill("spotify-client-secret")} autoComplete="new-password" value={form.spotify_client_secret === "********" ? "" : form.spotify_client_secret} placeholder={form.spotify_client_secret === "********" ? en.settings.spotifySecretSet : ""} onChange={(e) => { const v = e.target.value.trim(); set("spotify_client_secret", v === "" && loaded.data?.spotify_client_secret === "********" ? "********" : v); }} style={{ fontSize: 15 }} /></label>
+          </div>
           <label className="check">
             <input type="checkbox" checked={form.youtube_enabled} onChange={(e) => set("youtube_enabled", e.target.checked)} />
             <span>

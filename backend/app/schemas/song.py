@@ -118,3 +118,21 @@ class ScanOut(BaseModel):
     unavailable: int
     filtered: int = 0
     errors: list[str]
+
+
+class SpotifyTrackOut(BaseModel):
+    spotify_id: str
+    title: str
+    artist: str
+    album: str
+    duration: float
+    song_id: int | None = None  # the song already in the library that this track is
+    song_title: str | None = None
+
+
+class SpotifyPlaylistOut(BaseModel):
+    playlist_id: str
+    name: str
+    total: int  # tracks in the playlist (at most 1000 are read)
+    tracks: list[SpotifyTrackOut]
+    matched: int

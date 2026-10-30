@@ -1340,3 +1340,7 @@ button.queue-bar-face { cursor: pointer; }
 .yt-reader iframe { display: block; width: 100%; height: 100%; border: 0; }
 .yt-found, .yt-result { display: grid; gap: 10px; }
 .yt-found small { color: var(--text-3); }
+.sp-playlist p { margin: 0; }
+.sp-missing ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
+.sp-missing li { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.sp-missing li a { flex: none; }
