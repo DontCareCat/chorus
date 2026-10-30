@@ -21,13 +21,14 @@ export interface Run { ids: number[]; total: number; last: number; at: number }
 const RUN_KEY = "chorus-lookup-run";
 const RUN_MAX_AGE_MS = 36 * 3600_000; // a run older than this was never finished by this screen: forget it
 
-/** The run after a look at the list: new songs waiting raise the total, so what was done stays done. */
+/** The run after a look at the list: every song seen waiting is counted once, so what was done stays done. */
 export function advanceRun(run: Run | null, waiting: number, pendingIds: readonly number[], now: number): Run {
   const r: Run = run ? { ...run, ids: [...run.ids] } : { ids: [], total: 0, last: 0, at: now };
   const have = new Set(r.ids);
   for (const id of pendingIds) if (!have.has(id)) r.ids.push(id);
-  if (waiting > r.last) r.total += waiting - r.last;
+  r.total = r.ids.length; // songs are counted once, whatever happens to them (retried songs are not new)
   r.last = waiting;
+  r.at = now; // the age limit counts from the last look, not from the start
   return r;
 }
 
@@ -168,6 +169,7 @@ export function LookupBar({ songs, busy, onRetry, ready = true }: Props) {
     } else { // the last request is done
       wasWaiting.current = false;
       clear();
+      saveRun(null); // the result is shown once: leaving the page now does not bring it back
       const c = resultCounts(latest.current, new Set(run.current?.ids ?? []));
       const quick = reducedMotion();
       setPhase("out");

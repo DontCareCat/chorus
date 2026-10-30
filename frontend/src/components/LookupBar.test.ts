@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { advanceRun, fmt, letterStep, loadRun, resultCounts, resultText, tierFor } from "./LookupBar";
 import { en } from "../i18n/en";
 import type { SongDto } from "../services/api";
@@ -50,10 +50,26 @@ describe("the run's count", () => {
     expect(run.total - run.last).toBe(30);
     expect(run.ids.length).toBe(125);
   });
+  it("counts songs that finish and new songs in the same look", () => {
+    let run = advanceRun(null, 10, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 1000);
+    run = advanceRun(run, 10, [5, 6, 7, 8, 9, 10, 11, 12, 13, 14], 2000); // 5 done, 5 added: waiting is the same
+    expect(run.total).toBe(15);
+    expect(run.total - run.last).toBe(5);
+  });
+  it("does not count a retried song twice", () => {
+    let run = advanceRun(null, 100, Array.from({ length: 100 }, (_, i) => i), 1000);
+    run = advanceRun(run, 3, [0, 1, 2], 2000);
+    run = advanceRun(run, 6, [0, 1, 2, 50, 51, 52], 3000); // three came back to be retried
+    expect(run.total).toBe(100);
+  });
+  it("is kept alive by every look", () => {
+    const run = advanceRun(advanceRun(null, 2, [1, 2], 1000), 1, [2], 5000);
+    expect(run.at).toBe(5000);
+  });
+  afterEach(() => localStorage.clear());
   it("forgets a stored run that is too old", () => {
     localStorage.setItem("chorus-lookup-run", JSON.stringify({ ids: [1], total: 5, last: 3, at: 0 }));
     expect(loadRun(10 * 24 * 3600_000)).toBeNull();
     expect(loadRun(1000)).toMatchObject({ total: 5 });
-    localStorage.clear();
   });
 });
