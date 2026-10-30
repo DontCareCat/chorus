@@ -21,6 +21,7 @@ import { sortValue } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
 import { scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
+import { isTopicChannel, youtubeWatchUrl } from "../lib/youtube-add";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { GameSummaryDto, SongDto, SongScoreDto } from "../services/api";
@@ -248,6 +249,7 @@ interface RowProps {
 const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
+  const unplayable = s.source === "youtube" && !s.available;
   const onPick = () => handlers.pick(s);
   const onToggle = () => handlers.toggle(s);
   const press = useLongPress({ onLongPress: () => handlers.longPress(s) });
@@ -261,7 +263,7 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, 
     else if (phone && ready) onToggle(); // phones have no play button: a tap opens the play options
   };
   return (
-    <li className="song" ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
+    <li className="song" data-unplayable={unplayable || undefined} ref={li} data-song-id={s.id} data-reorder-id={reorderRow ? s.id : undefined} data-gone={gone || undefined}>
       <>
           <div className="swipe-reveal add" aria-hidden="true"><Icon name="queue" />{en.queue.swipeAdd}</div>
           <div className="song-main" data-swipe-face data-picked={picked} data-open={open} data-selecting={selectionActive} onClick={rowClick} {...(phone && selectable ? press.handlers : {})}>
@@ -272,12 +274,19 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, 
               <div className="song-meta">
                 <span title={s.artist}>{s.artist}</span>
                 <span className="lang">{s.language}</span>
-                {s.source === "youtube" && <span className="dup-tag yt-tag">{en.library.youtubeBadge}</span>}
-                {s.source === "youtube" && /- topic$/i.test(s.youtube_channel ?? "") && <span className="dup-tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
+                {s.source === "youtube" && <span className="yt-tag">{en.library.youtubeBadge}</span>}
+                {s.source === "youtube" && isTopicChannel(s.youtube_channel) && <span className="dup-tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
                 {(s.duration > 0 || s.source !== "youtube") && <span>{mmss(s.duration)}</span>}
                 {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
                 {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
               </div>
+              {unplayable && s.youtube_id && (
+                <div className="song-meta yt-unplayable">
+                  <span>{en.library.ytUnplayable}</span>
+                  <span aria-hidden="true">·</span>
+                  <a href={youtubeWatchUrl(s.youtube_id)} target="_blank" rel="noreferrer">{en.library.ytOpen}</a>
+                </div>
+              )}
             </div>
             <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} /></div>
             {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}

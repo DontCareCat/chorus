@@ -106,3 +106,58 @@ export function useKeyboardFit(active: boolean): void {
     };
   }, [active]);
 }
+
+let calmHeight = 0; // the visible height while no keyboard is open
+
+export interface GameArrangement {
+  /** Two columns (the player and the question on the left, the lyrics on the right) instead of one. */
+  columns: boolean;
+  /** A short screen (under 600 px high): the player bar gives way first. */
+  short: boolean;
+  /** Typing with the on-screen keyboard open. */
+  keyboard: boolean;
+  /** What can be seen right now (the visible viewport), in px. */
+  visibleHeight: number;
+  visibleWidth: number;
+}
+
+/** The arrangement the game page takes, from the shape of the viewport (not from `data-layout`): see the YouTube layouts spec. */
+export function arrangementFor(width: number, visibleHeight: number, keyboard: boolean, fullHeight = visibleHeight): GameArrangement {
+  const h = keyboard ? fullHeight : visibleHeight; // with the keyboard open the shape is that of the whole screen: the keyboard does not turn a phone sideways
+  const landscapePhone = width > h && h <= 520;
+  const wide = width >= 900 && width / h >= 1.2;
+  return { columns: landscapePhone || wide, short: h < 600, keyboard, visibleHeight, visibleWidth: width };
+}
+
+/** Watches the viewport, the keyboard and the focus; re-reads on a timer too, because keyboards do not always say when they move. */
+export function useGameArrangement(active: boolean): GameArrangement {
+  const read = (): GameArrangement => {
+    const vv = window.visualViewport;
+    const visible = Math.round(vv && vv.scale <= 1.01 ? vv.height : window.innerHeight);
+    const open = document.documentElement.classList.contains("kb-open") || (typing() && window.matchMedia?.("(pointer: coarse)").matches === true);
+    if (!open || calmHeight === 0) calmHeight = visible; // the height before the keyboard came up
+    return arrangementFor(Math.round(window.innerWidth), visible, open, calmHeight);
+  };
+  const [a, setA] = useState<GameArrangement>(read);
+  useEffect(() => {
+    if (!active) return;
+    const update = () => setA((old) => { const n = read(); return old.columns === n.columns && old.short === n.short && old.keyboard === n.keyboard && old.visibleHeight === n.visibleHeight && old.visibleWidth === n.visibleWidth ? old : n; });
+    const vv = window.visualViewport;
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    document.addEventListener("focusin", update);
+    document.addEventListener("focusout", update);
+    vv?.addEventListener("resize", update);
+    const poll = window.setInterval(update, 500);
+    update();
+    return () => {
+      window.clearInterval(poll);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+      document.removeEventListener("focusin", update);
+      document.removeEventListener("focusout", update);
+      vv?.removeEventListener("resize", update);
+    };
+  }, [active]);
+  return a;
+}

@@ -231,3 +231,37 @@ def test_refresh_updates_the_channel_and_drops_the_length(api, yt, session):
     with factory() as q:
         song = q.get(Song, s["id"])
         assert song.youtube_channel == "Rammstein" and song.duration == 0
+
+
+def test_preview_cleans_title_and_artist_and_saves_nothing(api, yt):
+    r = api.get("/api/songs/youtube/preview", params={"url": f"https://youtu.be/{VID}"})
+    assert r.status_code == 200
+    assert r.json() == {"video_id": VID, "title": "Du Hast", "artist": "Rammstein", "channel": "Rammstein", "existing_id": None, "existing_title": None}
+    assert api.get("/api/songs").json() == []
+
+
+def test_preview_reports_a_song_already_in_the_library(api, yt):
+    s = api.post("/api/songs/youtube", json={"url": VID, "title": "Mine"}).json()
+    calls = yt.calls
+    r = api.get("/api/songs/youtube/preview", params={"url": VID}).json()
+    assert r["existing_id"] == s["id"] and r["existing_title"] == "Mine" and yt.calls == calls  # no lookup needed
+    api.delete(f"/api/songs/{s['id']}")
+    assert api.get("/api/songs/youtube/preview", params={"url": VID}).json()["existing_id"] is None
+
+
+def test_preview_rejects_a_bad_link_and_a_switched_off_setting(api, yt):
+    r = api.get("/api/songs/youtube/preview", params={"url": "https://example.com"})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "bad_youtube_link"
+    settings = api.get("/api/settings").json()
+    api.put("/api/settings", json={**settings, "youtube_enabled": False})
+    r = api.get("/api/songs/youtube/preview", params={"url": VID})
+    assert r.status_code == 403 and r.json()["error"]["code"] == "youtube_disabled"
+
+
+def test_preview_passes_youtube_errors_through_like_add(api, yt):
+    yt.status = 404
+    r = api.get("/api/songs/youtube/preview", params={"url": VID})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "video_unavailable"
+    yt.status = 503
+    assert api.get("/api/songs/youtube/preview", params={"url": VID}).status_code == 503
+    assert api.get("/api/songs").json() == []

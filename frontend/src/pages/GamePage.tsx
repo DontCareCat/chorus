@@ -18,7 +18,7 @@ import { computeRunway } from "../game/runway";
 import { describeStatus } from "../game/status";
 import { useAsync } from "../hooks/useAsync";
 import { useGame } from "../hooks/useGame";
-import { useLayout } from "../hooks/useLayout";
+import { useGameArrangement, useLayout } from "../hooks/useLayout";
 import { useVolume } from "../hooks/useVolume";
 import { usePlaybackSync } from "../hooks/usePlaybackSync";
 import { en } from "../i18n/en";
@@ -43,6 +43,7 @@ export function GamePage({ publicId }: { publicId: string }) {
 function GameScreen({ game }: { game: GameDto }) {
   const g = useGame(game);
   const layout = useLayout();
+  const arrangement = useGameArrangement(true);
   // The <audio> element lives in <body>, outside React's tree: when a queue moves on with a fade between songs it keeps playing (and fading
   // out) after this page has gone, and a browser pauses an element that is removed from the page.
   const [audioEl] = useState(() => { const a = document.createElement("audio"); a.preload = "auto"; return a; });
@@ -271,6 +272,43 @@ function GameScreen({ game }: { game: GameDto }) {
     if (arrival.current?.autostart) startRef.current();
     clearArrival();
   }, []);
+  // Dialogs and sheets stop at the player's edge (styles.css reads these), and the video is paused when one opens.
+  useEffect(() => {
+    if (!youtubeId) return;
+    const root = document.documentElement;
+    const host = ytHost.current;
+    const set = () => {
+      const r = host?.getBoundingClientRect();
+      if (!r) return;
+      root.style.setProperty("--yt-bottom", `${Math.round(r.bottom)}px`);
+      root.style.setProperty("--yt-right", `${Math.round(r.right)}px`);
+    };
+    root.classList.add("yt-game");
+    set();
+    const ro = host && typeof ResizeObserver !== "undefined" ? new ResizeObserver(set) : null;
+    if (host) ro?.observe(host);
+    window.addEventListener("resize", set);
+    return () => { ro?.disconnect(); window.removeEventListener("resize", set); root.classList.remove("yt-game", "yt-cols"); root.style.removeProperty("--yt-bottom"); root.style.removeProperty("--yt-right"); };
+  }, [youtubeId, arrangement.columns]);
+  useEffect(() => { document.documentElement.classList.toggle("yt-cols", !!youtubeId && arrangement.columns); }, [youtubeId, arrangement.columns]);
+  useEffect(() => {
+    if (!youtubeId) return;
+    const mo = new MutationObserver(() => {
+      if (document.querySelector(".sheet-scrim, .dialog-scrim") && stateName.current !== "PAUSED" && stateName.current !== "IDLE" && stateName.current !== "PAUSED_FOR_QUESTION") playback.pause();
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [youtubeId, playback]);
+  // typing needs the keyboard, and with less than 216 px visible the player cannot keep its 200 px: the video waits until the screen is turned
+  const tooShortToType = !!youtubeId && game.mode === "typing" && arrangement.keyboard && arrangement.visibleHeight < 216;
+  useEffect(() => {
+    if (!tooShortToType) return;
+    if (stateName.current === "PLAYING" || stateName.current === "FADING_IN") playback.pause();
+    setHint(en.game.rotateToType);
+    const t = setTimeout(() => setHint(null), 3500);
+    return () => clearTimeout(t);
+  }, [tooShortToType, playback]);
+
   // YouTube's own controls stay on the player: what is done there is passed to the game, which keeps its say over the audio.
   useEffect(() => {
     if (!youtubeId || !ytEngine) return;
@@ -364,8 +402,11 @@ function GameScreen({ game }: { game: GameDto }) {
     </div>
   );
 
+  const kbMode = arrangement.keyboard && game.mode === "typing" && arrangement.visibleHeight < 380;
+  const stage = youtubeId ? <div className="yt-stage" data-testid="yt-stage"><div className="yt-player" ref={ytHost} /></div> : null;
+
   return (
-    <div className="game" data-layout={layout}>
+    <div className="game" data-layout={layout} data-game={arrangement.columns ? "two" : "one"} data-short={arrangement.short || undefined} data-kb={arrangement.keyboard || undefined} data-kbmode={kbMode || undefined} data-yt={youtubeId ? "" : undefined}>
       <div className="game-bar wrap">
         <a className="back" href={paths.library()} aria-label={en.game.backToLibrary} title={en.game.backToLibrary}>
           <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
@@ -378,9 +419,9 @@ function GameScreen({ game }: { game: GameDto }) {
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
 
-      {audioFailed && <p className="notice error wrap" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
-      {youtubeId && <div className="yt-stage wrap"><div className="yt-player" ref={ytHost} /></div>}
+      {stage}
       <div className="game-timeline wrap">
+        {audioFailed && <p className="notice error" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
         <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>
       </div>
       <div className="game-body wrap">
@@ -390,7 +431,9 @@ function GameScreen({ game }: { game: GameDto }) {
             <div className="game-main">
               {g.error && <p className="notice error">{g.error}</p>}
               {finished}
+              {kbMode && focusedQ && <p className="kb-line" title={focusedQ.questionText}>{focusedQ.questionText}</p>}
               {questionBlock}
+              {kbMode && <span className="kb-score" aria-hidden="true">{g.standing.points}</span>}
             </div>
           </>
         ) : (

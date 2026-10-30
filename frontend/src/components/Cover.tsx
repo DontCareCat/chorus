@@ -24,6 +24,7 @@ export function Cover({ songId, title, hasCover, size = "small", version, youtub
   return (
     <div className="cover" data-size={size} data-empty={!show} style={style} aria-hidden={!show}>
       {show ? <img src={thumb ? `https://i.ytimg.com/vi/${youtubeId}/mqdefault.jpg` : api.coverUrl(songId, version)} alt="" loading="lazy" onError={() => setFailed(true)} /> : Array.from(title.trim())[0]?.toUpperCase() ?? "♪"}
+      {!!youtubeId && size === "row" && <i className="yt-play" aria-hidden="true" />}
     </div>
   );
 }

@@ -3,6 +3,15 @@ import type { GameDto, GameMode, Match } from "../types/game";
 /** Fired when the server says nobody may use it without signing in (guests switched off). */
 export const AUTH_REQUIRED = "chorus:auth-required";
 
+export interface YouTubePreviewDto {
+  video_id: string;
+  title: string;
+  artist: string;
+  channel: string;
+  existing_id: number | null;
+  existing_title: string | null;
+}
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -336,6 +345,7 @@ export const api = {
   audioUrl: (songId: number) => `/api/songs/${songId}/audio`,
   uploadSong: (file: File) => request<SongDto>("/api/songs", form(file)),
   addYouTubeSong: (url: string, title?: string, artist?: string) => request<SongDto>("/api/songs/youtube", json("POST", { url, title, artist })),
+  previewYouTube: (url: string) => request<YouTubePreviewDto>(`/api/songs/youtube/preview?url=${encodeURIComponent(url)}`),
   importSong: (path: string) => request<SongDto>("/api/songs/import", json("POST", { path })),
   scan: () => request<ScanDto>("/api/library/scan", { method: "POST" }),
   listFolder: (path?: string, hidden = false) =>

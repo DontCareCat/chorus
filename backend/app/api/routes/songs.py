@@ -2,7 +2,7 @@ import mimetypes
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,7 @@ from app.core.errors import AppError
 from app.db.models.types import utcnow
 from app.db.database import get_session
 from app.db.models import Game, Lyrics, LyricsStatus, Song, SongSource, User
-from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, RetryOut, RetryRequest, ScanOut, SongOut, SongPatch, YouTubeRequest
+from app.schemas.song import BulkDeleteOut, BulkDeleteRequest, ImportManyRequest, ImportRequest, ImportTreeRequest, RetryOut, RetryRequest, ScanOut, SongOut, SongPatch, YouTubePreviewOut, YouTubeRequest
 from app.services.library.fs import name_filter
 from app.services.library.scanner import import_tree, register_song, remove_song, scan_library
 from app.services.library.storage import check_extension, save_upload
@@ -80,6 +80,31 @@ def upload_song(
         background.add_task(discover_for_songs, factory, client, [song.id])
         background.add_task(fetch_covers_for_songs, factory, covers, [song.id])
     return song
+
+
+@router.get("/songs/youtube/preview", response_model=YouTubePreviewOut)
+def preview_youtube_song(
+    url: str = Query(min_length=1, max_length=500), session: Session = Depends(get_session),
+    cfg: RuntimeSettings = Depends(get_cfg), youtube: YouTubeClient = Depends(get_youtube_client),
+):
+    """What adding this link would give (cleaned title and artist, or the song already in the library). Saves nothing."""
+    if not cfg.youtube_enabled:
+        raise AppError("youtube_disabled", "YouTube songs are switched off in Settings", 403)
+    video_id = parse_video_id(url)
+    if video_id is None:
+        raise AppError("bad_youtube_link", "That is not a YouTube video link", 422)
+    existing = session.scalar(select(Song).where(Song.youtube_id == video_id, Song.removed.is_(False)))
+    if existing is not None:
+        return YouTubePreviewOut(
+            video_id=video_id, title=existing.title, artist=existing.artist, channel=existing.youtube_channel or "",
+            existing_id=existing.id, existing_title=existing.title,
+        )
+    try:
+        info = youtube.info(video_id)
+    except YouTubeUnavailable as e:
+        raise AppError("youtube_unreachable", "YouTube could not be reached; try again in a moment", 503) from e
+    artist, title = clean_title(info.title, info.channel)
+    return YouTubePreviewOut(video_id=video_id, title=title or video_id, artist=artist, channel=info.channel)
 
 
 @router.post("/songs/youtube", response_model=SongOut, status_code=201)

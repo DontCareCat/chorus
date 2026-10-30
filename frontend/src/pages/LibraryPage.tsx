@@ -5,6 +5,7 @@ import { ActionMenu } from "../components/ActionMenu";
 import { LookupBar } from "../components/LookupBar";
 import { AddToPlaylist } from "../components/AddToPlaylist";
 import { LibraryTabs } from "../components/LibraryTabs";
+import { YouTubeAdd } from "../components/YouTubeAdd";
 import { SongList } from "../components/SongList";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { SortControl } from "../components/SortControl";
@@ -15,6 +16,8 @@ import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
 import { keepUnchanged } from "../lib/keep-unchanged";
 import { facetCounts, visibleSongs } from "../lib/library-facets";
+import { readAddTab, startTab, writeAddTab } from "../lib/youtube-add";
+import type { AddTab } from "../lib/youtube-add";
 import { buildMatcher } from "../lib/search";
 import { SORT_KEYS, sortSongs } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
@@ -30,7 +33,7 @@ import type { SongDto } from "../services/api";
 
 const msg = (e: unknown) => (e instanceof ApiError ? e.message : en.errors.generic);
 const AUDIO_RE = /\.(mp3|m4a|flac|ogg|opus|wav)$/i;
-type Filter = "all" | "ready" | "missing" | "duplicates";
+type Filter = "all" | "ready" | "missing" | "duplicates" | "youtube";
 
 export function LibraryPage() {
   const previous = useRef<SongDto[]>([]);
@@ -44,7 +47,7 @@ export function LibraryPage() {
   const [path, setPath] = useState("");
   const [recursive, setRecursive] = useState(true);
   const [copyFiles, setCopyFiles] = useState(false);
-  const [filter, setFilter] = usePref<Filter>("lib_status", "all", isOneOf("all", "ready", "missing", "duplicates"));
+  const [filter, setFilter] = usePref<Filter>("lib_status", "all", isOneOf("all", "ready", "missing", "duplicates", "youtube"));
   const [query, setQuery] = usePref("lib_query", "", isString);
   const [regex, setRegex] = usePref("lib_regex", false, isBool);
   const [language, setLanguage] = usePref("lib_language", "all", isString);
@@ -62,9 +65,16 @@ export function LibraryPage() {
   const phone = useLayout() === "phone";
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
+  const appSettings = useAsync(() => api.settings(), []);
+  const youtubeOn = appSettings.data?.youtube_enabled !== false;
+  const [tabChoice, setTabChoice] = useState<AddTab | null>(() => readAddTab());
+  const tab: AddTab = tabChoice && (tabChoice !== "youtube" || youtubeOn) ? tabChoice : startTab(youtubeOn);
+  const chooseTab = (t: AddTab) => { setTabChoice(t); writeAddTab(t); };
+  const tabs: AddTab[] = youtubeOn ? ["youtube", "files", "folder"] : ["files", "folder"];
+  const tabThumb = useThumb();
   useEffect(() => {
     folderRef.current?.setAttribute("webkitdirectory", ""); // not part of React's input typings
-  }, [addOpen]);
+  }, [addOpen, tab]);
 
   const run = async (job: () => Promise<string>) => {
     setBusy(true);
@@ -96,15 +106,6 @@ export function LibraryPage() {
       return en.library.importDone(r.added, r.skipped);
     });
 
-  const [ytLink, setYtLink] = useState("");
-  const appSettings = useAsync(() => api.settings(), []);
-  const youtubeOn = appSettings.data?.youtube_enabled !== false;
-  const addYouTube = () =>
-    run(async () => {
-      const song = await api.addYouTubeSong(ytLink.trim());
-      setYtLink("");
-      return en.library.youtubeAdded(song.title);
-    });
 
   const upload = (files: FileList | File[] | null) =>
     run(async () => {
@@ -162,6 +163,7 @@ export function LibraryPage() {
   const facetOptions = useMemo(() => ({ status: filter, language, matches: matcher.test, duplicateIds: copies.extras }), [filter, language, matcher, copies]);
   const facets = useMemo(() => facetCounts(all, facetOptions), [all, facetOptions]);
   const counts = facets.status;
+  const hasYouTube = all.some((s) => s.source === "youtube");
   const shown = useMemo(() => {
     const list = visibleSongs(all, facetOptions);
     return filter === "duplicates" ? [...list].sort((a, b) => (copies.keeper.get(a.id) ?? 0) - (copies.keeper.get(b.id) ?? 0) || a.id - b.id) : sortSongs(list, { key: sortKey, dir: sortDir }); // copies of one song sit together
@@ -198,6 +200,7 @@ export function LibraryPage() {
     timer = setTimeout(tick, wait.current);
     return () => clearTimeout(timer);
   }, [searching, songs.data]);
+  useEffect(() => { if (songs.data && filter === "youtube" && !hasYouTube) setFilter("all"); }, [songs.data, filter, hasYouTube]);
   // the last duplicate was removed: do not leave the list on an empty filter
   useEffect(() => { if (songs.data && filter === "duplicates" && copies.extras.size === 0) setFilter("all"); }, [songs.data, filter, copies]);
 
@@ -228,8 +231,21 @@ export function LibraryPage() {
       </section>
 
       {addOpen && (
-        <section className="add-panel" aria-label={en.library.addMusic}>
-          <div>
+        <section className="add-panel add-tabbed" aria-label={en.library.addMusic}>
+          <div className="add-tabs segmented thumbs" role="group" aria-label={en.library.addTabs} ref={tabThumb}>
+            {tabs.map((t) => (
+              <button key={t} type="button" aria-pressed={tab === t} onClick={() => chooseTab(t)}>{{ youtube: en.library.tabYouTube, files: en.library.tabFiles, folder: en.library.tabFolder }[t]}</button>
+            ))}
+          </div>
+          {tab === "youtube" && youtubeOn && (
+            <YouTubeAdd
+              phone={phone}
+              onAdded={(song) => { setNotice({ kind: "ok", text: en.library.youtubeAdded(song.title) }); songs.reload(); }}
+              onShow={(title) => { setFilter("all"); setLanguage("all"); setRegex(false); setQuery(title); }}
+            />
+          )}
+          {tab === "files" && (
+          <div className="add-body">
             <div
               className="dropzone"
               data-over={over}
@@ -253,17 +269,9 @@ export function LibraryPage() {
               <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
             </div>
           </div>
-          {youtubeOn && <form autoComplete="off" className="youtube-add" onSubmit={(e) => { e.preventDefault(); if (ytLink.trim()) void addYouTube(); }}>
-            <label className="field" style={{ marginBottom: 0 }}>
-              <span>{en.library.youtubeLink}</span>
-              <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
-                <input type="url" {...noAutofill("youtube-link")} value={ytLink} onChange={(e) => setYtLink(e.target.value)} placeholder={en.library.youtubePlaceholder} style={{ fontSize: 15 }} />
-                <button type="submit" className="btn inverse" disabled={busy || !ytLink.trim()} style={{ borderRadius: 10 }}>{en.library.youtubeAdd}</button>
-              </div>
-              <small>{en.library.youtubeHelp}</small>
-            </label>
-          </form>}
-          <form autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
+          )}
+          {tab === "folder" && (
+          <form autoComplete="off" className="add-body" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
             <div>
               <label className="field" style={{ marginBottom: 0 }}>
                 <span>{en.library.importPath}</span>
@@ -284,6 +292,7 @@ export function LibraryPage() {
               <span>{en.library.copyFiles}<small>{copyFiles ? en.library.copyFilesOn : en.library.copyFilesHelp}</small></span>
             </label>
           </form>
+          )}
         </section>
       )}
       {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
@@ -312,9 +321,9 @@ export function LibraryPage() {
 
       <div className="toolbar">
         <div className="chips thumbs" role="group" aria-label="Filter" ref={statusThumb}>
-          {(["all", "ready", "missing", "duplicates"] as const).filter((f) => f !== "duplicates" || copies.extras.size > 0).map((f) => (
+          {(["all", "ready", "missing", "duplicates", "youtube"] as const).filter((f) => (f !== "duplicates" || copies.extras.size > 0) && (f !== "youtube" || hasYouTube)).map((f) => (
             <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
-              {en.library.filters[f]}<small key={counts[f]}>{counts[f]}</small>
+              {en.library.filters[f]}<small key={f === "youtube" ? facets.youtube : counts[f]}>{f === "youtube" ? facets.youtube : counts[f]}</small>
             </button>
           ))}
         </div>

@@ -46,6 +46,16 @@ class YouTubeRequest(BaseModel):
     artist: str | None = Field(None, max_length=300)
 
 
+class YouTubePreviewOut(BaseModel):
+    """What a YouTube link would add: nothing is saved by asking."""
+    video_id: str
+    title: str
+    artist: str
+    channel: str
+    existing_id: int | None = None  # the song already in the library (a removed one does not count)
+    existing_title: str | None = None
+
+
 class RetryRequest(BaseModel):
     ids: list[int] | None = Field(None, max_length=100_000)
 

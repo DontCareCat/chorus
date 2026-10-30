@@ -38,3 +38,12 @@ describe("visibleSongs", () => {
     expect(visibleSongs(songs, { ...all, status: "duplicates", duplicateIds: new Set([2, 4]) }).map((x) => x.id)).toEqual([2, 4]);
   });
 });
+
+describe("YouTube filter", () => {
+  const yt = [{ ...s(1, "de", true), source: "youtube" }, { ...s(2, "de", true), source: "library" }, { ...s(3, "fr", false), source: "youtube" }];
+  it("counts and lists the YouTube songs", () => {
+    expect(facetCounts(yt, all).youtube).toBe(2);
+    expect(facetCounts(yt, { ...all, language: "de" }).youtube).toBe(1);
+    expect(visibleSongs(yt, { ...all, status: "youtube" }).map((x) => x.id)).toEqual([1, 3]);
+  });
+});
