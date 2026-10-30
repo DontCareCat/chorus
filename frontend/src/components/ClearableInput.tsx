@@ -9,7 +9,7 @@ export const ClearableInput = forwardRef<HTMLInputElement, { value: string; onVa
   return (
     <span className="clearable">
       <input ref={ref} {...noAutofill("clearable-field")} {...rest} value={value} onChange={(e) => onValue(e.target.value)} />
-      {value !== "" && <button type="button" className="clear-x" onClick={() => onValue("")} aria-label={en.library.clear} title={en.library.clear}><Icon name="close" /></button>}
+      {value !== "" && <button type="button" className="clear-x" onClick={(e) => { onValue(""); (e.currentTarget.parentElement?.querySelector("input") as HTMLInputElement | null)?.focus(); }} aria-label={en.library.clear} title={en.library.clear}><Icon name="close" /></button>}
     </span>
   );
 });

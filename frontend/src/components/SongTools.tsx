@@ -65,7 +65,7 @@ export function Details({ song, onSaved, part = "all", bare = false }: { song: S
 
 
 /** m:ss */
-const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
+const clock = (seconds: number): string => { const total = Math.round(seconds); return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`; };
 
 export function Finder({ song, hasLyrics, onAttached, bare = false }: { song: SongDto; hasLyrics: boolean; onAttached: () => void; bare?: boolean }) {
   const [q, setQ] = useState(`${song.artist} ${song.title}`.trim());

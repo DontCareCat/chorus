@@ -262,3 +262,14 @@ def test_the_automatic_pick_refuses_what_is_far_off(api, lrclib, tmp_path):
     api.put("/api/settings", json={**api.get("/api/settings").json(), "auto_pick_closest": True})
     s = add_song(api, tmp_path)
     assert status(api, s["id"]) == "needs_choice"
+
+
+def test_the_automatic_pick_asks_when_the_songs_length_is_not_known(api, lrclib, tmp_path, session):
+    from app.db.models import Song
+    api.put("/api/settings", json={**api.get("/api/settings").json(), "auto_pick_closest": True, "auto_fetch_lyrics": False})
+    s = add_song(api, tmp_path)
+    session.get(Song, s["id"]).duration = 0.0  # as a YouTube song before its first play
+    session.commit()
+    lrclib.search_result = [lrclib_json(id=1, duration=200), lrclib_json(id=2, duration=100)]
+    d = api.post(f"/api/songs/{s['id']}/lyrics/discover").json()
+    assert d["status"] == "needs_choice" and len(d["candidates"]) == 2  # with nothing to compare, a guess is not attached

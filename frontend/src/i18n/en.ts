@@ -295,6 +295,7 @@ export const en = {
     spFind: "Find on YouTube",
     clear: "Clear",
     ytPasteLabel: "Paste the link from the clipboard",
+    ytPasteEmpty: "Nothing is copied yet.",
     ytPasteFailed: "The clipboard could not be read. Press and hold in the field and choose Paste.",
     ytSearch: "Find on YouTube",
     ytSearchHint: (q: string) => `“${q}”: find it on YouTube, open the video, copy its link and paste it here.`,

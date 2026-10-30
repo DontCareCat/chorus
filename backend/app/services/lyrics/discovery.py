@@ -141,7 +141,7 @@ def discover_lyrics(
     hidden += sum(1 for c in found if not c.instrumental and not c.is_synced and c.plain_lyrics and not is_usable(c, cfg))
     if cfg.auto_pick_closest and usable and not _has_active_lyrics(session, song):
         best = usable[0]  # the list is ordered by how close the length is
-        if song.duration <= 0 or abs(best.duration - song.duration) <= AUTO_CLOSEST_SECONDS:
+        if song.duration > 0 and abs(best.duration - song.duration) <= AUTO_CLOSEST_SECONDS:  # with no length to compare, the first hit is only a guess: ask
             lyrics, norm = attach_candidate(session, song, best, cfg)
             return DiscoveryResult(LyricsStatus.found, lyrics, warnings=norm.warnings)
     status = LyricsStatus.needs_choice if usable else LyricsStatus.not_found

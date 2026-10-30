@@ -28,7 +28,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
   const [addError, setAddError] = useState<string | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const immediate = useRef(false);
-  const [pasteFailed, setPasteFailed] = useState(false);
+  const [pasteFailed, setPasteFailed] = useState<false | "empty" | "refused">(false);
   const field = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,8 +56,9 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
       const text = await readClipboardText();
       setPasteFailed(false);
       if (text.trim()) pasteNow(text.trim());
-    } catch {
-      setPasteFailed(true); // refused or not offered here: the field's own long-press Paste still works
+      else setPasteFailed("empty");
+    } catch (e) {
+      setPasteFailed(/no data|empty/i.test(String(e instanceof Error ? e.message : e)) ? "empty" : "refused"); // refused or not offered here: the field's own long-press Paste still works
       field.current?.focus();
     }
   };
@@ -93,23 +94,23 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
             ref={field} type="text" aria-label={en.library.youtubeLink} {...noAutofill("youtube-link")} value={link} onValue={(v) => { setLink(v); setPasteFailed(false); }} onPaste={() => { immediate.current = true; }}
             placeholder={en.library.ytPlaceholder} aria-invalid={!!problem || undefined} aria-describedby={problem ? "yt-problem" : undefined} style={{ fontSize: 15 }}
           />
-          {kind === "search" && <button type="submit" className="btn inverse" style={{ borderRadius: 10 }}>{en.library.ytSearch}</button>}
           <button type="button" className="icon-btn paste" onClick={() => void paste()} disabled={checking} aria-label={en.library.ytPasteLabel} title={en.library.ytPasteLabel}>
             {checking ? <span className="yt-spin" aria-hidden="true" /> : <Icon name="paste" />}
           </button>
         </div>
         {checking && <small role="status">{en.library.ytChecking}…</small>}
-        {pasteFailed && <small role="status">{en.library.ytPasteFailed}</small>}
+        {pasteFailed && <small role="status">{pasteFailed === "empty" ? en.library.ytPasteEmpty : en.library.ytPasteFailed}</small>}
         {problem && <small id="yt-problem" className="yt-problem" role="alert">{problem}</small>}
         {!problem && !preview && !checking && kind === "empty" && <small>{en.library.youtubeHelp}</small>}
         {kind === "search" && <small>{en.library.ytSearchHint(link.trim())}</small>}
+        {kind === "search" && <div style={{ marginTop: 8 }}><button type="submit" className="btn inverse">{en.library.ytSearch}</button></div>}
       </label>
       {kind === "spotifyTrack" && <SpotifyTrackImport key={spotifyKey(link)} link={cleanInput(link)} onShow={onShow} />}
       {kind === "spotify" && (SPOTIFY_PLAYLISTS
         ? <SpotifyPlaylistImport key={spotifyKey(link)} link={cleanInput(link)} onDone={() => onPlaylistAdded?.()} onPaste={() => setListOpen(true)} />
         : <p className="muted" role="status">{en.library.spOnHold}</p>)}
       {listOpen && <TrackListImport spotify={kind === "spotify"} onMade={() => onPlaylistAdded?.()} />}
-      {!listOpen && kind !== "playlist" && kind !== "spotify" && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
+      {!listOpen && kind !== "playlist" && (kind !== "spotify" || !SPOTIFY_PLAYLISTS) && kind !== "spotifyTrack" && <div><button type="button" className="btn quiet small" onClick={() => setListOpen(true)}>{en.library.tlOpen}</button></div>}
       {playlistId && <YouTubePlaylistImport key={playlistId} listId={playlistId} onAdded={() => onPlaylistAdded?.()} />}
       {preview && exists && (
         <div className="yt-exists" role="status">
