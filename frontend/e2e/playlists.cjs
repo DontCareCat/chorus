@@ -20,8 +20,8 @@ const wav = (secs, seed) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2
 
   await page.goto(B); await page.waitForSelector(".song");
   console.log("[tabs]");
-  ok(await page.locator(".library-tabs a[aria-current=page]").innerText() === "Songs", "Songs | Playlists is on the library page");
-  await page.click('.library-tabs a:has-text("Playlists")');
+  ok((await page.locator(".main-nav a[aria-current=page]").innerText()).trim() === "Home", "Home is the current tab on the library page");
+  await page.click('.main-nav a:has-text("Playlists")');
   await page.waitForSelector(".page-head");
   ok(page.url().endsWith("#/playlists"), "the Playlists tab opens the list");
   await page.waitForSelector(".empty, .playlist-row");
@@ -96,8 +96,8 @@ const wav = (secs, seed) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2
   const ph = await m.newPage();
   ph.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   await ph.goto(B + "#/playlists"); await ph.waitForSelector(".playlist-row");
-  const box = await ph.locator(".library-tabs").boundingBox();
-  ok(box && box.x >= 0 && box.x + box.width <= 390, "tabs fit on a phone");
+  const box = await ph.locator(".main-nav").boundingBox();
+  ok(box && box.x >= 0 && box.x + box.width <= 390 && box.y + box.height <= 844, "the tab bar fits a phone");
   await ph.locator(".playlist-row .kebab").first().click();
   await ph.waitForSelector(".sheet");
   ok(true, "the playlist menu is a sheet on phones");

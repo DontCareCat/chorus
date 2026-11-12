@@ -112,13 +112,13 @@ async function newGame(page, level) {
   await page.fill('input[placeholder*="Music"]', TREE);
   await page.uncheck("text=Include subfolders");
   await page.click('button:has-text("Import")');
-  await page.waitForSelector(".notice.ok");
-  ok(/1 added/.test(await page.textContent(".notice.ok")), "without subfolders only the top-level file is added: " + (await page.textContent(".notice.ok")));
+  await page.waitForSelector(".float-toast[data-kind=ok]");
+  ok(/1 added/.test(await page.textContent(".float-toast[data-kind=ok]")), "without subfolders only the top-level file is added: " + (await page.textContent(".float-toast[data-kind=ok]")));
   await page.fill('input[placeholder*="Music"]', TREE);
   await page.check("text=Include subfolders");
   await page.click('button:has-text("Import")');
-  await page.waitForFunction(() => /2 added, 1 already known/.test(document.querySelector(".notice.ok")?.textContent ?? ""), null, { timeout: 8000 });
-  ok(true, "with subfolders the other two are added, the first is recognised: " + (await page.textContent(".notice.ok")));
+  await page.waitForFunction(() => /2 added, 1 already known/.test(document.querySelector(".float-toast[data-kind=ok]")?.textContent ?? ""), null, { timeout: 8000 });
+  ok(true, "with subfolders the other two are added, the first is recognised: " + (await page.textContent(".float-toast[data-kind=ok]")));
   ok((await page.$$(".song")).length === before2 + 3, "three new songs listed");
 
   console.log("[remove a song]");
@@ -126,7 +126,7 @@ async function newGame(page, level) {
   const row = page.locator(".song", { hasText: "Deep Three" });
   await row.locator(".kebab").click(); await page.locator(".song-menu").getByText("Remove from library").click();
   await page.waitForFunction((c) => document.querySelectorAll(".song").length === c - 1, n, { timeout: 5000 });
-  ok(/Removed "Deep Three"/.test(await page.textContent(".notice.ok")), "the song disappears and the page confirms: " + (await page.textContent(".notice.ok")));
+  ok(/Removed "Deep Three"/.test(await page.textContent(".float-toast[data-kind=ok]")), "the song disappears and the page confirms: " + (await page.textContent(".float-toast[data-kind=ok]")));
   await page.reload(); await page.waitForSelector(".song");
   ok((await page.$$(".song")).length === n - 1, "it stays gone after a reload");
 
@@ -134,8 +134,8 @@ async function newGame(page, level) {
   await page.goto(B); await page.waitForSelector(".song");
   await page.click('button:has-text("Add music")');
   await page.setInputFiles('input[type="file"][accept*=".mp3"]', { name: "fake.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("this is not audio at all") });
-  await page.waitForSelector(".notice.error", { timeout: 8000 });
-  const upErr = await page.textContent(".notice.error");
+  await page.waitForSelector(".float-toast[data-kind=error]", { timeout: 8000 });
+  const upErr = await page.textContent(".float-toast[data-kind=error]");
   ok(/fake\.mp3/.test(upErr) && /not a readable audio file/.test(upErr) && (upErr.match(/fake\.mp3/g) ?? []).length === 1, "the notice names the file once and says why: " + upErr);
 
   console.log("[audio file went missing]");

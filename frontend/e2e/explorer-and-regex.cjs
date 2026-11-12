@@ -55,8 +55,8 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   ok(/2 songs and 1 folder selected/.test(await page.textContent(".fs-actions")), "the footer counts the choice: " + (await page.textContent(".fs-actions")).trim().slice(0, 40));
   let r = await importNow(page);
   ok(r.added === 3 && r.errors.length === 0, "two songs and a folder arrive together: " + JSON.stringify(r));
-  await page.waitForSelector(".notice.ok");
-  ok(/3 added/.test(await page.textContent(".notice.ok")), "and the page says so: " + (await page.textContent(".notice.ok")));
+  await page.waitForSelector(".float-toast[data-kind=ok]");
+  ok(/3 added/.test(await page.textContent(".float-toast[data-kind=ok]")), "and the page says so: " + (await page.textContent(".float-toast[data-kind=ok]")));
   ok(!(await page.isVisible('[role="dialog"]')), "the window closes");
   ok((await titles()).join("|").includes("One") && (await titles()).some((t) => t.includes("Seven")), "they are in the library");
 

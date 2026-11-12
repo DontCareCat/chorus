@@ -2,7 +2,7 @@
 export const en = {
   confirm: { cancel: "Cancel" },
   appName: "Chorus",
-  nav: { library: "Library", dictionary: "Dictionary", scores: "Scores", settings: "Settings", menu: "Menu" },
+  nav: { library: "Home", playlists: "Playlists", dictionary: "Dictionary", scores: "Scores", settings: "Settings", menu: "Menu" },
   dictionary: {
     exchange: {
       export: "Export", import: "Import", close: "Close", working: "Working…", format: "Format",
@@ -130,6 +130,7 @@ export const en = {
     unreachable: "The server did not answer the sign-in check. It may be stopped, or older than this page: restart the backend (python -m app.launcher serve updates the database by itself; with plain uvicorn run alembic upgrade head first).",
     retry: "Try again",
   },
+  toast: { dismiss: "Dismiss" },
   queue: {
     title: "Queue",
     progressive: "Progressive",
@@ -221,7 +222,7 @@ export const en = {
     moved: (title: string, n: number) => `${title} moved to position ${n}`,
   },
   library: {
-    title: "Library",
+    title: "Home",
     count: (n: number) => `${n} ${n === 1 ? "song" : "songs"}`,
     addMusic: "Add music",
     closeAdd: "Close",

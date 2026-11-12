@@ -12,6 +12,7 @@ import { useThumb } from "../hooks/useThumb";
 import { useTheme } from "../hooks/useTheme";
 import { useLyricFocus } from "../hooks/useLyricFocus";
 import type { QueueLevel } from "../lib/queue";
+import { Toast, useToast } from "../components/Toast";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
 import { getEngineKind, setEngineKind } from "../services/audio/create-engine";
@@ -30,7 +31,7 @@ export function SettingsPage() {
   const [newFolder, setNewFolder] = useState("");
   const [browsing, setBrowsing] = useState(false);
   const [forever, setForever] = useState(false);
-  const [notice, setNotice] = useState<Notice>(null);
+  const [notice, setNotice] = useToast(2500);
   const queueThumb = useThumb();
   const fadeThumb = useThumb();
   const themeThumb = useThumb<HTMLDivElement>();
@@ -287,7 +288,7 @@ export function SettingsPage() {
         <AudioPanel />
 
         <div className="save-bar">
-          {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
+          <Toast toast={notice} pill={notice?.kind === "ok"} onDismiss={() => setNotice(null)} />
           <button type="submit" className="btn large">{en.settings.save}</button>
         </div>
       </form>
