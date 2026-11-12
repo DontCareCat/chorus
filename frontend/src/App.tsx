@@ -124,6 +124,7 @@ export function App() {
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "review" && <ReviewPage />}
         {!auth.loading && route.name === "notfound" && <p className="empty">Page not found. <a href={paths.library()}>{en.nav.library}</a></p>}
       </main>
+      {showNav && phone && <div className="nav-fade" aria-hidden="true" />}
       {showNav && <MainNav variant={phone ? "tabs" : "rail"} route={route.name} cards={cards} />}
     </div>
   );

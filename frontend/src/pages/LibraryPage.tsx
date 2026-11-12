@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Cover } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { ActionMenu } from "../components/ActionMenu";
 import { LookupBar } from "../components/LookupBar";
 import { AddToPlaylist } from "../components/AddToPlaylist";
 import { useConfirm } from "../components/Confirm";
+import { AddMusicMenu } from "../components/AddMusicMenu";
+import type { AddMusicItem } from "../components/AddMusicMenu";
 import { YouTubeAdd } from "../components/YouTubeAdd";
 import { SongList } from "../components/SongList";
 import { useQueueActions } from "../hooks/useQueueActions";
@@ -16,8 +18,6 @@ import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
 import { keepUnchanged } from "../lib/keep-unchanged";
 import { facetCounts, visibleSongs } from "../lib/library-facets";
-import { readAddTab, startTab, writeAddTab } from "../lib/youtube-add";
-import type { AddTab } from "../lib/youtube-add";
 import { buildMatcher } from "../lib/search";
 import { SORT_KEYS, sortSongs } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
@@ -68,14 +68,26 @@ export function LibraryPage() {
   const folderRef = useRef<HTMLInputElement>(null);
   const appSettings = useAsync(() => api.settings(), []);
   const youtubeOn = appSettings.data?.youtube_enabled !== false;
-  const [tabChoice, setTabChoice] = useState<AddTab | null>(() => readAddTab());
-  const tab: AddTab = tabChoice && (tabChoice !== "youtube" || youtubeOn) ? tabChoice : startTab(youtubeOn);
-  const chooseTab = (t: AddTab) => { setTabChoice(t); writeAddTab(t); };
-  const tabs: AddTab[] = youtubeOn ? ["youtube", "files", "folder"] : ["files", "folder"];
-  const tabThumb = useThumb();
+  const addButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     folderRef.current?.setAttribute("webkitdirectory", ""); // not part of React's input typings
-  }, [addOpen, tab]);
+  }, []);
+  // files dropped anywhere on the page are uploaded
+  const dragDepth = useRef(0);
+  const uploadRef = useRef<(f: FileList | File[] | null) => Promise<void>>(async () => undefined);
+  useEffect(() => {
+    const files = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");
+    const enter = (e: DragEvent) => { if (files(e)) { dragDepth.current++; setOver(true); } };
+    const overEv = (e: DragEvent) => { if (files(e)) e.preventDefault(); };
+    const leave = (e: DragEvent) => { if (files(e) && --dragDepth.current <= 0) { dragDepth.current = 0; setOver(false); } };
+    const drop = (e: DragEvent) => { if (!files(e)) return; e.preventDefault(); dragDepth.current = 0; setOver(false); void uploadRef.current(e.dataTransfer!.files); };
+    document.addEventListener("dragenter", enter);
+    document.addEventListener("dragover", overEv);
+    document.addEventListener("dragleave", leave);
+    document.addEventListener("drop", drop);
+    return () => { document.removeEventListener("dragenter", enter); document.removeEventListener("dragover", overEv); document.removeEventListener("dragleave", leave); document.removeEventListener("drop", drop); };
+  }, []);
+  const closeAdd = useCallback(() => setAddOpen(false), []);
 
   const confirm = useConfirm();
   const run = async (job: () => Promise<string | null>, quiet = false) => {
@@ -130,6 +142,8 @@ export function LibraryPage() {
       if (added === 0 && problems.length > 0) throw new ApiError("upload_failed", shown, 0);
       return problems.length ? `${en.library.uploaded(added, problems.length)}. ${shown}` : en.library.uploaded(added, 0);
     });
+
+  uploadRef.current = upload;
 
   const remove = async (s: SongDto) => {
     const sure = await confirm(s.source === "library"
@@ -220,6 +234,53 @@ export function LibraryPage() {
   const unfinished = (games.data ?? []).find((g) => !g.finished_at);
   const resumeSong = unfinished ? all.find((s) => s.id === unfinished.song_id) : undefined;
 
+  const addItems: AddMusicItem[] = [
+    ...(youtubeOn ? [{ id: "link", icon: "link", label: en.library.addMenu.link, step: "link" } as const] : []),
+    { id: "files", icon: "uploadFile", label: en.library.addMenu.files, onPick: () => fileRef.current?.click() },
+    { id: "folder", icon: "folder", label: en.library.addMenu.folder, onPick: () => folderRef.current?.click() },
+    { id: "path", icon: "search", label: en.library.addMenu.path, step: "path" },
+    { kind: "divider" },
+    { id: "lyrics", icon: "lyrics", label: en.library.addMenu.lyrics, right: String(missingLyrics), disabled: busy || missingLyrics === 0, onPick: () => void retryLyrics() },
+    { id: "scan", icon: "radar", label: en.library.addMenu.scan, disabled: busy, onPick: () => void scan() },
+  ];
+  const addSteps = {
+    link: {
+      title: en.library.addMenu.link,
+      body: (
+        <YouTubeAdd
+          phone={phone}
+          onPlaylistAdded={() => songs.reload()}
+          onAdded={(song) => { setNotice({ kind: "ok", text: en.library.youtubeAdded(song.title) }); songs.reload(); }}
+          onShow={(title) => { setFilter("all"); setLanguage("all"); setRegex(false); setQuery(title); setAddOpen(false); }}
+        />
+      ),
+    },
+    path: {
+      title: en.library.addMenu.path,
+      body: (
+        <form autoComplete="off" className="add-body" onSubmit={(e) => { e.preventDefault(); if (path.trim()) { void importPath(); setAddOpen(false); } }}>
+          <label className="field" style={{ marginBottom: 0 }}>
+            <span>{en.library.importPath}</span>
+            <input type="text" {...noAutofill("import-path")} value={path} onChange={(e) => setPath(e.target.value)} placeholder={en.library.importPlaceholder} style={{ fontSize: 15 }} />
+            <small>{en.library.importHelp}</small>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} />
+            <span>{en.library.includeSubfolders}</span>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={copyFiles} onChange={(e) => setCopyFiles(e.target.checked)} />
+            <span>{en.library.copyFiles}<small>{copyFiles ? en.library.copyFilesOn : en.library.copyFilesHelp}</small></span>
+          </label>
+          <div className="page-actions">
+            <button type="button" className="btn secondary" onClick={() => { setAddOpen(false); setBrowsing(true); }}>{en.library.browse}</button>
+            <button type="submit" className="btn inverse" disabled={busy || !path.trim()}>{en.library.importAction}</button>
+          </div>
+        </form>
+      ),
+    },
+  };
+
   return (
     <>
       <section className="page-head">
@@ -229,79 +290,20 @@ export function LibraryPage() {
         </div>
         <div className="page-actions">
           <button type="button" className="btn secondary scan-top" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
-          <button type="button" className="btn" onClick={() => setAddOpen((v) => !v)} aria-expanded={addOpen}>
-            <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{addOpen ? "×" : "+"}</span>
-            {en.library.addMusic}
-          </button>
+          <div className="add-anchor">
+            <button type="button" ref={addButton} className={`btn${addOpen ? " inverse" : ""}`} onClick={() => setAddOpen((v) => !v)} aria-expanded={addOpen} aria-haspopup="menu">
+              <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>+</span>
+              {en.library.addMusic}
+            </button>
+            {!phone && <AddMusicMenu phone={false} open={addOpen} onClose={closeAdd} anchor={addButton} items={addItems} steps={addSteps} footer={en.library.dropHint} />}
+          </div>
         </div>
       </section>
 
-      {addOpen && (
-        <section className="add-panel add-tabbed" aria-label={en.library.addMusic}>
-          <div className="add-tabs segmented thumbs" role="group" aria-label={en.library.addTabs} ref={tabThumb}>
-            {tabs.map((t) => (
-              <button key={t} type="button" aria-pressed={tab === t} onClick={() => chooseTab(t)}>{{ youtube: en.library.tabYouTube, files: en.library.tabFiles, folder: en.library.tabFolder }[t]}</button>
-            ))}
-          </div>
-          {tab === "youtube" && youtubeOn && (
-            <YouTubeAdd
-              phone={phone}
-              onPlaylistAdded={() => songs.reload()}
-              onAdded={(song) => { setNotice({ kind: "ok", text: en.library.youtubeAdded(song.title) }); songs.reload(); }}
-              onShow={(title) => { setFilter("all"); setLanguage("all"); setRegex(false); setQuery(title); }}
-            />
-          )}
-          {tab === "files" && (
-          <div className="add-body">
-            <div
-              className="dropzone"
-              data-over={over}
-              onDragOver={(e) => { e.preventDefault(); setOver(true); }}
-              onDragLeave={() => setOver(false)}
-              onDrop={(e) => { e.preventDefault(); setOver(false); void upload(e.dataTransfer.files); }}
-            >
-              <strong>{en.library.dropTitle}</strong>
-              <span>{en.library.dropHelp}</span>
-            </div>
-            <div className="page-actions">
-              <label className="btn secondary small">
-                {en.library.upload}
-                <input ref={fileRef} type="file" accept=".mp3,.m4a,.flac,.ogg,.opus,.wav,audio/*" multiple hidden onChange={(e) => void upload(e.target.files)} />
-              </label>
-              <label className="btn secondary small">
-                {en.library.uploadFolder}
-                <input ref={folderRef} type="file" multiple hidden onChange={(e) => void upload(e.target.files)} />
-              </label>
-              {missingLyrics > 0 && <button type="button" className="btn secondary small" onClick={() => void retryLyrics()} disabled={busy}>{en.library.findMissingLyrics(missingLyrics)}</button>}
-              <button type="button" className="btn secondary small scan-in" onClick={scan} disabled={busy}>{busy ? en.library.scanning : en.library.scan}</button>
-            </div>
-          </div>
-          )}
-          {tab === "folder" && (
-          <form autoComplete="off" className="add-body" onSubmit={(e) => { e.preventDefault(); if (path.trim()) void importPath(); }}>
-            <div>
-              <label className="field" style={{ marginBottom: 0 }}>
-                <span>{en.library.importPath}</span>
-                <div className="inline" style={{ alignItems: "stretch", flexWrap: "nowrap" }}>
-                  <input type="text" {...noAutofill("import-path")} value={path} onChange={(e) => setPath(e.target.value)} placeholder={en.library.importPlaceholder} style={{ fontSize: 15 }} />
-                  <button type="button" className="btn secondary" onClick={() => setBrowsing(true)} style={{ borderRadius: 10 }}>{en.library.browse}</button>
-                  <button type="submit" className="btn inverse" disabled={busy || !path.trim()} style={{ borderRadius: 10 }}>{en.library.importAction}</button>
-                </div>
-                <small>{en.library.importHelp}</small>
-              </label>
-            </div>
-            <label className="check" style={{ marginTop: 18 }}>
-              <input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} />
-              <span>{en.library.includeSubfolders}</span>
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={copyFiles} onChange={(e) => setCopyFiles(e.target.checked)} />
-              <span>{en.library.copyFiles}<small>{copyFiles ? en.library.copyFilesOn : en.library.copyFilesHelp}</small></span>
-            </label>
-          </form>
-          )}
-        </section>
-      )}
+      {phone && <AddMusicMenu phone open={addOpen} onClose={closeAdd} anchor={addButton} items={addItems} steps={addSteps} />}
+      <input ref={fileRef} type="file" accept=".mp3,.m4a,.flac,.ogg,.opus,.wav,audio/*" multiple hidden aria-label={en.library.addMenu.files} onChange={(e) => void upload(e.target.files)} />
+      <input ref={folderRef} type="file" multiple hidden aria-label={en.library.addMenu.folder} onChange={(e) => void upload(e.target.files)} />
+      {over && <div className="drop-veil" aria-hidden="true"><strong>{en.library.dropTitle}</strong><span>{en.library.dropHelp}</span></div>}
       <div className="toast-lane"><Toast toast={notice} onDismiss={() => setNotice(null)} /></div>
       {browsing && (
         <FolderBrowser

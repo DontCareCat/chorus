@@ -33,7 +33,7 @@ export function SongPage({ songId }: { songId: number }) {
           <div className="song-meta">
             <span>{s.artist}</span>
             {s.album && <span>{s.album}</span>}
-            <span className="lang">{s.language}</span>
+            <span className="tag">{s.language}</span>
           </div>
         </div>
       </div>

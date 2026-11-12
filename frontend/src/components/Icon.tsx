@@ -34,6 +34,13 @@ import home from "@material-symbols/svg-400/outlined/home.svg?raw";
 import menuBook from "@material-symbols/svg-400/outlined/menu_book.svg?raw";
 import leaderboard from "@material-symbols/svg-400/outlined/leaderboard.svg?raw";
 import undo from "@material-symbols/svg-400/outlined/undo.svg?raw";
+import chevronRight from "@material-symbols/svg-400/outlined/chevron_right.svg?raw";
+import uploadFile from "@material-symbols/svg-400/outlined/upload_file.svg?raw";
+import folderOpen from "@material-symbols/svg-400/outlined/folder_open.svg?raw";
+import linkIcon from "@material-symbols/svg-400/outlined/link.svg?raw";
+import radar from "@material-symbols/svg-400/outlined/radar.svg?raw";
+import lyricsIcon from "@material-symbols/svg-400/outlined/lyrics.svg?raw";
+import libraryMusic from "@material-symbols/svg-400/outlined/library_music.svg?raw";
 import contentPaste from "@material-symbols/svg-400/outlined/content_paste.svg?raw";
 
 const pathOf = (svg: string): string => /<path d="([^"]+)"/.exec(svg)?.[1] ?? "";
@@ -75,6 +82,13 @@ const PATHS = {
   tune: pathOf(tune),
   undo: pathOf(undo),
   paste: pathOf(contentPaste),
+  chevronRight: pathOf(chevronRight),
+  uploadFile: pathOf(uploadFile),
+  folder: pathOf(folderOpen),
+  link: pathOf(linkIcon),
+  radar: pathOf(radar),
+  lyrics: pathOf(lyricsIcon),
+  libraryMusic: pathOf(libraryMusic),
 } as const;
 
 export type IconName = keyof typeof PATHS;
