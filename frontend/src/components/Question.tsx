@@ -10,6 +10,12 @@ import type { QuizQuestion } from "../types/question";
 
 const KEYS = ["1", "2", "3", "4"];
 
+/** Long words shrink the answer text so they fit the button: "xl" past 16 letters, "true" past 11. */
+const longest = (text: string): string | undefined => {
+  const n = Math.max(0, ...text.split(/\s+/).map((w) => w.length));
+  return n > 16 ? "xl" : n > 11 ? "true" : undefined;
+};
+
 interface Props {
   question: QuizQuestion;
   /** All questions of the same lyric line (including this one). */
@@ -82,7 +88,7 @@ export const Question = memo(function Question({ question: q, siblings, results,
             }
             return (
               <li key={o.id}>
-                <button type="button" className="opt" data-state={s} disabled={!!result} onClick={() => onAnswer(o.id)}>
+                <button type="button" className="opt" data-state={s} data-long={longest(o.text)} disabled={!!result} onClick={() => onAnswer(o.id)}>
                   <span className="opt-key" aria-hidden="true">{KEYS[i]}</span>
                   <span>{o.text}</span>
                 </button>

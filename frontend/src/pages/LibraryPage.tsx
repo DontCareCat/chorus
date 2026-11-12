@@ -78,11 +78,12 @@ export function LibraryPage() {
   }, [addOpen, tab]);
 
   const confirm = useConfirm();
-  const run = async (job: () => Promise<string>) => {
+  const run = async (job: () => Promise<string | null>) => {
     setBusy(true);
     setNotice(null);
     try {
-      setNotice({ kind: "ok", text: await job() });
+      const done = await job();
+      if (done !== null) setNotice({ kind: "ok", text: done });
     } catch (e) {
       setNotice({ kind: "error", text: msg(e) });
     } finally {
@@ -153,11 +154,11 @@ export function LibraryPage() {
     });
   };
 
-  const retryLyrics = async (ids?: number[]) => {
+  const retryLyrics = async (ids?: number[], quiet = false) => {
     await run(async () => {
       const r = await api.retryLyrics(ids);
       selection.clear();
-      return en.library.lyricsQueued(r.queued);
+      return quiet ? null : en.library.lyricsQueued(r.queued); // the lookup bar shows a restart itself: a message would push the whole page down
     });
   };
 
@@ -355,7 +356,7 @@ export function LibraryPage() {
           ))}
         </div>
       )}
-      <LookupBar songs={all} busy={busy} ready={songs.data !== null} onRetry={() => void retryLyrics()} />
+      <LookupBar songs={all} busy={busy} ready={songs.data !== null} onRetry={() => void retryLyrics(undefined, true)} />
       {matcher.error && <p className="notice error" role="status">{matcher.error}</p>}
       {songs.error && <p className="notice error">{songs.error.message}</p>}
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}

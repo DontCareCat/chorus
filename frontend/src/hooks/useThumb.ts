@@ -13,8 +13,12 @@ const remembered = new Map<string, Rect>(); // where a keyed thumb was last seen
  */
 export function useThumb<T extends HTMLElement = HTMLDivElement>(key?: string): (node: T | null) => void {
   const [el, setEl] = useState<T | null>(null); // a callback ref: a group that appears later (a language row) is picked up too
-  const measure = useCallback(() => {
+  const measure = useCallback((instant = false) => {
     if (!el) return;
+    if (instant && el.dataset.thumb === "glide") {
+      el.dataset.thumb = "still"; // the group itself moved or resized (a panel opening): follow it at once, only a new choice glides
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (el.dataset.thumb === "still") el.dataset.thumb = "glide"; }));
+    }
     const active = Array.from(el.children).find((c) => c.matches(ACTIVE)) as HTMLElement | undefined;
     if (!active) { el.dataset.thumb = "none"; return; }
     const set = (r: Rect) => (Object.keys(r) as (keyof Rect)[]).forEach((k) => el.style.setProperty(`--thumb-${k}`, r[k]));
@@ -31,16 +35,17 @@ export function useThumb<T extends HTMLElement = HTMLDivElement>(key?: string): 
     if (el.dataset.thumb !== "glide") el.dataset.thumb = "still";
   }, [el, key]);
 
-  useLayoutEffect(measure); // after every render: the chosen option or the labels may have changed
+  useLayoutEffect(() => measure()); // after every render: the chosen option or the labels may have changed
   useEffect(() => {
     if (!el) return;
     const glide = requestAnimationFrame(() => requestAnimationFrame(() => { if (el.dataset.thumb === "still") el.dataset.thumb = "glide"; }));
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    const again = () => measure(true);
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(again);
     ro?.observe(el);
     Array.from(el.children).forEach((c) => ro?.observe(c));
-    window.addEventListener("resize", measure);
-    void document.fonts?.ready.then(measure);
-    return () => { cancelAnimationFrame(glide); ro?.disconnect(); window.removeEventListener("resize", measure); };
+    window.addEventListener("resize", again);
+    void document.fonts?.ready.then(again);
+    return () => { cancelAnimationFrame(glide); ro?.disconnect(); window.removeEventListener("resize", again); };
   }, [el, measure]);
   return setEl;
 }

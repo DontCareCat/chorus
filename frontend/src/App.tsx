@@ -5,7 +5,6 @@ import { useExitTransition } from "./hooks/useExitTransition";
 import { useGameLock, useInlineNav, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { useThumb } from "./hooks/useThumb";
 import { swallowNextClick } from "./lib/swallow-click";
-import { useTheme } from "./hooks/useTheme";
 import { QueueBar } from "./components/QueueBar";
 import { GamePage } from "./pages/GamePage";
 import { LibraryPage } from "./pages/LibraryPage";
@@ -23,7 +22,6 @@ import { paths, useRoute } from "./router";
 export function App() {
   const route = useRoute();
   const auth = useAuth();
-  const { theme, setTheme } = useTheme();
   const needsSignIn = !auth.loading && auth.user === null && auth.unreachable === null;
 
   // Nobody may use the server without an account (guests are off): everything leads to the sign-in page.
@@ -66,7 +64,6 @@ export function App() {
     return () => document.removeEventListener("pointerdown", down, true);
   }, [menuOpen]);
   const navThumb = useThumb<HTMLElement>();
-  const themeThumb = useThumb<HTMLDivElement>();
 
   const nav = (
     <nav aria-label="Main" className="thumbs" ref={navThumb}>
@@ -97,13 +94,6 @@ export function App() {
       )}
     </div>
   );
-  const themeSwitch = (
-    <div className="theme-switch thumbs" role="group" aria-label={en.theme.label} ref={themeThumb}>
-      {(["system", "light", "dark"] as const).map((t) => (
-        <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{en.theme[t]}</button>
-      ))}
-    </div>
-  );
 
   return (
     <div className="shell" data-route={route.name} data-layout={layout}>
@@ -121,12 +111,12 @@ export function App() {
             </button>
             </>
           ) : (
-            <>{nav}<div className="top-right">{account}{themeSwitch}</div></>
+            <>{nav}<div className="top-right">{account}</div></>
           )}
-          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{!inlineNav && nav}{account}{themeSwitch}</div>}
+          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{!inlineNav && nav}{account}</div>}
         </header>
       )}
-      {!isGame && !needsSignIn && route.name !== "login" && <QueueBar phone={phone} />}
+      {!isGame && !needsSignIn && route.name !== "login" && route.name !== "review" && <QueueBar phone={phone} />}
       <main className={isGame ? "game-route" : undefined}>
         {auth.loading && <p className="muted">…</p>}
         {!auth.loading && auth.unreachable !== null && (

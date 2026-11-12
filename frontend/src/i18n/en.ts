@@ -531,6 +531,7 @@ export const en = {
     dictionaryPanel: "Dictionary",
     translateInto: "Translate words into",
     translateIntoHelp: "The language the dictionary translates words and sentences into. It is your own setting.",
+    appearancePanel: "Appearance",
     autoPickClosest: "Pick the closest lyrics by itself",
     autoPickClosestHelp: "When several lyrics could fit a song, take the one whose length is closest to the song's (within 15 seconds) instead of asking. You can still change them on the song page.",
     translationEnabled: "Look up translations and articles online",

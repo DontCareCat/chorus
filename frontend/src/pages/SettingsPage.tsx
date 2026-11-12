@@ -9,6 +9,7 @@ import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
 import { forgetQueueLevel } from "../hooks/useQueueActions";
 import { useThumb } from "../hooks/useThumb";
+import { useTheme } from "../hooks/useTheme";
 import type { QueueLevel } from "../lib/queue";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
@@ -31,6 +32,8 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const queueThumb = useThumb();
   const fadeThumb = useThumb();
+  const themeThumb = useThumb<HTMLDivElement>();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (loaded.data) {
@@ -92,6 +95,10 @@ export function SettingsPage() {
             <input type="checkbox" checked={form.auto_fetch_lyrics} onChange={(e) => set("auto_fetch_lyrics", e.target.checked)} />
             <span><strong>{en.settings.autoFetch}</strong></span>
           </label>
+          <label className="check">
+            <input type="checkbox" checked={form.auto_pick_closest} onChange={(e) => set("auto_pick_closest", e.target.checked)} />
+            <span><strong>{en.settings.autoPickClosest}</strong><small>{en.settings.autoPickClosestHelp}</small></span>
+          </label>
           <div className="field">
             <div className="page-actions">
               <button type="button" className="btn secondary" onClick={() => void retryLyrics()}>{en.settings.retryLyrics}</button>
@@ -118,6 +125,18 @@ export function SettingsPage() {
             </label>
           </div>
           <button type="button" className="btn quiet bordered danger" onClick={() => void clear()}>{en.settings.clearCache}</button>
+        </section>
+
+        <section className="panel">
+          <h2>{en.settings.appearancePanel}</h2>
+          <div className="field">
+            <span>{en.theme.label}</span>
+            <div className="segmented thumbs" role="group" aria-label={en.theme.label} ref={themeThumb}>
+              {(["system", "light", "dark"] as const).map((t) => (
+                <button key={t} type="button" aria-pressed={theme === t} onClick={() => setTheme(t)}>{en.theme[t]}</button>
+              ))}
+            </div>
+          </div>
         </section>
 
         <section className="panel">
@@ -167,10 +186,6 @@ export function SettingsPage() {
               options={[0, 10, 20, 40, 60, 100, 200, 500].concat(user && ![0, 10, 20, 40, 60, 100, 200, 500].includes(user.daily_card_limit) ? [user.daily_card_limit] : []).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : a - b)).map((n) => ({ value: n, label: n === 0 ? en.settings.unlimited : String(n) }))}
             />
             <small>{en.settings.dailyLimitHelp}</small>
-          </label>
-          <label className="check">
-            <input type="checkbox" checked={form.auto_pick_closest} onChange={(e) => set("auto_pick_closest", e.target.checked)} />
-            <span><strong>{en.settings.autoPickClosest}</strong><small>{en.settings.autoPickClosestHelp}</small></span>
           </label>
           <label className="check">
             <input type="checkbox" checked={form.translation_enabled} onChange={(e) => set("translation_enabled", e.target.checked)} />

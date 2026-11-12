@@ -209,6 +209,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 
 /* ---------- panels ---------- */
 .panel { border-radius: var(--r-card); background: var(--surface-2); padding: 22px; margin-bottom: 20px; }
+.panel .segmented { background: var(--surface); } /* the panel is the same grey: the option group needs its own ground */
 .panel h2, .section h2 { font-size: 21px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 18px; }
 .section { margin-bottom: 40px; }
 .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 40px; }
@@ -343,7 +344,10 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
 .opt { width: 100%; height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line-strong); background: transparent; color: var(--text); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; text-align: left; transition: background 0.12s ease-out; }
 .opt:hover:not(:disabled) { background: var(--surface-2); }
-.opt-key { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.opt > span:last-child { flex: 1 1 auto; min-width: 0; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.opt[data-long="true"] > span:last-child { font-size: 0.8em; }
+.opt[data-long="xl"] > span:last-child { font-size: 0.68em; }
+.opt-key { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; line-height: 1; padding-bottom: 2px; box-sizing: border-box; font-size: 14px; font-weight: 600; color: var(--text-2); }
 .opt[data-state="correct"] { background: color-mix(in oklch, var(--correct) 18%, transparent); border-color: var(--correct); color: var(--correct); animation: settle 0.2s ease-out; }
 .opt[data-state="wrong"] { background: color-mix(in oklch, var(--wrong) 18%, transparent); border-color: var(--wrong); color: var(--wrong); animation: settle 0.16s ease-out; }
 .opt[data-state="dim"] { color: var(--text-3); }
@@ -1112,7 +1116,7 @@ button.queue-bar-face { cursor: pointer; }
 .seek::-moz-range-thumb, .volume-slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 2px solid var(--surface-2); box-sizing: border-box; }
 .seek:focus-visible, .volume-slider:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 .queue-btn { position: relative; }
-.queue-count { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--fill); color: var(--on-fill); font-size: 11px; font-weight: 700; display: grid; place-items: center; box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--on-fill) 22%, transparent); }
+.queue-count { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--fill); color: var(--on-fill); font-size: 11px; font-weight: 700; line-height: 1; padding-bottom: 2px; box-sizing: border-box; display: grid; place-items: center; box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--on-fill) 22%, transparent); }
 
 /* the queue bar sits at the bottom of the screen on every layout */
 .queue-bar { position: fixed; left: 0; right: 0; bottom: 16px; width: min(1040px, calc(100% - 48px)); margin: 0 auto; z-index: 20; animation-name: queueInUp; }

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Selection {
   picked: ReadonlySet<number>;
@@ -25,5 +25,25 @@ export function useSelection(): Selection {
     if ([...p].every((id) => ids.has(id))) return p;
     return new Set([...p].filter((id) => ids.has(id)));
   }), []);
+  // Back (gesture, button, Backspace-to-previous) unticks first instead of leaving the page: select mode owns one history entry
+  const entry = useRef(false);
+  useEffect(() => {
+    if (on && !entry.current) {
+      history.pushState({ selecting: true }, "");
+      entry.current = true;
+    } else if (!on && entry.current) {
+      entry.current = false;
+      if (history.state?.selecting) history.back(); // cancelled with the buttons: take the entry off again
+    }
+  }, [on]);
+  useEffect(() => {
+    const back = () => {
+      if (!entry.current) return;
+      entry.current = false; // the browser already took the entry
+      clear();
+    };
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, [clear]);
   return { picked, active: on, has: (id) => picked.has(id), toggle, add, selectAll, clear, keepOnly };
 }
