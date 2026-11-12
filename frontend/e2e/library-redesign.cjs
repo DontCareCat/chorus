@@ -74,17 +74,11 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   ok(await page.isVisible(".status-tip"), "the full message shows on hover");
   await page.screenshot({ path: `${SHOTS}/redesign-desktop.png` });
 
-  console.log("[top menu bar]");
-  const bar = await page.evaluate(() => { const t = document.querySelector(".topbar").getBoundingClientRect(); const n = document.querySelector(".topbar > nav").getBoundingClientRect(); const w = document.querySelector(".wordmark").getBoundingClientRect(); return { h: t.height, navLeft: n.left, wordRight: w.right, one: n.top >= t.top && n.bottom <= t.bottom }; });
-  ok(bar.navLeft > bar.wordRight && bar.one && bar.h < 90, "links sit beside the wordmark on one line: " + JSON.stringify(bar));
-
-  const line = (sel) => page.evaluate((q) => parseFloat(getComputedStyle(document.querySelector(q), "::after").opacity), sel);
-  const nav = '.topbar > nav a:has-text("Scores")';
-  ok((await line('.topbar > nav a[href*="scores"]')) === 0, "menu links have no line under them at rest");
-  await page.hover(nav); await page.waitForTimeout(400);
-  ok((await line('.topbar > nav a[href*="scores"]')) === 1, "the line fades in under a hovered menu link");
-  await page.mouse.move(5, 400); await page.waitForTimeout(400);
-  ok((await line('.topbar > nav a[href*="scores"]')) === 0, "and fades out again");
+  console.log("[main navigation rail]");
+  const rail = await page.evaluate(() => { const n = document.querySelector(".main-nav"); const r = n.getBoundingClientRect(); const links = [...n.querySelectorAll("a")].map((a) => a.textContent); return { variant: n.dataset.variant, left: r.left, w: r.width, h: r.height, vh: innerHeight, links }; });
+  ok(rail.variant === "rail" && rail.left === 0 && rail.w === 96 && rail.h === rail.vh, "wide screens: the menu is a rail down the left edge: " + JSON.stringify(rail));
+  ok(rail.links.join() === "Home,Playlists,Dictionary,Scores,Settings", "Home, Playlists, Dictionary, Scores, Settings: " + rail.links.join());
+  ok(await page.evaluate(() => !document.querySelector(".topbar > nav") && !document.querySelector(".library-tabs")), "no top menu and no songs/playlists switch any more");
   const thumb = () => page.evaluate(() => { const c = getComputedStyle(document.querySelector(".theme-switch"), "::before"); return { t: c.transform, d: c.transitionDuration }; });
   const t0 = await thumb();
   await page.click('.theme-switch button:has-text("Dark")'); await page.waitForTimeout(500);

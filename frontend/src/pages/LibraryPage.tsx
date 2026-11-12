@@ -4,7 +4,6 @@ import { Icon } from "../components/Icon";
 import { ActionMenu } from "../components/ActionMenu";
 import { LookupBar } from "../components/LookupBar";
 import { AddToPlaylist } from "../components/AddToPlaylist";
-import { LibraryTabs } from "../components/LibraryTabs";
 import { useConfirm } from "../components/Confirm";
 import { YouTubeAdd } from "../components/YouTubeAdd";
 import { SongList } from "../components/SongList";
@@ -225,7 +224,6 @@ export function LibraryPage() {
       <section className="page-head">
         <div>
           <h1>{en.library.title}</h1>
-          <LibraryTabs current="songs" />
           <div className="count">{en.library.count(all.length)}</div>
         </div>
         <div className="page-actions">

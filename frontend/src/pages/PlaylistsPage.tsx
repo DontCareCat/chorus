@@ -1,7 +1,6 @@
 import { useConfirm } from "../components/Confirm";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
-import { LibraryTabs } from "../components/LibraryTabs";
 import { PlaylistCollage } from "../components/PlaylistCollage";
 import { PlaylistNameDialog } from "../components/PlaylistNameDialog";
 import { Sheet } from "../components/Sheet";
@@ -34,7 +33,6 @@ export function PlaylistsPage() {
       <section className="page-head">
         <div>
           <h1>{en.library.title}</h1>
-          <LibraryTabs current="playlists" />
         </div>
         <div className="page-actions">
           <button type="button" className="btn" onClick={() => setDialog({ kind: "new" })}><Icon name="add" />{en.playlists.create}</button>

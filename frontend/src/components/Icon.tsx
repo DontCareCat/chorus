@@ -29,6 +29,9 @@ import grip from "@material-symbols/svg-400/outlined/drag_indicator.svg?raw";
 import add from "@material-symbols/svg-400/outlined/add.svg?raw";
 import sortIcon from "@material-symbols/svg-400/outlined/sort.svg?raw";
 import tune from "@material-symbols/svg-400/outlined/tune.svg?raw";
+import home from "@material-symbols/svg-400/outlined/home.svg?raw";
+import menuBook from "@material-symbols/svg-400/outlined/menu_book.svg?raw";
+import leaderboard from "@material-symbols/svg-400/outlined/leaderboard.svg?raw";
 import undo from "@material-symbols/svg-400/outlined/undo.svg?raw";
 import contentPaste from "@material-symbols/svg-400/outlined/content_paste.svg?raw";
 
@@ -53,6 +56,9 @@ const PATHS = {
   language: pathOf(language),
   more: pathOf(moreVert),
   spinner: pathOf(progress),
+  home: pathOf(home),
+  menuBook: pathOf(menuBook),
+  leaderboard: pathOf(leaderboard),
   clock: pathOf(schedule),
   search: pathOf(search),
   warning: pathOf(warning),

@@ -2,7 +2,7 @@
 export const en = {
   confirm: { cancel: "Cancel" },
   appName: "Chorus",
-  nav: { library: "Library", dictionary: "Dictionary", scores: "Scores", settings: "Settings", menu: "Menu" },
+  nav: { library: "Home", playlists: "Playlists", dictionary: "Dictionary", scores: "Scores", settings: "Settings", menu: "Menu" },
   dictionary: {
     exchange: {
       export: "Export", import: "Import", close: "Close", working: "Working…", format: "Format",
