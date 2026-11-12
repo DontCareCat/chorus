@@ -249,7 +249,7 @@ export function SettingsPage() {
 
       <SettingsCard id="about" title={en.settings.sections.about}>
         <div className="srow" data-kind="action">
-          <div className="srow-text"><strong>{about.data ? en.settings.version(about.data.version) : en.appName}</strong></div>
+          <div className="srow-text about"><strong>{about.data ? en.settings.version(about.data.version) : en.appName}</strong></div>
         </div>
         <ActionRow title={en.settings.aboutLicences}><button type="button" className="btn secondary small" onClick={() => setDialog("about")}>{en.settings.aboutLicences}</button></ActionRow>
       </SettingsCard>
