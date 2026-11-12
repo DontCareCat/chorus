@@ -17,12 +17,13 @@ from app.services.settings import RuntimeSettings, load_settings
 
 
 @lru_cache
-def _client() -> LrclibClient:
-    return LrclibClient()
+def _client(url: str) -> LrclibClient:
+    return LrclibClient(base_url=url)
 
 
-def get_lrclib_client() -> LrclibClient:  # overridden in tests
-    return _client()
+def get_lrclib_client(session: Session = Depends(get_session)) -> LrclibClient:  # overridden in tests
+    """The client for the lyrics service address in the settings (empty: a client that finds nothing)."""
+    return _client(load_settings(session).lyrics_service_url)
 
 
 @lru_cache

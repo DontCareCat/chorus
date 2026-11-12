@@ -7,7 +7,20 @@ from app.core.config import settings as env
 from app.db.models import AppSetting
 
 
+def normalize_service_url(raw: str) -> str:
+    """Tidy an LRCLIB-compatible service address: https:// is added, a trailing slash goes, a bare host gets /api."""
+    url = raw.strip()
+    if not url:
+        return ""
+    if "://" not in url:
+        url = f"https://{url}"
+    url = url.rstrip("/")
+    scheme_end = url.index("://") + 3
+    return f"{url}/api" if "/" not in url[scheme_end:] else url
+
+
 class RuntimeSettings(BaseModel):
+    lyrics_service_url: str = Field("", max_length=500)  # address of an LRCLIB-compatible server; empty = no lookups (files and uploads only). Administrator only.
     allow_unsynchronized_lyrics: bool = False
     lyrics_cache_ttl_days: int = Field(30, ge=0)  # 0 = keep forever
     auto_fetch_lyrics: bool = True
@@ -29,7 +42,7 @@ class RuntimeSettings(BaseModel):
 
 def _defaults() -> RuntimeSettings:
     dirs = [d.strip() for d in env.library_dirs.split(",") if d.strip()]
-    return RuntimeSettings(library_dirs=dirs)
+    return RuntimeSettings(library_dirs=dirs, lyrics_service_url=normalize_service_url(env.lrclib_base_url))
 
 
 def load_settings(session: Session) -> RuntimeSettings:
