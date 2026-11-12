@@ -1382,3 +1382,10 @@ button.queue-bar-face { cursor: pointer; }
 
 .link-btn { background: none; border: none; padding: 10px 12px; margin-left: -12px; min-height: 44px; color: var(--text-3); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; text-align: left; }
 .link-btn:hover { color: var(--text); }
+
+/* option groups in Settings: even cells instead of a ragged wrapped row */
+.fade-length .segmented { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fade-length .segmented button { min-width: 0; }
+[data-layout="phone"] .queue-levels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+[data-layout="phone"] .queue-levels button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; }
+[data-layout="phone"] .queue-levels button:first-child { grid-column: 1 / -1; }
