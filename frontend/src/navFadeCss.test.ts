@@ -23,6 +23,6 @@ describe("the fade above the tab bar", () => {
   });
   it("is 48px high without the queue bar and starts 48px above the queue bar's top edge with it, solid from the bar's middle", () => {
     expect(css).toMatch(/\.nav-fade \{[^}]*height: 48px/);
-    expect(css).toMatch(/\.shell:has\(\.queue-bar\) \.nav-fade \{[^}]*height: calc\(8px \+ var\(--queue-h, 60px\) \+ 48px\)[^}]*var\(--bg\) calc\(48px \+ var\(--queue-h, 60px\) \/ 2\)/);
+    expect(css).toMatch(/\.shell:has\(\.queue-bar\) \.nav-fade \{[^}]*height: var\(--fade-h[^}]*var\(--bg\) var\(--fade-solid/);
   });
 });

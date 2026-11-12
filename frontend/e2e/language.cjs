@@ -4,6 +4,8 @@
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
 const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
+const sw = (page, name) => page.locator(`[role=switch][aria-label="${name}"]`); // Settings switches apply at once
+const setSwitch = async (page, name, on) => { const el = sw(page, name); if ((await el.getAttribute("aria-checked")) !== String(on)) { await el.click(); await page.waitForSelector("text=Saved"); await page.waitForTimeout(150); } };
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 const wav = (seed) => { const n = 8000 * 2, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * seed + seed * 7) % 3000, 44 + i * 2); return d; };
 const lrc = (lines) => lines.map((t, i) => `[00:${String(i * 3).padStart(2, "0")}.00] ${t}`).join("\n");
@@ -26,7 +28,7 @@ const TEXT = {
     return s;
   };
   const row = async (id) => (await (await page.request.get(B + "api/songs")).json()).find((s) => s.id === id);
-  const langs = async () => (await page.$$eval(".song .lang", (e) => e.map((x) => x.textContent.trim().toLowerCase()))).sort();
+  const langs = async () => (await page.$$eval(".song .tag-row .tag:first-child", (e) => e.map((x) => x.textContent.trim().toLowerCase()))).sort();
 
   console.log("[new songs get the language of their lyrics]");
   const f1 = await add("Edith - Un jour.wav", 31, TEXT.fr), f2 = await add("Edith - Deux.wav", 32, TEXT.fr);
@@ -84,14 +86,12 @@ const TEXT = {
   ok(/no lyrics yet/.test(await page.textContent(".panel .notice.error")), "no lyrics: " + (await page.textContent(".panel .notice.error")).slice(0, 60));
 
   console.log("[setting]");
-  await page.goto(B + "#/settings"); await page.waitForSelector("text=Save settings");
-  ok(await page.isChecked('label:has-text("Detect the language of new songs") input'), "detection is on by default");
-  await page.uncheck('label:has-text("Detect the language of new songs") input');
-  await page.click('button:has-text("Save settings")'); await page.waitForSelector("text=Saved");
+  await page.goto(B + "#/settings"); await page.waitForSelector(".scard");
+  ok((await sw(page, "Detect language from lyrics").getAttribute("aria-checked")) === "true", "detection is on by default");
+  await setSwitch(page, "Detect language from lyrics", false);
   const f3 = await add("Edith - Trois.wav", 37, TEXT.fr);
   ok((await row(f3.id)).language_source === "default", "switched off: a new French song keeps the default language");
-  await page.check('label:has-text("Detect the language of new songs") input');
-  await page.click('button:has-text("Save settings")'); await page.waitForSelector("text=Saved");
+  await setSwitch(page, "Detect language from lyrics", true);
 
   console.log("[phone]");
   const m = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

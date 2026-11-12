@@ -29,7 +29,7 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   ok(hov > 0.3 && hov < 0.6, "checkbox appears with low contrast on hover: " + hov);
   await page.hover(".song-main >> nth=0 >> .pick"); await page.waitForTimeout(200);
   ok((await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector(".song-main > .pick")).opacity))) === 1, "full contrast when the checkbox itself is hovered");
-  ok((await page.locator(".status-slot").count()) >= 0 && (await page.locator(".song-main >> nth=0 >> .status-slot").count()) <= 1, "status slot exists only for songs that need it");
+  ok((await page.locator(".song-main >> nth=0 >> .status-tag").count()) <= 1, "a status tag exists only for songs that need it");
 
   console.log("[selection]");
   await page.check(".song-main >> nth=0 >> .pick");
@@ -68,10 +68,11 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   await page.keyboard.press("Escape");
 
   console.log("[status, desktop]");
-  const st = await page.$$eval(".status-slot", (e) => e.map((x) => x.dataset.kind));
+  const st = await page.$$eval(".status-tag", (e) => e.map((x) => x.dataset.kind));
   ok(st.length >= 1, "songs without lyrics show a status: " + st.join(","));
-  await page.hover(".status-slot .status-btn >> nth=0"); await page.waitForTimeout(150);
-  ok(await page.isVisible(".status-tip"), "the full message shows on hover");
+  await page.click(".status-tag >> nth=0"); await page.waitForTimeout(150);
+  ok(await page.isVisible(".status-bubble"), "the full message shows in a bubble under the tag when it is clicked");
+  await page.keyboard.press("Escape");
   await page.screenshot({ path: `${SHOTS}/redesign-desktop.png` });
 
   console.log("[main navigation rail]");
@@ -95,15 +96,15 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   p.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   await p.goto(B); await p.waitForSelector(".song");
   ok((await p.$$(".play-btn")).length === 0, "no play button on phones");
-  const ph = await p.evaluate(() => { const rows = [...document.querySelectorAll(".song-main")]; return rows.map((e) => { const k = e.querySelector(".kebab").getBoundingClientRect(); const s = e.querySelector(".status-cell")?.getBoundingClientRect(); return { kebabRight: k.right, statusRight: s?.right, over: document.documentElement.scrollWidth - innerWidth }; }); });
+  const ph = await p.evaluate(() => { const rows = [...document.querySelectorAll(".song-main")]; return rows.map((e) => { const k = e.querySelector(".kebab").getBoundingClientRect(); return { kebabRight: k.right, over: document.documentElement.scrollWidth - innerWidth }; }); });
   ok(ph.every((r) => r.over <= 0) && ph.every((r) => Math.abs(r.kebabRight - ph[0].kebabRight) < 1), "no sideways scroll, ⋮ aligned in every row");
-  const sel = await p.$(".status-btn");
+  const sel = await p.$(".status-tag");
   if (sel) {
     const before = await sel.boundingBox();
     await sel.tap();
     await p.waitForSelector(".status-bubble");
     const bb = await p.locator(".status-bubble").boundingBox(), arrow = await p.locator(".status-bubble .arrow").boundingBox();
-    ok(Math.abs(arrow.x + arrow.width / 2 - (before.x + before.width / 2)) < 3 && bb.y + bb.height <= before.y, "bubble sits right above the icon, arrow on the icon");
+    ok(Math.abs(arrow.x + arrow.width / 2 - (before.x + before.width / 2)) < 3 && bb.y + bb.height <= before.y, "bubble sits right above the tag, arrow on the tag");
     ok(bb.x >= 0 && bb.x + bb.width <= 412, "bubble stays on screen");
     await p.screenshot({ path: `${SHOTS}/redesign-phone-bubble.png` });
     await p.mouse.click(10, 300); await p.waitForTimeout(150);
@@ -131,8 +132,8 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   const t = await (await page.request.post(B + "api/songs", { multipart: { file: { name: "Band - Testlied.wav", mimeType: "audio/wav", buffer: wav(60, 7) } } })).json();
   await page.goto(B); await page.waitForSelector(".song");
   const row = page.locator(".song", { hasText: "Testlied" });
-  const sawSpinner = await row.locator('.status-slot[data-kind="pending"]').count();
-  await page.waitForFunction(() => ![...document.querySelectorAll(".song")].find((e) => /Testlied/.test(e.textContent))?.querySelector(".status-slot"), null, { timeout: 15000 });
+  const sawSpinner = await row.locator('.status-tag[data-kind="pending"]').count();
+  await page.waitForFunction(() => ![...document.querySelectorAll(".song")].find((e) => /Testlied/.test(e.textContent))?.querySelector(".status-tag"), null, { timeout: 15000 });
   ok(true, `the lyrics arrived and the status went away on its own (spinner seen at load: ${sawSpinner > 0})`);
 
   console.log("[counters]");

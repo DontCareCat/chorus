@@ -1418,8 +1418,8 @@ button.queue-bar-face { cursor: pointer; }
 .main-nav[data-variant="tabs"] { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--bg); }
 .main-nav[data-variant="tabs"] a { min-width: 0; }
 /* the fade above the tab bar is its own element so the stacking is: page < fade (19) < queue bar (20) < tab bar (25). Without the queue bar it is a 48px gradient above the tabs; with it the gradient starts 48px above the bar's top edge and is solid --bg from the bar's vertical middle down. */
-.nav-fade { position: fixed; left: 0; right: 0; bottom: var(--nav-h); height: 48px; z-index: 19; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--bg)); }
-.shell:has(.queue-bar) .nav-fade { height: calc(8px + var(--queue-h, 60px) + 48px); background: linear-gradient(to bottom, transparent 0, var(--bg) calc(48px + var(--queue-h, 60px) / 2), var(--bg) 100%); }
+.nav-fade { position: fixed; left: 0; right: 0; bottom: var(--fade-bottom, var(--nav-h)); height: 48px; z-index: 19; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--bg)); }
+.shell:has(.queue-bar) .nav-fade { height: var(--fade-h, calc(8px + var(--queue-h, 60px) + 48px)); background: linear-gradient(to bottom, transparent 0, var(--bg) var(--fade-solid, calc(48px + var(--queue-h, 60px) / 2)), var(--bg) 100%); }
 .main-nav[data-variant="rail"] { position: fixed; left: 0; top: 0; bottom: 0; z-index: 25; width: 96px; box-sizing: border-box; padding: 24px 0; display: flex; flex-direction: column; align-items: center; gap: 20px; background: var(--bg); border-right: 1px solid var(--line); }
 .main-nav[data-variant="rail"] a { width: 72px; }
 .main-nav[data-variant="rail"] a[data-tab="settings"] { margin-top: auto; }
@@ -1483,7 +1483,7 @@ button.queue-bar-face { cursor: pointer; }
 .avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--fill); color: var(--on-fill); display: grid; place-items: center; font-weight: 700; font-size: 20px; }
 .srow-actions { display: flex; gap: var(--gap-actions); flex-wrap: wrap; justify-content: flex-end; }
 .srow-picker { min-width: 0; }
-.row-select { width: auto; max-width: 240px; height: 44px; border: none; background-color: transparent; padding: 0 28px 0 8px; margin-right: -8px; justify-content: flex-end; text-align: right; font-weight: 500; color: var(--text-2); background-position: right 8px center; }
+.row-select { width: auto; max-width: 240px; height: 44px; border: none; background-color: transparent; padding: 0 28px 0 8px; margin-right: -4px; justify-content: flex-end; text-align: right; font-weight: 500; color: var(--text-2); background-position: right 8px center; }
 .row-select:hover { background-color: var(--surface-2); }
 .sw { position: relative; width: 52px; height: 32px; border-radius: 16px; border: 1.5px solid var(--line-strong); background: var(--bg); padding: 0; transition: background-color var(--dur-base), border-color var(--dur-base); flex: none; }
 .sw i { position: absolute; top: 3px; left: 3px; width: 23px; height: 23px; border-radius: 50%; background: var(--text-3); transition: transform var(--dur-base) var(--ease-standard), background-color var(--dur-base); }
@@ -1510,3 +1510,7 @@ button.queue-bar-face { cursor: pointer; }
 .settings-layout[data-phone] .queue-levels button { min-width: 0; padding: 8px 4px; flex-direction: column; }
 .settings-layout .queue-levels button { display: flex; align-items: center; justify-content: center; gap: 6px; }
 @media (prefers-reduced-motion: reduce) { .sw, .sw i { transition: none; } }
+.srow small .link-btn { display: inline; margin: 0; padding: 0; height: auto; min-height: 0; vertical-align: baseline; }
+
+.settings-layout[data-phone] .queue-levels button { padding: 8px 6px; font-size: 15px; }
+.settings-layout[data-phone] .queue-levels { padding: 6px; }

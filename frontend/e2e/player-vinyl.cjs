@@ -88,12 +88,11 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 4).padStart(2, "0")}.00] ${t}`
 
   console.log("[settings]");
   await page.goto(B + "#/settings"); await page.waitForSelector("text=Autoplay");
-  const boxes = await page.locator(".panel:has(h2:text-is('Play queue')) input[type=checkbox]").evaluateAll((e) => e.map((x) => x.checked));
+  const boxes = await page.locator('[role=switch][aria-label="Autoplay"], [role=switch][aria-label="Fade between songs"]').evaluateAll((e) => e.map((x) => x.getAttribute("aria-checked") === "true"));
   ok(boxes.length === 2 && boxes[0] === true && boxes[1] === false, "Autoplay is on and Fade between songs is off by default");
-  ok((await page.locator(".fade-length button").first().isDisabled()), "the fade length is dimmed while the fade is off");
-  await page.evaluate(() => { const bs = [...document.querySelectorAll(".panel input[type=checkbox]")].filter((x) => x.closest(".check")?.textContent.includes("Fade between")); bs[0].click(); });
-  await page.locator(".fade-length button", { hasText: "6 s" }).click();
-  await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Save settings")?.click());
+  ok((await page.locator(".fade-seconds button").first().isDisabled()), "the fade length is dimmed while the fade is off");
+  await page.locator('[role=switch][aria-label="Fade between songs"]').click();
+  await page.locator(".fade-seconds button", { hasText: "6 s" }).click();
   await page.waitForTimeout(800);
   const saved = await api("GET", "settings");
   ok(saved.queue_fade === true && saved.queue_fade_seconds === 6 && saved.queue_autoplay === true, "the choices are saved: " + JSON.stringify([saved.queue_autoplay, saved.queue_fade, saved.queue_fade_seconds]));

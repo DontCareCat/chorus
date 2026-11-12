@@ -54,9 +54,9 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR
   ok(true, "removing it brings back the plain tile");
 
   console.log("[settings]");
-  await page.goto(B + "#/settings"); await page.waitForSelector("text=Save settings");
-  ok(await page.isChecked('label:has-text("Look up missing album covers online") input'), "the lookup is on by default");
-  ok(/sent to them/.test(await page.textContent('label:has-text("Look up missing album covers online")')), "and the setting says what is sent");
+  await page.goto(B + "#/settings"); await page.waitForSelector(".scard");
+  ok((await page.locator('[role=switch][aria-label="Album covers online"]').getAttribute("aria-checked")) === "true", "the lookup is on by default");
+  ok(/sent to them/.test(await page.textContent('.srow:has([aria-label="Album covers online"])')), "and the setting says what is sent");
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL COVER CHECKS PASSED");
 })();
