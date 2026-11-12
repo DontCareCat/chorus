@@ -1415,3 +1415,4 @@ button.queue-bar-face { cursor: pointer; }
 .shell[data-nav="tabs"] .save-bar { bottom: calc(var(--nav-h) + 12px); }
 .shell[data-nav="rail"] .queue-bar { left: 96px; right: 0; width: min(1040px, calc(100% - 96px - 48px)); }
 @media (prefers-reduced-motion: reduce) { .main-nav a, .main-nav .tab-icon { transition: none; } }
+.shell[data-nav]:has(.queue-bar) .save-bar { bottom: calc(var(--nav-h, 0px) + 92px); } /* Save stays clear of the queue bar */
