@@ -25,6 +25,10 @@ class DictionaryEntry(Base):
     lookup_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 1 = looked up with the parser of 2026-10-30; older ones are redone
     enrich_status: Mapped[str] = mapped_column(String(8), default="pending", server_default="pending")  # pending | done | failed
     suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    pos: Mapped[str | None] = mapped_column(String(16), default=None)  # noun | verb | adj | adv | ... from the lookup, or as the user edited it
+    zipf: Mapped[float | None] = mapped_column(Float, default=None)  # wordfreq Zipf frequency of the lemma; None for languages without data
+    source: Mapped[str | None] = mapped_column(String(8), default=None)  # game | tap | manual | import
+    meaning_edited: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")  # the user wrote the meaning: a look-up never replaces it unasked
     audio_file: Mapped[str | None] = mapped_column(String(64), default=None)  # pronunciation from an imported Anki deck, in media/dictionary-audio
     added_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     # review schedule (services/dictionary/srs.py)
@@ -47,7 +51,7 @@ class DictionaryExample(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     entry_id: Mapped[int] = mapped_column(ForeignKey("dictionary_entries.id", ondelete="CASCADE"), index=True)
-    song_id: Mapped[int] = mapped_column(ForeignKey("songs.id"), index=True)
+    song_id: Mapped[int | None] = mapped_column(ForeignKey("songs.id"), index=True)  # None: a sentence the user typed by hand
     sentence: Mapped[str] = mapped_column(Text)
     translation: Mapped[str | None] = mapped_column(Text, default=None)
     audio_start: Mapped[float | None] = mapped_column(Float, default=None)  # lyric time; the song's offset is added when it is played

@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, LyricLine, Question, Song, User
+from app.db.models import DictionaryEntry, DictionaryExample, GameAnswer, Game, Lyrics, LyricLine, Question, Song, User
 from app.db.models.types import utcnow
 from app.services.dictionary import srs
 from app.services.dictionary.lookup import (
     LookupUnavailable, Translator, WordInfo, Wiktionary, article_for, bad_meaning, cached_translation, cached_word_info, peek_word_info,
 )
-from app.services.game.nlp import base_language
+from app.services.game.nlp import UNSUPPORTED, base_language, has_frequency_data, zipf as word_zipf
 from app.services.settings import load_settings
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def record_asked(session: Session, user_id: int, language: str, question: Questi
     entry = find_card(session, user_id, lang, question.missing_word, sentence)
     created = entry is None
     if created:
-        entry = DictionaryEntry(user_id=user_id, language=lang, word=key, surface=question.missing_word.strip()[:100])
+        entry = DictionaryEntry(user_id=user_id, language=lang, word=key, surface=question.missing_word.strip()[:100], source="game")
         session.add(entry)
         session.flush()
     have = {sentence_key(e.sentence) for e in entry.examples}
@@ -91,6 +91,18 @@ def import_from_games(session: Session, user: User) -> tuple[int, int]:
 
 # ---------- enrichment (article, translation) ----------
 _enrich_lock = threading.Lock()  # one enrichment at a time: every answer starts a task, and they would all ask for the same words
+
+
+EDITABLE = ("translation", "lemma", "article", "pos")  # the fields of a card the user can write by hand
+
+
+def entry_zipf(word: str, language: str) -> float | None:
+    """wordfreq's Zipf frequency (5 is about once per 100 000 words); None where it has no data or the word is unknown to it."""
+    base = base_language(language)
+    if base in UNSUPPORTED or not has_frequency_data(base):
+        return None
+    value = word_zipf(word, base)
+    return round(value, 2) if value > 0 else None
 
 
 def noun_hint(entry: DictionaryEntry) -> bool | None:
@@ -195,6 +207,7 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
     failed = False
     source = entry.language
     info = WordInfo()
+    kept = {f: getattr(entry, f) for f in EDITABLE + ("translation_language",)} if entry.meaning_edited else {}  # what the user wrote stays
     try:
         hint = noun_hint(entry)
         info = cached_word_info(session, wiktionary, entry.surface, source, hint, fresh)
@@ -204,6 +217,8 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
         entry.lemma = lemma
         # only a noun has an article: not the pronoun "mir", the numeral "neun" or the verb "fallen"
         entry.article = article_for(source, info.gender, lemma or entry.surface) if info.is_noun else None
+        entry.pos = info.pos if info.found else entry.pos
+        entry.zipf = entry_zipf(entry.lemma or entry.surface, source)
     except LookupUnavailable as e:
         log.warning("article lookup failed for %r: %s", entry.surface, e)
         failed = True
@@ -236,6 +251,9 @@ def enrich_entry(session: Session, entry: DictionaryEntry, target: str, translat
             meaning = None
         if meaning:
             entry.translation, entry.translation_language = meaning
+    for f, value in kept.items():
+        if value is not None:
+            setattr(entry, f, value)
     entry.enrich_status = "failed" if failed else "done"
     if not failed:
         entry.lookup_version = 1
@@ -453,7 +471,7 @@ def export_words(session: Session, user: User, status: str, language: str | None
 
     entries = filtered(session, user, status, language, text).options(selectinload(DictionaryEntry.examples)).order_by(
         DictionaryEntry.added_at, DictionaryEntry.id).all()
-    song_ids = {ex.song_id for e in entries for ex in e.examples}
+    song_ids = {ex.song_id for e in entries for ex in e.examples if ex.song_id is not None}
     songs: dict[int, str] = {sid: title for sid, title in session.query(Song.id, Song.title).filter(Song.id.in_(song_ids)).all()} if song_ids else {}
     out = []
     for e in entries:
@@ -509,7 +527,7 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
                 entry.audio_file = n.audio
             existing += 1
             continue
-        entry = DictionaryEntry(user_id=user.id, language=note_lang, word=key, surface=headword[:100], article=article)
+        entry = DictionaryEntry(user_id=user.id, language=note_lang, word=key, surface=headword[:100], article=article, source="import")
         if translation and not bad_meaning(translation):
             entry.translation, entry.translation_language, entry.enrich_status = translation, translation_language, "done"
         if with_schedule and n.reps > 0 and n.due_at is not None:
@@ -521,3 +539,108 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
         added += 1
     session.commit()
     return {"added": added, "existing": existing, "skipped": skipped}
+
+
+# ---------- the word card, manual add and edit ----------
+def _line_of(session: Session, song_id: int | None, sentence: str) -> LyricLine | None:
+    """The line of the song's current lyrics that has this text (for the line's timing)."""
+    if song_id is None or not sentence:
+        return None
+    return (
+        session.query(LyricLine).join(Lyrics, Lyrics.id == LyricLine.lyrics_id)
+        .filter(Lyrics.song_id == song_id, Lyrics.is_active.is_(True), LyricLine.text == sentence).order_by(LyricLine.id).first()
+    )
+
+
+def lookup_word(
+    session: Session, user: User, language: str, word: str, song_id: int | None, line: str | None, translator: Translator, wiktionary: Wiktionary,
+) -> dict:
+    """What the word card shows: headword, type, meaning, the sung line with its translation, and the card when the word is in the dictionary.
+    Answers come from the lookup cache when they can (a second tap is instant). When the services cannot be reached the word comes back alone with
+    offline=True."""
+    lang = base_language(language)
+    surface = word.strip()[:100]
+    sentence = (line or "").strip()
+    card = find_card(session, user.id, lang, surface, sentence)
+    out = {
+        "word": surface, "headword": surface, "lemma": None, "article": None, "pos": None, "translation": None, "translation_language": None,
+        "sentence": sentence, "sentence_translation": None, "entry_id": card.id if card else None, "offline": False,
+    }
+    if card is not None:
+        out.update(lemma=card.lemma, article=card.article, pos=card.pos, translation=card.translation, translation_language=card.translation_language)
+        out["headword"] = f"{card.article} {card.lemma or card.surface}" if card.article else (card.lemma or card.surface)
+    target = user.translation_language
+    if not load_settings(session).translation_enabled:
+        return out
+    probe = DictionaryEntry(language=lang, surface=surface)
+    try:
+        info = cached_word_info(session, wiktionary, surface, lang, _line_hint(surface, sentence))
+        if card is None and info.found:
+            probe.lemma = info.lemma if info.lemma and info.lemma.casefold() != surface.casefold() else None
+            probe.article = article_for(lang, info.gender, probe.lemma or surface) if info.is_noun else None
+            out.update(lemma=probe.lemma, article=probe.article, pos=info.pos)
+            lemma_or_word = probe.lemma or surface
+            out["headword"] = f"{probe.article} {lemma_or_word}" if probe.article else lemma_or_word
+        if out["translation"] is None:
+            meaning = None
+            if base_language(target) != lang:
+                meaning = word_translation(session, translator, probe, info, lang, target)
+            if not meaning:
+                fallback = fallback_meaning(session, translator, probe, info, lang, target)
+                if fallback:
+                    meaning, target = fallback
+            if meaning:
+                out.update(translation=meaning, translation_language=target)
+        if sentence and base_language(user.translation_language) != lang:
+            out["sentence_translation"] = cached_translation(session, translator, sentence, lang, user.translation_language)
+    except LookupUnavailable as e:
+        log.warning("word card lookup failed for %r: %s", surface, e)
+        out["offline"] = True
+    return out
+
+
+def add_word(
+    session: Session, user: User, language: str, word: str, source: str, song_id: int | None = None, line: str | None = None,
+    translation: str | None = None, example: str | None = None,
+) -> tuple[DictionaryEntry, bool]:
+    """Put a word the user picked (the word card, "+ Add word") into their dictionary. A word that is in already only gets the new
+    example line. A meaning typed by hand is kept (meaning_edited). Returns (entry, created); the entry is 'pending' until it is looked up."""
+    lang = base_language(language)
+    surface = word.strip()[:100]
+    key = word_key(surface)
+    if not key:
+        raise ValueError("empty word")
+    sentence = (line or example or "").strip()
+    entry = find_card(session, user.id, lang, surface, sentence)
+    created = entry is None
+    if created:
+        entry = DictionaryEntry(user_id=user.id, language=lang, word=key, surface=surface, source=source)
+        session.add(entry)
+        session.flush()
+    meaning = (translation or "").strip()[:300]
+    if meaning:
+        entry.translation, entry.translation_language, entry.meaning_edited = meaning, user.translation_language, True
+    if sentence:
+        span = _line_of(session, song_id, sentence)
+        have = {sentence_key(e.sentence) for e in entry.examples}
+        if sentence_key(sentence) not in have and len(entry.examples) < MAX_EXAMPLES:
+            entry.examples.append(DictionaryExample(
+                song_id=song_id, sentence=sentence, audio_start=span.start_time if span else None, audio_end=span.end_time if span else None))
+    session.commit()
+    return entry, created
+
+
+def edit_entry(session: Session, entry: DictionaryEntry, fields: dict, target: str) -> DictionaryEntry:
+    """Meaning, lemma, article and type as the user wrote them (an empty text clears the field). A written field is never replaced by a look-up
+    unless the user confirms it."""
+    for f, value in fields.items():
+        if f not in EDITABLE:
+            continue
+        value = (value or "").strip() or None
+        setattr(entry, f, value[:300] if f == "translation" and value else value)
+        if f == "translation":
+            entry.translation_language = target
+    if fields:
+        entry.meaning_edited = True
+    session.commit()
+    return entry

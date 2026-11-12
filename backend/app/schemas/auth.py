@@ -11,6 +11,7 @@ class UserOut(BaseModel):
     is_admin: bool
     translation_language: str = "en"
     daily_card_limit: int = 0  # dictionary cards per day, 0 = no limit
+    dictionary_mode: str = "auto"  # auto: answered words are added; manual: only the words the user picks
 
 
 class AuthState(BaseModel):

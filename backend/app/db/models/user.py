@@ -20,6 +20,7 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     daily_card_limit: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # dictionary cards reviewed per day; 0 = no limit
     translation_language: Mapped[str] = mapped_column(String(16), default="en", server_default="en")  # what the dictionary translates into
+    dictionary_mode: Mapped[str] = mapped_column(String(8), default="auto", server_default="auto")  # auto: answered words are added; manual: only the words the user picks
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
 
