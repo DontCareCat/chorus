@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { en } from "../i18n/en";
+import { noAutofill } from "../lib/noAutofill";
 import { Icon } from "./Icon";
 
 /** One section of Settings: an uppercase label over a card of rows (design guide section 22). */
@@ -82,7 +83,7 @@ export function TextField({ title, help, value, saved, onSave, placeholder, read
     <form className="srow" data-kind="text" autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (dirty && !readOnly && !disabledSave) onSave(); }}>
       <Text title={title} help={help} />
       <div className="srow-field">
-        <input type="text" aria-label={title} value={value} placeholder={placeholder} readOnly={readOnly} disabled={readOnly} onChange={(e) => onChange(e.target.value)} {...inputProps} />
+        <input type="text" {...noAutofill("settings-field")} aria-label={title} value={value} placeholder={placeholder} readOnly={readOnly} disabled={readOnly} onChange={(e) => onChange(e.target.value)} {...inputProps} />
         {!readOnly && <button type="submit" className="btn secondary" disabled={!dirty || disabledSave}>{saveLabel}</button>}
         {extraButtons}
       </div>
