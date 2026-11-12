@@ -28,3 +28,29 @@ export function scrollSmoothly(el: HTMLElement, top: number, instant: boolean): 
   id = requestAnimationFrame(step);
   return () => cancelAnimationFrame(id);
 }
+
+/** Per-frame share of the remaining distance that {@link followSmoothly} covers: fast at first, settling softly, never past the target. */
+export const FOLLOW_EASE = 0.22;
+
+/** One frame of the follow: closes a share of the gap, and lands exactly when it is under a pixel. */
+export const followStep = (current: number, target: number): number => (Math.abs(target - current) < 1 ? target : current + (target - current) * FOLLOW_EASE);
+
+/**
+ * Keep `el` scrolled to a target that is itself moving (the lines grow and shrink while they change size): every frame the target is asked
+ * for again, and the scroll closes part of the gap, so there is no overshoot and no second settling move. Runs for `ms` and then lands on
+ * the target. Returns a function that stops it (the reader touched the list). `instant` just places the scroll.
+ */
+export function followSmoothly(el: HTMLElement, target: () => number, ms: number, instant: boolean): () => void {
+  const clamp = (v: number) => Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, Math.round(v)));
+  if (instant) { el.scrollTop = clamp(target()); return () => undefined; }
+  let id = 0;
+  const start = performance.now();
+  const step = (now: number) => {
+    const to = clamp(target());
+    if (now - start >= ms) { el.scrollTop = to; return; }
+    el.scrollTop = followStep(el.scrollTop, to);
+    id = requestAnimationFrame(step);
+  };
+  id = requestAnimationFrame(step);
+  return () => cancelAnimationFrame(id);
+}

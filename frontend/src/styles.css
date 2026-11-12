@@ -94,7 +94,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 /* No blue flash when something is tapped, and the words on controls are never selected by a long press or a double tap (text people may want to copy, such as lyrics and inputs, stays selectable). */
 * { -webkit-tap-highlight-color: transparent; }
-button, .btn, .chip, .segmented, .theme-switch, .select-bar, .kebab, .song-main, .status-cell, summary, label.check, nav a, .menu-panel, .rate-btn, .icon-btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+button, .btn, .chip, .segmented, .theme-switch, .select-bar, .kebab, .song-main, .status-cell, summary, label.check, nav a, .rate-btn, .icon-btn { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 button:disabled { cursor: not-allowed; }
 input::placeholder, textarea::placeholder { color: var(--text-3); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -109,7 +109,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 .topbar, main { max-width: 1120px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
 .topbar { position: relative; padding-top: 20px; padding-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 main { padding-bottom: 48px; }
-@media (max-width: 600px) { .topbar, main { padding-left: 24px; padding-right: 24px; } .menu-panel { right: 24px; } } /* the menu lines up with the page's own side space */
+@media (max-width: 600px) { .topbar, main { padding-left: 24px; padding-right: 24px; } }
 
 /* ---------- header ---------- */
 .wordmark { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); font-weight: 800; font-size: 26px; letter-spacing: -0.03em; line-height: 1; }
@@ -362,7 +362,7 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .opt > span:last-child { flex: 1 1 auto; min-width: 0; line-height: 1.15; overflow-wrap: anywhere; hyphens: auto; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
 .opt[data-long="true"] > span:last-child { font-size: 0.8em; }
 .opt[data-long="xl"] > span:last-child { font-size: 0.68em; }
-.opt-key { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; line-height: 1; padding-bottom: 2px; box-sizing: border-box; font-size: 14px; font-weight: 600; color: var(--text-2); }
+.opt-key { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; line-height: 1; padding: 2px 0 0; box-sizing: border-box; font-size: 14px; font-weight: 600; color: var(--text-2); }
 .opt[data-state="correct"] { background: color-mix(in oklch, var(--correct) 18%, transparent); border-color: var(--correct); color: var(--correct); animation: settle 0.2s ease-out; }
 .opt[data-state="wrong"] { background: color-mix(in oklch, var(--wrong) 18%, transparent); border-color: var(--wrong); color: var(--wrong); animation: settle 0.16s ease-out; }
 .opt[data-state="dim"] { color: var(--text-3); }
@@ -374,8 +374,9 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
 .lw-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin: 12px 0 8px; }
 .lyric-window { position: relative; flex: 1; min-height: 8rem; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
 .lw-track { padding: 3rem 0; }
-.lw-line { display: grid; grid-template-columns: 4rem 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 15px; line-height: 1.35; color: var(--text-3); }
-.lw-line time { font-size: 13px; color: var(--text-4); font-variant-numeric: tabular-nums; opacity: 0.7; }
+.lw-line { display: grid; grid-template-columns: 4rem 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 15px; line-height: 1.35; color: var(--text-3); transition: color 0.32s, font-size 0.32s var(--ease-standard), padding 0.32s var(--ease-standard); }
+.lw-line time { font-size: 13px; color: var(--text-4); font-variant-numeric: tabular-nums; opacity: 0.7; transition: font-size 0.32s var(--ease-standard); }
+@media (prefers-reduced-motion: reduce) { .lw-line, .lw-line time { transition: none; } }
 .lw-line[data-d="1"] { font-size: 16px; color: var(--text-2); }
 .lw-line[data-d="0"] { font-size: 22px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; padding-top: 8px; padding-bottom: 8px; }
 .lw-line[data-d="0"] time { font-size: 14px; }
@@ -474,12 +475,6 @@ input[type="search"].pill { height: 38px; border-radius: var(--r-pill); backgrou
    phone = phones and tablets held upright, compact = tablets on their side / small laptops, desktop.
    The game screen always fits the screen: nothing scrolls, nothing hides behind the player bar.
    ===================================================================================================== */
-.menu-btn { width: 44px; height: 44px; border: none; background: transparent; color: var(--text); display: grid; place-items: center; border-radius: 50%; }
-.menu-panel { position: absolute; right: 40px; top: calc(100% - 4px); z-index: 30; min-width: 15rem; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-strong); display: flex; flex-direction: column; gap: 14px; box-shadow: 0 12px 32px color-mix(in oklch, var(--text) 18%, transparent); }
-.menu-panel nav { flex-direction: column; gap: 4px; }
-.menu-panel nav a { padding: 10px 12px; font-size: 17px; }
-.menu-panel .account { flex-wrap: wrap; }
-.menu-panel .theme-switch { align-self: center; } /* as wide as its options, centred in the panel (a flex column would stretch it) */
 .scan-in { display: none; }
 
 /* The game screen is exactly as tall as what can be seen, following the browser's bars as they slide in and out:
@@ -593,7 +588,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 [data-layout="phone"] .lw-line[data-d="0"] { font-size: 20px; padding-top: 8px; padding-bottom: 8px; }
 [data-layout="phone"] .options { gap: 8px; margin-top: 0; }
 [data-layout="phone"] .opt { height: 56px; padding: 0 12px; gap: 10px; font-size: 18px; }
-[data-layout="phone"] .opt-key { width: 22px; height: 22px; font-size: 12px; }
+[data-layout="phone"] .opt-key { width: 22px; height: 22px; font-size: 12px; padding: 0; }
 [data-layout="phone"] .game .finish { margin: 0 0 8px; padding: 8px 12px; }
 [data-layout="phone"] .icon-btn { width: 44px; height: 44px; }
 
@@ -987,15 +982,9 @@ html.dialog-open { overflow: hidden; }
 .tool-sheet .tool-body { overflow: visible; padding: 8px 20px 24px; }
 
 /* the phone main menu rolls down from the top bar and its bars turn into a cross */
-.menu-panel { transition: clip-path var(--dur-base) var(--ease-standard), opacity var(--dur-base) var(--ease-standard), transform var(--dur-base) var(--ease-standard); clip-path: inset(-4px -40px -48px -40px round 16px); }
-.menu-panel[data-state="closed"] { clip-path: inset(0 -40px 100% -40px round 16px); opacity: 0; transform: translateY(-8px);}
-.burger path { transform-box: fill-box; transform-origin: center; transition: transform 0.22s var(--ease-standard), opacity 0.22s var(--ease-standard); }
-.menu-btn[aria-expanded="true"] .b1 { transform: translateY(5px) rotate(45deg); }
-.menu-btn[aria-expanded="true"] .b2 { opacity: 0; transform: scaleX(0.2); }
-.menu-btn[aria-expanded="true"] .b3 { transform: translateY(-5px) rotate(-45deg); }
 
 @media (prefers-reduced-motion: reduce) {
-  .thumbs[data-thumb="glide"]::before, .sheet, .sheet-scrim, .menu-panel, .burger path, .chip, .segmented button, .theme-switch button, .topbar nav a { transition: none; }
+  .thumbs[data-thumb="glide"]::before, .sheet, .sheet-scrim, .chip, .segmented button, .theme-switch button, .topbar nav a { transition: none; }
   .songs > li, .words > li, .chip small, .song-menu, .select-list, .tool-dialog, .dialog-scrim[data-kind="tool"] { animation: none; }
 }
 .nav-badge { box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--on-fill) 22%, transparent); }
@@ -1448,7 +1437,7 @@ button.queue-bar-face { cursor: pointer; }
 .main-nav a[aria-current="page"] { color: var(--text); }
 .main-nav a[aria-current="page"] .tab-icon { color: var(--on-fill); }
 .main-nav .tab-icon { position: relative; width: 56px; height: 32px; display: grid; place-items: center; font-size: 24px; transition: color var(--dur-base) var(--ease-standard); }
-.main-nav .nav-badge { position: absolute; top: -2px; right: 0; margin: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 11px; background: var(--accent); color: var(--bg); }
+.main-nav .nav-badge { position: absolute; top: -2px; left: calc(50% + 2px); margin: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 11px; background: var(--accent); color: var(--bg); }
 .main-nav::before { width: 56px; height: 32px; border-radius: var(--r-pill); transform: translate(calc(var(--thumb-x, 0px) + (var(--thumb-w, 0px) - 56px) / 2), var(--thumb-y, 0px)); }
 .main-nav[data-variant="tabs"] { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--bg); }
 .main-nav[data-variant="tabs"] a { min-width: 0; }

@@ -47,21 +47,21 @@ export function WordEditor({ entry, defaultLanguage, onClose, onSaved }: { entry
       <form className="exchange" autoComplete="off" onSubmit={(e) => { e.preventDefault(); if (!busy && (entry || word.trim())) void save(); }}>
         {!entry && (
           <>
-            <label className="field"><span>{t.word}</span><input className="pill" {...noAutofill("word-editor-word")} value={word} onChange={(e) => setWord(e.target.value)} maxLength={100} autoFocus /></label>
+            <label className="field"><span>{t.word}</span><input type="text" {...noAutofill("word-editor-word")} value={word} onChange={(e) => setWord(e.target.value)} maxLength={100} autoFocus /></label>
             <label className="field"><span>{t.language}</span><LanguageSelect id="editor-language" value={language} onChange={setLanguage} /></label>
           </>
         )}
-        <label className="field"><span>{t.meaning}</span><input className="pill" {...noAutofill("word-editor-meaning")} value={meaning} onChange={(e) => setMeaning(e.target.value)} maxLength={300} placeholder={entry ? undefined : t.meaningOptional} /></label>
+        <label className="field"><span>{t.meaning}</span><input type="text" {...noAutofill("word-editor-meaning")} value={meaning} onChange={(e) => setMeaning(e.target.value)} maxLength={300} placeholder={entry ? undefined : t.meaningOptional} /></label>
         {entry ? (
           <>
-            <label className="field"><span>{t.lemma}</span><input className="pill" {...noAutofill("word-editor-lemma")} value={lemma} onChange={(e) => setLemma(e.target.value)} maxLength={100} /></label>
-            <label className="field"><span>{t.article}</span><input className="pill" {...noAutofill("word-editor-article")} value={article} onChange={(e) => setArticle(e.target.value)} maxLength={16} /></label>
+            <label className="field"><span>{t.lemma}</span><input type="text" {...noAutofill("word-editor-lemma")} value={lemma} onChange={(e) => setLemma(e.target.value)} maxLength={100} /></label>
+            <label className="field"><span>{t.article}</span><input type="text" {...noAutofill("word-editor-article")} value={article} onChange={(e) => setArticle(e.target.value)} maxLength={16} /></label>
             <label className="field"><span>{t.pos}</span>
               <Select value={pos} onChange={setPos} options={[{ value: "", label: t.noPos }, ...POS.map((p) => ({ value: p, label: en.wordCard.pos[p]! }))]} />
             </label>
           </>
         ) : (
-          <label className="field"><span>{t.example}</span><input className="pill" {...noAutofill("word-editor-example")} value={example} onChange={(e) => setExample(e.target.value)} maxLength={1000} placeholder={t.exampleOptional} /><small>{t.lookupFills}</small></label>
+          <label className="field"><span>{t.example}</span><input type="text" {...noAutofill("word-editor-example")} value={example} onChange={(e) => setExample(e.target.value)} maxLength={1000} placeholder={t.exampleOptional} /><small>{t.lookupFills}</small></label>
         )}
         {error && <p className="notice error" role="alert">{error}</p>}
         <div className="confirm-actions">

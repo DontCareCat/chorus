@@ -31,3 +31,23 @@ describe("smooth scroll", () => {
     expect(scrollDuration(5000)).toBe(420);
   });
 });
+
+describe("followStep / followSmoothly", () => {
+  it("closes a share of the gap each frame, never past the target, and lands exactly", async () => {
+    const { followStep } = await import("./smooth-scroll");
+    let v = 0;
+    const seen: number[] = [];
+    for (let i = 0; i < 60; i++) { v = followStep(v, 100); seen.push(v); }
+    expect(seen.every((x) => x <= 100)).toBe(true);
+    expect(seen[0]).toBeGreaterThan(0);
+    expect(seen.every((x, i) => i === 0 || x >= seen[i - 1]!)).toBe(true);
+    expect(v).toBe(100);
+  });
+
+  it("with instant places the scroll on the target at once", async () => {
+    const { followSmoothly } = await import("./smooth-scroll");
+    const el = { scrollTop: 0, scrollHeight: 1000, clientHeight: 200 } as HTMLElement;
+    followSmoothly(el, () => 345.4, 380, true);
+    expect(el.scrollTop).toBe(345);
+  });
+});

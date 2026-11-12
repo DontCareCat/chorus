@@ -2,7 +2,10 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { centerOffset, timecode, wordSpans } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
-import { scrollSmoothly } from "../lib/smooth-scroll";
+import { followSmoothly } from "../lib/smooth-scroll";
+
+/** How long a line takes to change size (styles.css, .lw-line transition): the window follows it for this long. */
+export const LINE_SIZE_MS = 320;
 
 interface Props {
   lines: readonly WindowLine[];
@@ -127,8 +130,8 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
     if (!vp || !el) return;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     stopScroll.current();
-    // The sizes of the lines change at once (game text is never animated, guide section 16), so the line is where it will stay and one eased move is enough
-    stopScroll.current = scrollSmoothly(vp, centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight) * -1, !smooth || !!reduced);
+    // The lines grow and shrink over LINE_SIZE_MS (the focus animation); the window re-centres on the moving line every frame, so there is no overshoot
+    stopScroll.current = followSmoothly(vp, () => centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight) * -1, LINE_SIZE_MS + 60, !smooth || !!reduced);
   }, []);
 
   // The window follows its line unless the reader has taken over.

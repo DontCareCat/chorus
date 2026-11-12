@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
-import { useExitTransition } from "./hooks/useExitTransition";
 import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
-import { swallowNextClick } from "./lib/swallow-click";
 import { MainNav } from "./components/MainNav";
 import { QueueBar } from "./components/QueueBar";
 import { GamePage } from "./pages/GamePage";
@@ -34,7 +32,6 @@ export function App() {
   const isGame = route.name === "game";
   useGameLock(isGame);
   useKeyboardFit(isGame);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [cards, setCards] = useState(0);
   const [wave, setWave] = useState(0); // counts wordmark clicks; a new key restarts the bar animation
   const signedIn = auth.user !== null;
@@ -45,22 +42,6 @@ export function App() {
     api.reviewSummary().then((s) => live && setCards(s.due + s.new), () => undefined);
     return () => { live = false; };
   }, [signedIn, route.name]);
-  useEffect(() => setMenuOpen(false), [route.name]);
-  const menu = useExitTransition(menuOpen, 220);
-  const panelRef = useRef<HTMLDivElement>(null);
-  const burgerRef = useRef<HTMLButtonElement>(null);
-  // a tap outside the open phone menu closes it and does nothing else
-  useEffect(() => {
-    if (!menuOpen) return;
-    const down = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (panelRef.current?.contains(t) || burgerRef.current?.contains(t)) return;
-      swallowNextClick();
-      setMenuOpen(false);
-    };
-    document.addEventListener("pointerdown", down, true);
-    return () => document.removeEventListener("pointerdown", down, true);
-  }, [menuOpen]);
 
   const account = (
     <div className="account">
@@ -92,16 +73,7 @@ export function App() {
             <span className="bars" key={wave} data-wave={wave > 0 || undefined} aria-hidden="true"><i /><i /><i /></span>
             {en.appName}
           </a>
-          {phone ? (
-            <>
-            <button type="button" className="menu-btn" ref={burgerRef} aria-expanded={menuOpen} aria-label={en.nav.menu} onClick={() => setMenuOpen((v) => !v)}>
-              <svg className="burger" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path className="b1" d="M4 7h16" /><path className="b2" d="M4 12h16" /><path className="b3" d="M4 17h16" /></svg>
-            </button>
-            </>
-          ) : (
-            <div className="top-right">{account}</div>
-          )}
-          {phone && menu.mounted && <div className="menu-panel" data-state={menu.state} ref={panelRef}>{account}</div>}
+          <div className="top-right">{account}</div>
         </header>
       )}
       {!isGame && !needsSignIn && route.name !== "login" && route.name !== "review" && <QueueBar phone={phone} />}

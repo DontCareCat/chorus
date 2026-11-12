@@ -33,11 +33,16 @@ const type = async (el: HTMLInputElement, value: string) => {
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
 };
-const inputs = () => [...document.querySelectorAll<HTMLInputElement>("input.pill")];
+const inputs = () => [...document.querySelectorAll<HTMLInputElement>(".exchange input[type=text]")];
 const submit = () => [...document.querySelectorAll<HTMLButtonElement>("button[type=submit]")][0]!;
 
 describe("+ Add word", () => {
   beforeEach(async () => { await act(async () => root.render(<WordEditor defaultLanguage="de" onClose={onClose} onSaved={onSaved} />)); });
+
+  it("has every free-text box typed as text, so the app's input style (styles.css input[type=text]) applies", () => {
+    expect(inputs().length).toBe(3);
+    expect(document.querySelectorAll(".exchange input:not([type])").length).toBe(0);
+  });
 
   it("cannot be sent without a word", () => {
     expect(submit().disabled).toBe(true);
