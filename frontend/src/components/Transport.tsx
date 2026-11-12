@@ -3,6 +3,8 @@ import type { CSSProperties } from "react";
 import { volumeIcon } from "../game/volume";
 import { Icon } from "./Icon";
 import { PlayButton } from "./PlayButton";
+import { useSwipe } from "../hooks/useSwipe";
+import { useSwipeHint } from "../hooks/useSwipeHint";
 import { en } from "../i18n/en";
 import type { PlaybackStateName } from "../game/playback-state-machine";
 import type { Runway, RunwayTick } from "../game/runway";
@@ -15,8 +17,11 @@ interface Props {
   onStart: () => void;
   onPlay: () => void;
   onPause: () => void;
-  onStop: () => void;
   onBack: () => void;
+  /** a touch screen (guide section 11): no Next or volume buttons, a left swipe on the bar is Next */
+  phone: boolean;
+  /** start the next song of the queue; the bar offers it only while one waits */
+  onNext: () => void;
   /** Resolves when the seek is done, so the thumb can show the real position again. */
   onSeek: (time: number) => Promise<unknown>;
   /** the play queue: how many songs wait, and open its list */
@@ -36,7 +41,7 @@ const mmss = (s: number) => {
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onStop, onBack, onSeek, volume, queue, runway, ticks, gated, focusedId, onFocus }: Props) {
+export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onBack, phone, onNext, onSeek, volume, queue, runway, ticks, gated, focusedId, onFocus }: Props) {
   const running = state === "PLAYING" || state === "FADING_IN" || state === "FADING_OUT";
   // While the thumb is being dragged it shows the drag position; the seek happens when it is released.
   const [dragging, setDragging] = useState<number | null>(null);
@@ -60,13 +65,16 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
   const shown = volume.muted ? 0 : volume.level;
+  const hasNext = (queue?.count ?? 0) > 0;
+  // Left swipe on the bar is Next (the track keeps its own horizontal drag, so a swipe never starts on it)
+  const bar = useRef<HTMLDivElement>(null);
+  const hint = useSwipeHint(phone && hasNext);
+  useSwipe(bar, { directions: ["left"], onSwipe: () => { hint.used(); onNext(); }, enabled: phone && hasNext, ignore: ".seek-wrap" });
   return (
-    <div className="transport">
-      <div className="transport-inner">
+    <div className="transport" ref={bar}>
+      {phone && <div className="swipe-reveal next" aria-hidden="true">{en.queue.swipeNext}<Icon name="skipNext" /></div>}
+      <div className="transport-inner" data-swipe-face>
         <div className="controls" role="group" aria-label="Playback">
-          <button type="button" className="icon-btn" onClick={onBack} disabled={!engineReady} aria-label={en.game.back5} title={en.game.back5}>
-            <Icon name="rewind5" />
-          </button>
           <PlayButton
             size="l"
             playing={running}
@@ -75,11 +83,15 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
             aria-label={running ? en.game.pause : en.game.play}
             title={running ? en.game.pause : en.game.play}
           />
-          <button type="button" className="icon-btn" onClick={onStop} disabled={!engineReady} aria-label={en.game.stop} title={en.game.stop}>
-            <Icon name="stop" />
+          <button type="button" className="icon-btn" onClick={onBack} disabled={!engineReady} aria-label={en.game.back5} title={en.game.back5}>
+            <Icon name="rewind5" />
           </button>
+          {!phone && (
+            <button type="button" className="icon-btn" onClick={onNext} disabled={!hasNext} aria-label={en.queue.skip} title={en.queue.skip}>
+              <Icon name="skipNext" />
+            </button>
+          )}
         </div>
-        <span className="transport-time elapsed" aria-hidden="true">{mmss(dragging ?? time)}</span>
         <div className="seek-wrap">
           <input
             className="seek"
@@ -100,8 +112,9 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
           {gated && <SeekTicks ticks={ticks} focusedId={focusedId} onFocus={onFocus} />}
           {gated && runway.deadlinePct !== null && <i className="seek-deadline" style={{ "--t": runway.deadlinePct / 100 } as CSSProperties} title={en.game.audioWaitsHere} />}
         </div>
-        <span className="transport-time total" aria-hidden="true">{mmss(duration)}</span>
-        <div className="volume" ref={volumeBox} role="group" aria-label={en.game.volume}>
+        <span className="transport-time" aria-hidden="true" title={dragging !== null ? mmss(dragging) : undefined}>{mmss(duration)}</span>
+        {phone && <span className="swipe-hint" data-shown={hint.shown} aria-hidden="true"><Icon name="arrowBack" />{en.queue.swipeHint}</span>}
+        {!phone && <div className="volume" ref={volumeBox} role="group" aria-label={en.game.volume}>
           <button
             type="button"
             className="icon-btn"
@@ -124,7 +137,7 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
             aria-valuetext={`${Math.round(shown * 100)}%`}
             onChange={(e) => volume.set(Number(e.target.value))}
           />
-        </div>
+        </div>}
         {queue && (
           <button type="button" className="icon-btn queue-btn" onClick={queue.onOpen} aria-label={en.queue.openList} title={en.queue.openList}>
             <Icon name="queue" />

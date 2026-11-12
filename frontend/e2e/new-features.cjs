@@ -116,7 +116,7 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   const p2 = await pos();
   ok(p1.inside && p2.inside && p1.text !== p2.text, "the current line stays inside the window while the lyrics slide past");
   await page.screenshot({ path: "shots/lyric-window.png" });
-  await page.click('button[aria-label="Stop"]');
+  await page.evaluate(() => window.__chorus.controller.stop()); // the player has no Stop button any more (beta 0.2.0): the controller's stop is still checked
 
   console.log("[score: waiting for an answer drains the multiplier]");
   const g2 = await newGame(page);
@@ -139,7 +139,7 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   ok((await pointsNow(page)) === 110, "the answer after the wait is worth 10 (x1, not ahead): " + (await pointsNow(page)));
   const d2 = await dto(page);
   ok(d2.progress.score === 110, "the server computed the same total from the waiting time it was told about: " + d2.progress.score);
-  await page.click('button[aria-label="Stop"]');
+  await page.evaluate(() => window.__chorus.controller.stop()); // the player has no Stop button any more (beta 0.2.0): the controller's stop is still checked
 
   console.log("[accounts]");
   const anna = await browser.newContext({ viewport: { width: 1280, height: 900 } });

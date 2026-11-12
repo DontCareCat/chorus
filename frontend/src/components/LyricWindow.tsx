@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { centerOffset, timecode, wordSpans } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
+import { scrollSmoothly } from "../lib/smooth-scroll";
 
 interface Props {
   lines: readonly WindowLine[];
@@ -109,6 +110,7 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
   const lastPulse = useRef(pulse);
   const placed = useRef(false);
   const frame = useRef(0);
+  const stopScroll = useRef<() => void>(() => undefined);
   const [away, setAway] = useState<"up" | "down" | null>(null);
 
   /** Where the followed line is relative to what can be seen, only while the reader is browsing. */
@@ -124,7 +126,9 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
     const el = vp?.querySelector<HTMLElement>('.lw-line[data-follow="true"]');
     if (!vp || !el) return;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    vp.scrollTo({ top: centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight) * -1, behavior: smooth && !reduced ? "smooth" : "auto" });
+    stopScroll.current();
+    // The sizes of the lines change at once (game text is never animated, guide section 16), so the line is where it will stay and one eased move is enough
+    stopScroll.current = scrollSmoothly(vp, centerOffset(vp.clientHeight, el.offsetTop, el.offsetHeight) * -1, !smooth || !!reduced);
   }, []);
 
   // The window follows its line unless the reader has taken over.
@@ -138,9 +142,6 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
     }
     place(placed.current);
     placed.current = true;
-    // the line grows while it becomes the current one (font-size transition), which moves it: settle once more afterwards
-    const t = setTimeout(() => { if (!browsing.current) place(true); }, 350);
-    return () => clearTimeout(t);
   }, [current, lines, pulse, place]);
 
   useEffect(() => {
@@ -148,10 +149,11 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
     if (!vp) return;
     const ro = new ResizeObserver(() => { if (!browsing.current) place(false); });
     ro.observe(vp);
-    return () => { ro.disconnect(); cancelAnimationFrame(frame.current); };
+    return () => { ro.disconnect(); cancelAnimationFrame(frame.current); stopScroll.current(); };
   }, [place]);
 
   const touched = () => {
+    stopScroll.current(); // the reader's finger wins over the move in progress
     browsing.current = true;
     lastTouch.current = performance.now();
   };

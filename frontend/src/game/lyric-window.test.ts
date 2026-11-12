@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, currentLineIndex, followLine, lineText, reuseLines, timecode, wordSpans } from "./lyric-window";
+import { buildWindowLines, centerOffset, currentLineIndex, focusLine, followLine, lineText, reuseLines, timecode, wordSpans } from "./lyric-window";
 import type { WindowLine, WindowPart } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
@@ -141,5 +141,21 @@ describe("tapping words", () => {
   it("quotes a line with an open blank as dots, not as the answer", () => {
     const parts: WindowPart[] = [{ kind: "text", text: "Ich " }, { kind: "blank", index: 0, focused: false }, { kind: "text", text: " dich " }, { kind: "word", index: 1, word: "liebe", state: "correct", focused: false }];
     expect(lineText(parts)).toBe("Ich … dich liebe");
+  });
+});
+
+describe("focusLine", () => {
+  it("'question' keeps the open question's line in the middle, whatever the song sings", () => {
+    expect(focusLine("question", 2, 7, true, false)).toBe(7);
+    expect(focusLine("question", 9, 7, true, false)).toBe(7);
+  });
+  it("'question' goes back to the song's line when nothing is left to answer", () => {
+    expect(focusLine("question", 4, 7, false, false)).toBe(4);
+    expect(focusLine("question", 4, -1, true, false)).toBe(4);
+  });
+  it("'line' follows the song, except while answering ahead of it", () => {
+    expect(focusLine("line", 2, 7, true, false)).toBe(2);
+    expect(focusLine("line", 2, 7, true, true)).toBe(7);
+    expect(focusLine("line", 2, 7, false, true)).toBe(2);
   });
 });

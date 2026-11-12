@@ -18,6 +18,7 @@ const settle = (p, ms = 900) => p.waitForTimeout(ms);
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   page.on("pageerror", (e) => console.log("PAGEERROR", e.message));
+  await page.addInitScript(() => localStorage.setItem("chorus-lyric-focus", "line")); // these checks are about the "Current line" mode; the default mode is in player-d.cjs
   const api = async (m, u, d) => (await page.request.fetch(B + "api/" + u, { method: m, ...(d ? { data: d } : {}) })).json();
   await api("PUT", "settings", { ...(await api("GET", "settings")), translation_enabled: false });
   const stamp = Date.now() % 100000;
@@ -76,6 +77,7 @@ const settle = (p, ms = 900) => p.waitForTimeout(ms);
 
   console.log("[phone: touch scrolling]");
   const ctx = await browser.newContext({ ...devices["iPhone 13"] });
+  await ctx.addInitScript(() => localStorage.setItem("chorus-lyric-focus", "line"));
   const ph = await ctx.newPage();
   ph.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   g = await mk();

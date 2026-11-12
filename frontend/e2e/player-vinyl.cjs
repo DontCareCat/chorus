@@ -27,7 +27,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 4).padStart(2, "0")}.00] ${t}`
   const wrap = await page.locator(".seek-wrap").boundingBox(), tk = await page.locator(".seek-tick").first().boundingBox();
   ok(tk.y > wrap.y - 4 && tk.y + tk.height < wrap.y + wrap.height + 4, "the dots are on the track, not above it");
   const times = await page.$$eval(".transport-time", (e) => e.map((x) => x.textContent));
-  ok(times.length === 2 && /^0:00$/.test(times[0]) && /^0:\d\d$/.test(times[1]), "elapsed time at the left end, total at the right: " + times.join(" / "));
+  ok(times.length === 1 && /^\d+:\d\d$/.test(times[0]), "the song's length is shown at the right end of the track (no elapsed time): " + times.join(" / "));
   const disc = async () => page.evaluate(() => { const m = /rotate\(([\d.]+)deg\)/.exec(document.querySelector(".vinyl-disc").style.transform); return m ? +m[1] : 0; });
   ok((await page.locator(".vinyl .cover").count()) === 1, "the record is in the game header (its label is the cover)");
   ok((await disc()) === 0, "it is still before play");

@@ -24,6 +24,7 @@ import arrowUp from "@material-symbols/svg-400/outlined/arrow_upward.svg?raw";
 import shuffle from "@material-symbols/svg-400/outlined/shuffle.svg?raw";
 import playlistAdd from "@material-symbols/svg-400/outlined/playlist_add.svg?raw";
 import queue from "@material-symbols/svg-400/outlined/queue_music.svg?raw";
+import arrowBack from "@material-symbols/svg-400/outlined/arrow_back.svg?raw";
 import skipNext from "@material-symbols/svg-400/outlined/skip_next.svg?raw";
 import grip from "@material-symbols/svg-400/outlined/drag_indicator.svg?raw";
 import add from "@material-symbols/svg-400/outlined/add.svg?raw";
@@ -57,6 +58,7 @@ const PATHS = {
   search: pathOf(search),
   warning: pathOf(warning),
   arrowUp: pathOf(arrowUp),
+  arrowBack: pathOf(arrowBack),
   shuffle: pathOf(shuffle),
   playlistAdd: pathOf(playlistAdd),
   queue: pathOf(queue),

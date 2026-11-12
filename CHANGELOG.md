@@ -6,6 +6,11 @@
 - Dictionary page: "Add word" and Edit (meaning, lemma, article, type); `PATCH /api/dictionary/{id}`; "Look up again" asks before it replaces a written meaning (`refresh?overwrite=true`).
 - Migration 0016: entries keep pos, zipf, source and whether the meaning was written by hand; examples may have no song. Backfilled from the lookup cache and wordfreq; a second run changes nothing.
 
+## Game player (web 0.7.0-beta, Android 0.2.0-beta.23)
+- Layout B: the track and the song's length on top, play, rewind 5 s and the queue button below; no Stop button. A wide screen has a Next button and the volume control in one row; on a touch screen a left swipe on the bar starts the next song (hint for the first few games) and the queue sheet's menu has "Skip to next".
+- Answers always sit directly above the player.
+- The lyric window moves once, eased, with no font-size animation; Settings > Game > "Lyrics follow": Next question (default) or Current line.
+
 ## Beta stage (Android 0.2.0-beta.1 to beta.13, web 0.7.0-beta)
 
 The beta adds songs played from YouTube, a single field for adding music from links, sharing into the app, Anki exchange of the dictionary, real song lengths, a sturdier dictionary and a lyrics lookup that keeps going in the background. The beta installs as its own app (`io.github.dontcarecat.chorus.beta`, shown as "Chorus") next to the alpha. The web app is the source of truth: every change was made there first.
