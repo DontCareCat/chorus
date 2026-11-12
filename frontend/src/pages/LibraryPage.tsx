@@ -78,9 +78,9 @@ export function LibraryPage() {
   }, [addOpen, tab]);
 
   const confirm = useConfirm();
-  const run = async (job: () => Promise<string | null>) => {
+  const run = async (job: () => Promise<string | null>, quiet = false) => {
     setBusy(true);
-    setNotice(null);
+    if (!quiet) setNotice(null); // a quiet job leaves the message line alone: removing it would pull the whole list up
     try {
       const done = await job();
       if (done !== null) setNotice({ kind: "ok", text: done });
@@ -159,7 +159,7 @@ export function LibraryPage() {
       const r = await api.retryLyrics(ids);
       selection.clear();
       return quiet ? null : en.library.lyricsQueued(r.queued); // the lookup bar shows a restart itself: a message would push the whole page down
-    });
+    }, quiet);
   };
 
   const all = songs.data ?? [];
