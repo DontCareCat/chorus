@@ -2,6 +2,7 @@
 
 ## Dictionary: select mode and infinite scroll (web, with Android beta.26)
 - Select mode (item 17, without subsets): a long press on a word (phones) or the Select button (PC) ticks words; the bar has select-all for every word the filters show, "N selected", ⋮ with Pause reviews / Resume reviews / Reset progress, a red Remove and the X. Remove and Reset ask first; Back, Esc or X leave select mode. `POST /api/dictionary/bulk {action, ids | filter + exclude}`, so "Select all" never sends thousands of ids.
+- Long press (dictionary and library rows): a finger flick never counts as a long press. Any scroll cancels the press, and the hold is decided one frame after its timer, so the finger's queued moves get their turn on a busy page (found on the emulator: a flick while a page of words rendered ticked a word).
 - The word list loads 100 words at a time and fetches the next page as the end of the list comes near (no more "Show more"); a change reloads only the loaded rows, in chunks of 500.
 
 ## Dictionary: add modes and the word card (web, with Android beta.24)
