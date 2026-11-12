@@ -29,6 +29,8 @@ interface Props<V extends string | number> {
   chip?: boolean;
   /** the button shows only this icon (the list still opens as usual); the label goes to aria-label and the tooltip */
   icon?: IconName;
+  /** a settings row: no box, the value and a chevron right-aligned (the list opens as usual) */
+  row?: boolean;
 }
 
 /**
@@ -36,7 +38,7 @@ interface Props<V extends string | number> {
  * (44 px items, 14 px inner padding, the chosen item ticked, hover/keyboard highlight) instead of the browser's own menu.
  * Popover under the button on PCs; a bottom sheet on phones. Arrow keys, Home/End, type-ahead, Enter/Space, Esc.
  */
-export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true, chip = false, icon }: Props<V>) {
+export function Select<V extends string | number>({ value, onChange, options, id, ariaLabel, placeholder, disabled, sheetOnPhone = true, chip = false, icon, row = false }: Props<V>) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number; max: number } | null>(null);
@@ -120,7 +122,7 @@ export function Select<V extends string | number>({ value, onChange, options, id
   return (
     <>
       <button
-        type="button" id={id} ref={button} className={`select-btn${chip ? " chip-select" : ""}${icon ? " icon-select" : ""}`} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
+        type="button" id={id} ref={button} className={`select-btn${chip ? " chip-select" : ""}${icon ? " icon-select" : ""}${row ? " row-select" : ""}`} role="combobox" aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
         aria-label={ariaLabel} title={icon ? ariaLabel : undefined} disabled={disabled} onClick={() => (open ? close() : show())} onKeyDown={onKey} data-placeholder={current < 0}
       >
         {icon ? <Icon name={icon} /> : <span>{current >= 0 ? options[current]!.node ?? options[current]!.label : placeholder ?? ""}</span>}
