@@ -11,6 +11,8 @@ const { chromium } = require("playwright");
 const { execFileSync } = require("child_process");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
 const DB = process.env.DB_PATH;
+const sw = (page, name) => page.locator(`[role=switch][aria-label="${name}"]`); // Settings switches apply at once
+const setSwitch = async (page, name, on) => { const el = sw(page, name); if ((await el.getAttribute("aria-checked")) !== String(on)) { await el.click(); await page.waitForSelector("text=Saved"); await page.waitForTimeout(150); } };
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 
 const rightText = (qid) => execFileSync("sqlite3", [DB, `select text from question_options where question_id=${qid} and is_correct=1`]).toString().trim();
@@ -174,13 +176,12 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   await bp.waitForSelector(".notice.error, .prompt");
   ok(/does not exist/.test(await bp.textContent("main")), "Bob cannot open Anna's game by its link");
   ok(ad.questions.length > 0 && !(await bp.$(".prompt")), "…and gets no questions");
-  await bp.goto(B + "#/settings"); await bp.waitForSelector("text=Save settings");
-  ok(await bp.isDisabled('label:has-text("without signing in") input'), "Bob cannot change who may use the server (the administrator can)");
+  await bp.goto(B + "#/settings"); await bp.waitForSelector(".scard");
+  ok(!(await bp.$("#settings-server")), "Bob cannot change who may use the server (the administrator can)");
 
-  await ap.goto(B + "#/settings"); await ap.waitForSelector("text=Save settings");
-  ok(await ap.isEnabled('label:has-text("without signing in") input') && /Accounts on this server/.test(await ap.textContent("main")), "Anna, the administrator, can, and sees the accounts");
-  await ap.uncheck('label:has-text("without signing in") input');
-  await ap.click('button:has-text("Save settings")'); await ap.waitForSelector("text=Saved");
+  await ap.goto(B + "#/settings"); await ap.waitForSelector(".scard");
+  ok(await ap.isEnabled('[role=switch][aria-label="Let people use Chorus without signing in"]') && /Accounts on this server/.test(await ap.textContent("main")), "Anna, the administrator, can, and sees the accounts");
+  await setSwitch(ap, "Let people use Chorus without signing in", false);
   const stranger = await browser.newContext();
   const sp = await stranger.newPage();
   await sp.goto(B); await sp.waitForSelector(".auth-card");
@@ -191,11 +192,10 @@ const firstOfLine = (g, line) => g.questions.filter((q) => q.blank_index === 0).
   await sp.click('button:has-text("Sign in") >> nth=-1');
   await sp.waitForSelector(".songs, .empty");
   ok(true, "signing in with the account works and opens the library");
-  await sp.click('button:has-text("Sign out")');
+  await sp.goto(B + "#/settings"); await sp.click('button:has-text("Sign out")');
   await sp.waitForSelector(".auth-card");
   ok(/#\/login/.test(sp.url()), "signing out returns to the sign-in page while guests are off");
-  await ap.check('label:has-text("without signing in") input');
-  await ap.click('button:has-text("Save settings")'); await ap.waitForSelector("text=Saved");
+  await setSwitch(ap, "Let people use Chorus without signing in", true);
 
   await browser.close();
   console.log(process.exitCode ? "\nSOME CHECKS FAILED" : "\nALL NEW-FEATURE CHECKS PASSED");

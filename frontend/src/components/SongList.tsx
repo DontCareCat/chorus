@@ -98,7 +98,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
     longPress: (s) => act.current.selection?.add(s.id),
     toggle: (s) => act.current.setOpen((o) => (o === s.id ? null : s.id)),
     menu: (s, anchor) => act.current.setMenu((m) => (m?.id === s.id ? null : { id: s.id, anchor })),
-    fix: (s) => { const st = songStatus(s); if (st.fix === "lyrics") act.current.setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") act.current.onRemove(s); },
+    fix: (s) => { const st = songStatus(s); if (st.fix === "lyrics") act.current.setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") act.current.onRemove(s); else if (st.fix === "youtube" && s.youtube_id) window.open(youtubeWatchUrl(s.youtube_id), "_blank", "noopener"); },
   }), []);
   const gamesBySong = useMemo(() => {
     const m = new Map<number, GameSummaryDto[]>();
@@ -246,7 +246,7 @@ interface RowProps {
   menuOpen: boolean;
 }
 
-const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
+export const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, orderable, reorderRow, gone, phone, selectionActive, picked, duplicate, copyOf, open, games, menuOpen }: RowProps) {
   const ready = s.lyrics_status === "found" && s.available && !gone;
   const status = songStatus(s);
   const unplayable = s.source === "youtube" && !s.available;
@@ -270,25 +270,21 @@ const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selectable, 
             {selectable ? <input type="checkbox" className="pick" checked={picked} onChange={onPick} aria-label={en.library.pick(s.title)} /> : orderable ? <button type="button" className="grip" data-grip aria-label={en.playlists.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown" title={en.playlists.dragHandle}><Icon name="grip" /></button> : <span className="pick-gap" aria-hidden="true" />}
             <Cover songId={s.id} title={s.title} hasCover={s.has_cover} youtubeId={s.youtube_id} size="row" />
             <div className="song-text">
-              <div className="song-title" title={s.title}>{s.title}{gone && <span className="dup-tag">{en.playlists.removedTag}</span>}</div>
+              <div className="song-title" title={s.title}>{s.title}</div>
               <div className="song-meta">
                 <span title={s.artist}>{s.artist}</span>
-                <span className="lang">{s.language}</span>
-                {s.source === "youtube" && <span className="yt-tag">{en.library.youtubeBadge}</span>}
-                {s.source === "youtube" && isTopicChannel(s.youtube_channel) && <span className="dup-tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
-                {(s.duration > 0 || s.source !== "youtube") && <span>{mmss(s.duration)}</span>}
                 {sortKey && sortKey !== "name" && <SortedBy sortKey={sortKey} song={s} />}
-                {duplicate && <span className="dup-tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
               </div>
-              {unplayable && s.youtube_id && (
-                <div className="song-meta yt-unplayable">
-                  <span>{en.library.ytUnplayable}</span>
-                  <span aria-hidden="true">·</span>
-                  <a href={youtubeWatchUrl(s.youtube_id)} target="_blank" rel="noreferrer">{en.library.ytOpen}</a>
-                </div>
-              )}
+              <div className="tag-row">
+                <span className="tag">{s.language}</span>
+                {s.source === "youtube" && <span className="tag">{en.library.youtubeBadge}</span>}
+                {s.source === "youtube" && isTopicChannel(s.youtube_channel) && <span className="tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
+                {duplicate && <span className="tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}
+                {gone && <span className="tag">{en.playlists.removedTag}</span>}
+                <StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} />
+              </div>
             </div>
-            <div className="status-cell"><StatusBadge status={status} phone={phone} onFix={() => handlers.fix(s)} /></div>
+            <span className="song-length">{s.duration > 0 ? mmss(s.duration) : ""}</span>
             {!phone && <PlayButton className="play-btn" onClick={onToggle} disabled={!ready} aria-expanded={open} aria-label={`${en.library.play} ${s.title}`} title={ready ? en.library.play : en.library.needsLyrics} />}
             <button type="button" ref={dots} className="kebab" aria-haspopup="menu" aria-expanded={menuOpen} aria-label={en.songMenu.open(s.title)} onClick={() => dots.current && handlers.menu(s, dots.current)}><Icon name="more" /></button>
           </div>

@@ -108,15 +108,17 @@ async function newGame(page, level) {
   console.log("[folder import with the recursive option]");
   await page.goto(B); await page.waitForSelector(".song");
   const before2 = (await page.$$(".song")).length;
-  await page.click('button:has-text("Add music")');
+  const openPath = async () => { await page.click('button:has-text("Add music")'); await page.getByRole("menuitem", { name: /Import from a folder path/ }).click(); }; // the menu closes after Import
+  await openPath();
   await page.fill('input[placeholder*="Music"]', TREE);
   await page.uncheck("text=Include subfolders");
-  await page.click('button:has-text("Import")');
+  await page.click('.am-step button:text-is("Import")');
   await page.waitForSelector(".float-toast[data-kind=ok]");
   ok(/1 added/.test(await page.textContent(".float-toast[data-kind=ok]")), "without subfolders only the top-level file is added: " + (await page.textContent(".float-toast[data-kind=ok]")));
+  await page.waitForTimeout(400); await openPath();
   await page.fill('input[placeholder*="Music"]', TREE);
   await page.check("text=Include subfolders");
-  await page.click('button:has-text("Import")');
+  await page.click('.am-step button:text-is("Import")');
   await page.waitForFunction(() => /2 added, 1 already known/.test(document.querySelector(".float-toast[data-kind=ok]")?.textContent ?? ""), null, { timeout: 8000 });
   ok(true, "with subfolders the other two are added, the first is recognised: " + (await page.textContent(".float-toast[data-kind=ok]")));
   ok((await page.$$(".song")).length === before2 + 3, "three new songs listed");
@@ -132,7 +134,6 @@ async function newGame(page, level) {
 
   console.log("[a file that is not audio is rejected with a reason]");
   await page.goto(B); await page.waitForSelector(".song");
-  await page.click('button:has-text("Add music")');
   await page.setInputFiles('input[type="file"][accept*=".mp3"]', { name: "fake.mp3", mimeType: "audio/mpeg", buffer: Buffer.from("this is not audio at all") });
   await page.waitForSelector(".float-toast[data-kind=error]", { timeout: 8000 });
   const upErr = await page.textContent(".float-toast[data-kind=error]");

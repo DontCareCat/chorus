@@ -43,14 +43,15 @@ class LrclibClient:
 
     def __init__(
         self, http: httpx.Client | None = None, retries: int = 3, backoff: float = 0.5,
-        sleep: Callable[[float], None] = time.sleep,
+        sleep: Callable[[float], None] = time.sleep, base_url: str | None = None,
     ):
-        self.http = http or httpx.Client(
-            base_url=settings.lrclib_base_url, headers={"User-Agent": USER_AGENT}, timeout=15,
-        )
+        url = settings.lrclib_base_url if base_url is None else base_url
+        self.http = http or (httpx.Client(base_url=url, headers={"User-Agent": USER_AGENT}, timeout=15) if url else None)
         self.retries, self.backoff, self.sleep = retries, backoff, sleep
 
     def _request(self, path: str, params: dict[str, Any]) -> httpx.Response:
+        if self.http is None:
+            raise LrclibUnavailable("No lyrics service is set. Add its address in Settings, or use lyrics files and uploads.")
         last: Exception | None = None
         for attempt in range(self.retries):
             try:

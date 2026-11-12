@@ -6,6 +6,11 @@ const { chromium } = require("playwright");
 const fs = require("fs"), path = require("path");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
 const TREE = process.env.TREE_DIR;
+const openBrowse = async (pg) => { // Add music > Import from a folder path > Browse…
+  if (!(await pg.$(".add-popover, .add-sheet"))) await pg.click('button:has-text("Add music")');
+  await pg.getByRole("menuitem", { name: /Import from a folder path/ }).click();
+  await pg.click('.am-step button:has-text("Browse")');
+};
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
 
 const wav = (seed) => { const n = 8000 * 2, d = Buffer.alloc(44 + n * 2); d.write("RIFF", 0); d.writeUInt32LE(36 + n * 2, 4); d.write("WAVEfmt ", 8); d.writeUInt32LE(16, 16); d.writeUInt16LE(1, 20); d.writeUInt16LE(1, 22); d.writeUInt32LE(8000, 24); d.writeUInt32LE(16000, 28); d.writeUInt16LE(2, 32); d.writeUInt16LE(16, 34); d.write("data", 36); d.writeUInt32LE(n * 2, 40); for (let i = 0; i < n; i++) d.writeInt16LE((i * seed + seed * 13) % 3000, 44 + i * 2); return d; };
@@ -25,8 +30,7 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
 
   console.log("[the window]");
   await page.goto(B); await page.waitForSelector(".song");
-  await page.click('button:has-text("Add music")');
-  await page.click('.add-panel button:has-text("Browse")');
+  await openBrowse(page);
   await page.waitForSelector('[role="dialog"]');
   const box = await page.$eval(".dialog", (e) => { const r = e.getBoundingClientRect(); return { w: r.width, h: r.height, left: r.left }; });
   ok(box.w <= 760 && box.left > 100 && (await page.isVisible(".song-title >> nth=0")), `a window over the page on a PC (${Math.round(box.w)} px wide); the library is still there behind it`);
@@ -61,7 +65,7 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   ok((await titles()).join("|").includes("One") && (await titles()).some((t) => t.includes("Seven")), "they are in the library");
 
   console.log("[filters: regular expressions on file names]");
-  await page.click('.add-panel button:has-text("Browse")');
+  await openBrowse(page);
   await page.fill('.path-bar input', TREE); await page.press('.path-bar input', "Enter");
   await page.waitForSelector('.fs-list li:has-text("Alpha - One.wav")');
   await page.check('input[aria-label="Select sub"]');
@@ -69,7 +73,7 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   await page.getByLabel("Only names that match").fill("\\(live\\)");
   r = await importNow(page);
   ok(r.added === 1 && r.filtered === 2, "only the (live) file of the folder is taken: " + JSON.stringify(r));
-  await page.click('.add-panel button:has-text("Browse")');
+  await openBrowse(page);
   await page.fill('.path-bar input', TREE); await page.press('.path-bar input', "Enter");
   await page.waitForSelector('.fs-list li:has-text("Alpha - One.wav")');
   await page.check('input[aria-label="Select sub"]');
@@ -97,7 +101,7 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   ok((await titles()).length === total, "an invalid pattern explains itself and leaves the list alone");
 
   console.log("[picking a library folder in Settings]");
-  await page.goto(B + "#/settings"); await page.waitForSelector("text=Save settings");
+  await page.goto(B + "#/settings"); await page.waitForSelector(".scard");
   await page.click('button:has-text("Browse")');
   await page.fill('.path-bar input', path.join(TREE, "other")); await page.press('.path-bar input', "Enter");
   await page.waitForSelector('.fs-list li:has-text("Eta - Seven.wav")');
@@ -108,7 +112,7 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   console.log("[phone: the window fills the screen]");
   const m = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await m.goto(B); await m.waitForSelector(".song");
-  await m.click('button:has-text("Add music")'); await m.click('.add-panel button:has-text("Browse")');
+  await openBrowse(m);
   await m.waitForSelector('[role="dialog"]');
   const d = await m.$eval(".dialog", (e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), top: r.top }; });
   ok(d.w === 390 && d.h === 844 && d.top === 0, `the window is the whole screen (${d.w}x${d.h})`);

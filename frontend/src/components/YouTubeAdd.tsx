@@ -124,7 +124,7 @@ export function YouTubeAdd({ phone, onAdded, onShow, onPlaylistAdded }: { phone:
           <div className="yt-fields">
             <div className="yt-channel">
               <span>{preview.channel}</span>
-              {isTopicChannel(preview.channel) && <span className="dup-tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
+              {isTopicChannel(preview.channel) && <span className="tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
             </div>
             <label className="field"><span>{en.library.ytTitle}</span><input type="text" {...noAutofill("youtube-title")} value={title} onChange={(e) => setTitle(e.target.value)} style={{ fontSize: 15 }} /></label>
             <label className="field"><span>{en.library.ytArtist}</span><input type="text" {...noAutofill("youtube-artist")} value={artist} onChange={(e) => setArtist(e.target.value)} style={{ fontSize: 15 }} /></label>

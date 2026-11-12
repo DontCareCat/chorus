@@ -34,7 +34,7 @@ const audit = () => {
       for (const q of range.getClientRects()) { if (!q.width) continue; left = Math.min(left, q.left - r.left); right = Math.min(right, r.right - q.right); }
     }
     for (const c of el.querySelectorAll("button, a.btn, svg")) {
-      if (el.matches(".segmented, .theme-switch")) break; // controls inside the box
+      if (el.matches(".segmented, .theme-switch, .stepper")) break; // controls inside the box
       if (c.matches(".lookup-retry")) continue; // a bare icon button: its 44 px box has no look of its own, the icon inside is measured
       const cr = c.getBoundingClientRect(); if (!cr.width || !visible(getComputedStyle(c))) continue;
       left = Math.min(left, cr.left - r.left); right = Math.min(right, r.right - cr.right);
@@ -82,7 +82,7 @@ const audit = () => {
     ["dictionary (row open)", "#/dictionary", ".word", async () => { await page.click(".word-main >> nth=0"); await page.waitForSelector(".example"); }],
     ["review start", "#/dictionary/review", ".review-start", async () => {}],
     ["scores", "#/scores", "h1", async () => {}],
-    ["settings", "#/settings", "text=Save settings", async () => {}],
+    ["settings", "#/settings", ".scard", async () => {}],
     ["song page", `#/songs/${song.id}`, ".lyric-line", async () => {}],
   ];
   for (const [w, h, label] of [[320, 700, "narrow phone"], [390, 844, "phone"], [820, 1100, "tablet"], [1280, 900, "desktop"]]) {
@@ -99,7 +99,7 @@ const audit = () => {
       }
     }
     // an open dropdown: items are at least 44 px tall with 12+ px inner padding and the list stays on screen
-    await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn"); await page.click(".select-btn >> nth=0"); await page.waitForSelector(".select-list");
+    await page.goto(B + "#/settings"); await page.waitForSelector(".select-btn"); await page.locator(".select-btn").first().scrollIntoViewIfNeeded(); await page.waitForTimeout(400); await page.click(".select-btn >> nth=0"); await page.waitForSelector(".select-list");
     const dd = await page.evaluate(() => { const li = document.querySelector(".select-list li"); const cs = getComputedStyle(li); const l = document.querySelector(".select-list").getBoundingClientRect(); return { h: li.getBoundingClientRect().height, pad: parseFloat(cs.paddingLeft), inside: l.left >= 0 && l.right <= innerWidth + 1 }; });
     ok(dd.h >= 44 && dd.pad >= 12 && dd.inside, `open dropdown: items ${dd.h}px tall, ${dd.pad}px inner padding, inside the screen: ${dd.inside}`);
     await page.keyboard.press("Escape");

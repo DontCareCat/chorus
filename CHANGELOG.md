@@ -5,6 +5,13 @@
 - Long press (dictionary and library rows): a finger flick never counts as a long press. Any scroll cancels the press, and the hold is decided one frame after its timer, so the finger's queued moves get their turn on a busy page (found on the emulator: a flick while a page of words rendered ticked a word).
 - The word list loads 100 words at a time and fetches the next page as the end of the list comes near (no more "Show more"); a change reloads only the loaded rows, in chunks of 500.
 
+## Redesign: song item, bottom fade, Add music, Settings (web, with Android beta.26)
+- Song item: one `.tag` style for language, YouTube, Album timing, copy hint, removed and the lyrics status; the status is a tag in the tag row with a bubble (above the tag on phones, under it on a PC); the length has its own column.
+- The bottom fade is its own element under the queue bar (it used to paint over it).
+- "+ Add music" is a sheet (phone) / popover (PC) menu with second steps instead of the inline tabbed panel; dropped files are taken anywhere on the page.
+- Settings: one page of section cards with a section index; switches, choices, pickers and steppers save at once, text fields have their own Save; no page-wide save bar.
+- The lyrics service address (an LRCLIB-compatible server) is a server setting (`lyrics_service_url`, default from `LRCLIB_BASE_URL`), editable by the administrator only; `POST /api/settings/lyrics-service/check`.
+
 ## Dictionary: add modes and the word card (web, with Android beta.24)
 - Word card: tap a lyric word in a game to pause and open a card (headword, type, meaning, the sung line translated, an add button). `GET /api/dictionary/lookup`, `POST /api/dictionary/entries`.
 - Settings switch "Add words to dictionary": Automatically / Only words I pick (`users.dictionary_mode`; manual mode skips adding answered words).

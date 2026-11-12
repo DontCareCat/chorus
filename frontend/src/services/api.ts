@@ -159,6 +159,8 @@ export interface DiscoveryDto {
 }
 
 export interface SettingsDto {
+  /** the LRCLIB-compatible lyrics server (the administrator changes it) */
+  lyrics_service_url: string;
   allow_unsynchronized_lyrics: boolean;
   lyrics_cache_ttl_days: number;
   lyrics_timeout_minutes: number;
@@ -473,6 +475,7 @@ export const api = {
   clearCache: () => request<{ deleted: number }>("/api/lyrics/cache", { method: "DELETE" }),
 
   settings: () => request<SettingsDto>("/api/settings"),
+  checkLyricsService: (url: string) => request<{ ok: boolean; message: string }>("/api/settings/lyrics-service/check", json("POST", { url })),
   saveSettings: (s: SettingsDto) => request<SettingsDto>("/api/settings", json("PUT", s)),
 
   songGames: (songId: number) => request<GameSummaryDto[]>(`/api/songs/${songId}/games`),

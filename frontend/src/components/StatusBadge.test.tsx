@@ -12,34 +12,50 @@ describe("StatusBadge", () => {
     const { container } = render(<StatusBadge status={status("found")} phone={false} onFix={() => undefined} />);
     expect(container.firstChild).toBeNull();
   });
-  it("shows a still waiting icon (no spinner near the songs) on a phone while lyrics load, with the words on a PC", () => {
-    const { container, rerender } = render(<StatusBadge status={status("pending")} phone onFix={() => undefined} />);
-    expect(container.querySelector(".status-text")).toBeNull();
+  it("is a tag with a still clock while lyrics load (no spinner near the songs), also on a phone", () => {
+    const { container } = render(<StatusBadge status={status("pending")} phone onFix={() => undefined} />);
+    const tag = screen.getByRole("button");
+    expect(tag.className).toBe("tag status-tag");
+    expect(tag.textContent).toBe("Looking up");
     expect(container.querySelector(".wait")).not.toBeNull();
     expect(container.querySelector(".spin")).toBeNull();
-    rerender(<StatusBadge status={status("pending")} phone={false} onFix={() => undefined} />);
-    expect(container.querySelector(".status-text")?.textContent).toBe("Looking for lyrics");
   });
-  it("on a PC the message sits beside the icon, the full text is in the tooltip and a click fixes", () => {
+  it("shows the problem as a short tag; a click opens the bubble under it on a PC, with the fix button", () => {
     const fix = vi.fn();
-    const { container } = render(<StatusBadge status={status("not_found")} phone={false} onFix={fix} />);
-    expect(container.querySelector(".status-text")?.textContent).toBe("No lyrics found");
-    expect(container.querySelector(".status-tip")?.textContent).toContain("LRCLIB has no synchronized lyrics");
+    render(<StatusBadge status={status("not_found")} phone={false} onFix={fix} />);
+    expect(screen.getByRole("button").textContent).toBe("No lyrics");
     fireEvent.click(screen.getByRole("button"));
+    expect(document.querySelector(".status-tag")!.getAttribute("data-open")).toBe("true");
+    const bubble = document.querySelector<HTMLElement>(".status-bubble")!;
+    expect(bubble.getAttribute("data-below")).toBe("true");
+    expect(bubble.textContent).toContain("LRCLIB has no synchronized lyrics");
+    expect(fix).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Find lyrics" }));
     expect(fix).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".status-bubble")).toBeNull();
   });
-  it("on a phone a tap opens a bubble with a fix button; a tap outside closes it", () => {
+  it("a YouTube song that cannot be played says so, and the bubble's action opens YouTube", () => {
+    const st = songStatus({ lyrics_status: "found", available: false, source: "youtube" });
+    expect([st.tag, st.fix, st.fixLabel]).toEqual(["Can't play", "youtube", "Open on YouTube"]);
+  });
+  it("on a phone a tap opens a bubble above the tag with a fix button; a tap outside closes it", () => {
     const fix = vi.fn();
-    const { container } = render(<StatusBadge status={status("needs_choice")} phone onFix={fix} />);
-    expect(container.querySelector(".status-text")).toBeNull();
+    render(<StatusBadge status={status("needs_choice")} phone onFix={fix} />);
     fireEvent.click(screen.getByRole("button", { name: /Choose the right lyrics/ }));
     expect(document.querySelector(".status-bubble")).not.toBeNull();
+    expect(document.querySelector(".status-bubble")?.hasAttribute("data-below")).toBe(false);
     fireEvent.pointerDown(document.body);
     fireEvent.click(document.body); // the click that ends the tap is swallowed
     expect(document.querySelector(".status-bubble")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Choose the right lyrics/ }));
     fireEvent.click(screen.getByRole("button", { name: "Choose lyrics" }));
     expect(fix).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".status-bubble")).toBeNull();
+  });
+  it("Esc closes the bubble", () => {
+    render(<StatusBadge status={status("not_found")} phone={false} onFix={() => undefined} />);
+    fireEvent.click(screen.getByRole("button"));
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(document.querySelector(".status-bubble")).toBeNull();
   });
   it("a scroll closes the bubble", () => {

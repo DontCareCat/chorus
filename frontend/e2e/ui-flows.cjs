@@ -12,22 +12,22 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
 
   console.log("[settings]");
   await page.goto(B + "#/settings");
-  await page.waitForSelector("text=Save settings");
-  await page.check("text=Allow unsynchronized lyrics");
-  await page.check("text=Keep forever");
-  await pick(page, "label.field:has-text('Language for new songs') .select-btn", "French (fr)");
-  for (const dir of ["/tmp/music-a", "/tmp/music-b"]) { await page.fill('input[aria-label="Add folder"]', dir); await page.click('button:has-text("Add folder")'); }
-  await page.click('button:has-text("Save settings")');
-  await page.waitForSelector("text=Saved");
-  await page.reload(); await page.waitForSelector("text=Save settings");
-  ok(await page.isChecked("text=Allow unsynchronized lyrics"), "unsynchronized toggle persisted");
-  ok(await page.isChecked("text=Keep forever"), "cache TTL 'keep forever' persisted (0)");
-  ok((await page.$$(".folder-list li")).length === 2 && (await page.textContent("label.field:has-text('Language for new songs') .select-btn")).includes("(fr)"), "library folders and language persisted");
+  await page.waitForSelector(".scard");
+  const swt = (name) => page.locator(`[role=switch][aria-label="${name}"]`);
+  const saved = async () => { await page.waitForSelector(".float-toast"); await page.waitForTimeout(300); }; // settings apply at once
+  await swt("Allow lyrics without timing").click(); await saved();
+  await page.getByRole("checkbox", { name: "Keep forever" }).check(); await saved();
+  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "French (fr)"); await saved();
+  for (const dir of ["/tmp/music-a", "/tmp/music-b"]) { await page.fill('input[aria-label="Add folder"]', dir); await page.click('button:has-text("Add folder")'); await saved(); }
+  await page.reload(); await page.waitForSelector(".scard");
+  ok((await swt("Allow lyrics without timing").getAttribute("aria-checked")) === "true", "unsynchronized toggle persisted");
+  ok(await page.getByRole("checkbox", { name: "Keep forever" }).isChecked(), "cache TTL 'keep forever' persisted (0)");
+  ok((await page.$$(".folder-list li")).length === 2 && (await page.textContent("[data-kind=picker]:has-text('Language for new songs') .select-btn")).includes("(fr)"), "library folders and language persisted");
   // restore defaults
-  await page.uncheck("text=Allow unsynchronized lyrics"); await page.uncheck("text=Keep forever");
-  await pick(page, "label.field:has-text('Language for new songs') .select-btn", "German (de)");
-  for (const b of await page.$$('.folder-list button')) await b.click();
-  await page.click('button:has-text("Save settings")'); await page.waitForSelector("text=Saved");
+  await swt("Allow lyrics without timing").click(); await saved();
+  await page.getByRole("checkbox", { name: "Keep forever" }).uncheck(); await saved();
+  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "German (de)"); await saved();
+  for (const b of await page.$$('.folder-list button')) { await b.click(); await saved(); }
 
   console.log("[song page: upload lyrics, timing]");
   await page.request.patch(B + "api/songs/2", { data: { lyrics_offset: 0 } }); // keep the script repeatable

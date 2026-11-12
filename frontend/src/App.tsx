@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
 import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
+import { NavFade } from "./components/NavFade";
 import { MainNav } from "./components/MainNav";
 import { QueueBar } from "./components/QueueBar";
 import { GamePage } from "./pages/GamePage";
@@ -96,6 +97,7 @@ export function App() {
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "review" && <ReviewPage />}
         {!auth.loading && route.name === "notfound" && <p className="empty">Page not found. <a href={paths.library()}>{en.nav.library}</a></p>}
       </main>
+      {showNav && phone && <NavFade />}
       {showNav && <MainNav variant={phone ? "tabs" : "rail"} route={route.name} cards={cards} />}
     </div>
   );
