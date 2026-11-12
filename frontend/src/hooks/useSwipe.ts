@@ -20,6 +20,8 @@ interface Options {
    * and a committed swipe carries it the rest of the way before `onSwipe` runs, so the next panel is what stays in view.
    */
   carousel?: boolean;
+  /** a swipe never starts on a child that matches this selector (a slider that has its own horizontal drag) */
+  ignore?: string;
 }
 
 /**
@@ -27,7 +29,7 @@ interface Options {
  * (or a quick flick) the action fires and the row springs back in 200 ms, otherwise it just springs back. Vertical movement wins
  * when the first move is mostly vertical, so scrolling never triggers it. Only touch and pen: a mouse never swipes.
  */
-export function useSwipe(ref: RefObject<HTMLElement | null>, { directions, onSwipe, enabled = true, carousel = false }: Options): void {
+export function useSwipe(ref: RefObject<HTMLElement | null>, { directions, onSwipe, enabled = true, carousel = false, ignore }: Options): void {
   const key = directions.join();
   const cb = useRef(onSwipe);
   cb.current = onSwipe;
@@ -41,6 +43,7 @@ export function useSwipe(ref: RefObject<HTMLElement | null>, { directions, onSwi
 
     const down = (e: PointerEvent) => {
       if (e.pointerType === "mouse" || s || busy) return;
+      if (ignore && e.target instanceof Element && e.target.closest(ignore)) return;
       s = { x: e.clientX, y: e.clientY, t: e.timeStamp, id: e.pointerId, locked: null, dx: 0, face: face(), lastX: e.clientX, lastT: e.timeStamp, v: 0 };
     };
     const move = (e: PointerEvent) => {
@@ -101,5 +104,5 @@ export function useSwipe(ref: RefObject<HTMLElement | null>, { directions, onSwi
       window.removeEventListener("pointercancel", end);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ref, enabled, key, carousel]);
+  }, [ref, enabled, key, carousel, ignore]);
 }

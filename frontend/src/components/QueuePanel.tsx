@@ -21,6 +21,8 @@ interface Props {
   games: GameSummaryDto[];
   phone: boolean;
   onClose: () => void;
+  /** in the game: start the next song now (the player has no Next button on a phone) */
+  onSkip?: () => void;
 }
 
 const levelOptions = (resolved: Level) => [
@@ -29,7 +31,7 @@ const levelOptions = (resolved: Level) => [
 ];
 
 /** The queue: waiting songs in order, each with its difficulty; drag to reorder, swipe left (touch) or the cross to remove; ⋮ changes every song at once. */
-export function QueuePanel({ songs, games, phone, onClose }: Props) {
+export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
   const store = useQueue();
   const q = store.queue;
   const byId = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
@@ -52,6 +54,7 @@ export function QueuePanel({ songs, games, phone, onClose }: Props) {
     <div className="queue-menu" role="menu" aria-label={en.queue.menu}>
       {menu === "root" && (
         <>
+          {onSkip && <><button type="button" role="menuitem" className="mi" disabled={waiting.length === 0} onClick={() => { setMenu(null); onSkip(); }}><Icon name="skipNext" /><span>{en.queue.skip}</span></button><hr /></>}
           <button type="button" role="menuitem" className="mi" onClick={() => setMenu("difficulty")}><Icon name="tune" /><span>{en.queue.forAll.difficulty}</span><span className="mi-more">›</span></button>
           <button type="button" role="menuitem" className="mi" onClick={() => setMenu("mode")}><Icon name="tune" /><span>{en.queue.forAll.mode}</span><span className="mi-more">›</span></button>
           <hr />

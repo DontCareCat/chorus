@@ -9,6 +9,7 @@ import { useAsync } from "../hooks/useAsync";
 import { useAuth } from "../hooks/useAuth";
 import { forgetQueueLevel } from "../hooks/useQueueActions";
 import { useThumb } from "../hooks/useThumb";
+import { useLyricFocus } from "../hooks/useLyricFocus";
 import type { QueueLevel } from "../lib/queue";
 import { en } from "../i18n/en";
 import { api, ApiError } from "../services/api";
@@ -31,6 +32,8 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const queueThumb = useThumb();
   const fadeThumb = useThumb();
+  const focusThumb = useThumb();
+  const lyric = useLyricFocus();
 
   useEffect(() => {
     if (loaded.data) {
@@ -149,6 +152,18 @@ export function SettingsPage() {
               ))}
             </div>
             <small>{form.queue_fade ? en.queue.fadeHint(form.queue_fade_seconds) : en.queue.fadeOffHint}</small>
+          </div>
+        </section>
+
+        <section className="panel">
+          <h2>{en.settings.gamePanel}</h2>
+          <div className="field">
+            <span>{en.settings.lyricFocus}</span>
+            <div className="segmented thumbs" role="group" aria-label={en.settings.lyricFocus} ref={focusThumb}>
+              <button type="button" aria-pressed={lyric.focus === "question"} onClick={() => lyric.setFocus("question")}>{en.settings.lyricFocusQuestion}</button>
+              <button type="button" aria-pressed={lyric.focus === "line"} onClick={() => lyric.setFocus("line")}>{en.settings.lyricFocusLine}</button>
+            </div>
+            <small>{en.settings.lyricFocusHelp}</small>
           </div>
         </section>
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, currentLineIndex, followLine, reuseLines, timecode } from "./lyric-window";
+import { buildWindowLines, centerOffset, currentLineIndex, focusLine, followLine, reuseLines, timecode } from "./lyric-window";
 import type { WindowLine } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
@@ -125,5 +125,21 @@ describe("reuseLines", () => {
     const first = [line(1, "x")];
     expect(reuseLines(null, first)).toBe(first);
     expect(reuseLines(first, [line(1, "x"), line(2, "y")])).toHaveLength(2);
+  });
+});
+
+describe("focusLine", () => {
+  it("'question' keeps the open question's line in the middle, whatever the song sings", () => {
+    expect(focusLine("question", 2, 7, true, false)).toBe(7);
+    expect(focusLine("question", 9, 7, true, false)).toBe(7);
+  });
+  it("'question' goes back to the song's line when nothing is left to answer", () => {
+    expect(focusLine("question", 4, 7, false, false)).toBe(4);
+    expect(focusLine("question", 4, -1, true, false)).toBe(4);
+  });
+  it("'line' follows the song, except while answering ahead of it", () => {
+    expect(focusLine("line", 2, 7, true, false)).toBe(2);
+    expect(focusLine("line", 2, 7, true, true)).toBe(7);
+    expect(focusLine("line", 2, 7, false, true)).toBe(2);
   });
 });

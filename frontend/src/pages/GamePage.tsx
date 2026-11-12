@@ -10,7 +10,7 @@ import { useQueue } from "../hooks/useQueue";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { clearArrival, fadeOutAndRelease, peekArrival } from "../lib/handoff";
 import * as Q from "../lib/queue";
-import { buildWindowLines, currentLineIndex, followLine, reuseLines } from "../game/lyric-window";
+import { buildWindowLines, currentLineIndex, focusLine, reuseLines } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
@@ -18,6 +18,7 @@ import { computeRunway } from "../game/runway";
 import { describeStatus } from "../game/status";
 import { useAsync } from "../hooks/useAsync";
 import { useGame } from "../hooks/useGame";
+import { useLyricFocus } from "../hooks/useLyricFocus";
 import { useGameArrangement, useLayout } from "../hooks/useLayout";
 import { useVolume } from "../hooks/useVolume";
 import { usePlaybackSync } from "../hooks/usePlaybackSync";
@@ -43,6 +44,7 @@ export function GamePage({ publicId }: { publicId: string }) {
 function GameScreen({ game }: { game: GameDto }) {
   const g = useGame(game);
   const layout = useLayout();
+  const { focus: lyricFocus } = useLyricFocus();
   const arrangement = useGameArrangement(true);
   // The <audio> element lives in <body>, outside React's tree: when a queue moves on with a fade between songs it keeps playing (and fading
   // out) after this page has gone, and a browser pauses an element that is removed from the page.
@@ -332,7 +334,6 @@ function GameScreen({ game }: { game: GameDto }) {
     if (n === "PLAYING" || n === "FADING_IN" || n === "FADING_OUT") playback.pause();
     else if (n !== "SEEKING") playback.play();
   };
-  const stop = () => playback.stop();
   const back5 = () => playback.rewind(5);
   useEffect(() => {
     if (engine) (window as unknown as { __chorus: unknown }).__chorus = { engine, controller: playback.controller };
@@ -350,7 +351,7 @@ function GameScreen({ game }: { game: GameDto }) {
   // the record turns while the music is audible
   const spinning = playback.state.name === "PLAYING" || playback.state.name === "FADING_IN" || playback.state.name === "FADING_OUT";
   const asked = focusedQ && !g.answeredSet.has(focusedQ.id) ? focusedLine : -1; // nothing left to answer: no question line
-  const centerOn = followLine(currentLine, focusedLine, ahead && asked >= 0); // nothing left to answer ahead: the song again
+  const centerOn = focusLine(lyricFocus, currentLine, focusedLine, asked >= 0, ahead); // nothing left to answer: the song's line again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   const stateText = phone ? (hint ?? last.text) || status.text : status.text;
 
@@ -383,6 +384,11 @@ function GameScreen({ game }: { game: GameDto }) {
       if (ghostMs > 0 && engine) { handedOff.current = true; playback.release(); fadeOutAndRelease(engine, audioEl, ghostMs); }
     },
   }), [queueActions, spinning, engine, playback, audioEl, youtubeId]);
+  /** Next song now, from the player: a swipe, the Next button or the queue sheet. The fade is the queue's, as long as one can be heard. */
+  const skipToNext = useCallback(() => {
+    const fadeMs = queueSettings.fade && spinning ? Math.round(Math.min(queueSettings.fadeSeconds * 1000, Math.max(300, Math.max(0, duration - time) * 1000))) : 0;
+    void goNext(fadeMs).then((e) => { if (e) { setHint(e); clearTimeout(hintTimer.current); hintTimer.current = setTimeout(() => setHint(null), 3500); } });
+  }, [goNext, queueSettings.fade, queueSettings.fadeSeconds, spinning, duration, time]);
   const finished = g.finished && (
     <FinishCard
       standing={g.standing}
@@ -458,8 +464,9 @@ function GameScreen({ game }: { game: GameDto }) {
         onStart={start}
         onPlay={playback.play}
         onPause={playback.pause}
-        onStop={stop}
         onBack={back5}
+        phone={phone}
+        onNext={skipToNext}
         onSeek={seekTo}
         runway={runway}
         ticks={ticks}
@@ -469,7 +476,7 @@ function GameScreen({ game }: { game: GameDto }) {
         queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
-      {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} />}
+      {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} onSkip={() => { setQueueOpen(false); skipToNext(); }} />}
     </div>
   );
 }

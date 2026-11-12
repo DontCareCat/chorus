@@ -112,6 +112,16 @@ export const centerOffset = (viewportHeight: number, lineTop: number, lineHeight
 export const followLine = (current: number, focusedLine: number, ahead: boolean): number =>
   ahead && focusedLine > current ? focusedLine : current;
 
+/** What the lyric window keeps in the middle: the line of the next open question (the window then moves once per answer), or the line the song sings. */
+export type LyricFocus = "question" | "line";
+
+/**
+ * The line the window centres on for a focus mode. "question": the question being answered while one is open (`asked`), else the song's line.
+ * "line": the song's own line, except while answering ahead of it (`followLine`).
+ */
+export const focusLine = (mode: LyricFocus, current: number, focusedLine: number, asked: boolean, ahead: boolean): number =>
+  mode === "question" ? (asked && focusedLine >= 0 ? focusedLine : current) : followLine(current, focusedLine, ahead && asked);
+
 export const timecode = (seconds: number | null): string => {
   if (seconds === null) return "";
   const t = Math.max(0, Math.floor(seconds));

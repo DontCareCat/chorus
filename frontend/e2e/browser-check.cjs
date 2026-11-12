@@ -163,12 +163,12 @@ async function answerAllOpen(page, limit = null) {
   assert(Math.abs(p6[0].time - blocking.recovery_start) < 0.15, "sought to the previous lyric line's start, not end-3");
   await page.close();
 
-  console.log("\n[8] Stop: silence and back to the start, from any state");
+  console.log("\n[8] controller.stop(): silence and back to the start, from any state");
   page = await open(browser);
   await startAudio(page);
   await page.waitForTimeout(2500);
   const st = () => page.evaluate(() => ({ st: window.__chorus.controller.state.name, t: document.querySelector("audio").currentTime, paused: document.querySelector("audio").paused, gain: window.__chorus.engine.getVolume() }));
-  await page.click('button[aria-label="Stop"]');
+  await page.evaluate(() => window.__chorus.controller.stop()); // the player has no Stop button any more (beta 0.2.0): the controller's stop is still checked
   await page.waitForTimeout(400);
   let s8 = await st();
   assert(s8.st === "IDLE" && s8.t === 0 && s8.paused && s8.gain === 1, `while playing: stopped at 0:00 (state ${s8.st}, t=${s8.t})`);
@@ -178,7 +178,7 @@ async function answerAllOpen(page, limit = null) {
   assert(s8.st === "PLAYING" && s8.t > 0.3 && s8.t < 1.5 && !s8.paused, `play after stop starts from the beginning (t=${s8.t.toFixed(2)})`);
   await waitState(page, "PAUSED_FOR_QUESTION", 40000);
   await page.waitForTimeout(300);
-  await page.click('button[aria-label="Stop"]');
+  await page.evaluate(() => window.__chorus.controller.stop()); // the player has no Stop button any more (beta 0.2.0): the controller's stop is still checked
   await page.waitForTimeout(400);
   s8 = await st();
   assert(s8.st === "IDLE" && s8.t === 0 && s8.paused, "while waiting for an answer: stopped at 0:00 too");
