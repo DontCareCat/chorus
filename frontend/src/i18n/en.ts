@@ -210,7 +210,7 @@ export const en = {
     moved: (title: string, n: number) => `${title} moved to position ${n}`,
   },
   library: {
-    title: "Library",
+    title: "Home",
     count: (n: number) => `${n} ${n === 1 ? "song" : "songs"}`,
     addMusic: "Add music",
     closeAdd: "Close",

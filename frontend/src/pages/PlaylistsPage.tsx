@@ -32,7 +32,7 @@ export function PlaylistsPage() {
     <>
       <section className="page-head">
         <div>
-          <h1>{en.library.title}</h1>
+          <h1>{en.playlists.title}</h1>
         </div>
         <div className="page-actions">
           <button type="button" className="btn" onClick={() => setDialog({ kind: "new" })}><Icon name="add" />{en.playlists.create}</button>
