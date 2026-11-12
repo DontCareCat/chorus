@@ -6,6 +6,8 @@ import type { DictStatus } from "../services/api";
 import { Dialog } from "./Dialog";
 import { LanguageSelect } from "./LanguageSelect";
 
+const SUPPORTED = /\.(apkg|txt|csv|tsv)$/i;
+
 interface Scope { status: DictStatus; language?: string; q?: string }
 
 /** Export the words the Dictionary page shows as an Anki deck or a plain-text list, or import a deck or a list. */
@@ -20,6 +22,18 @@ export function DictionaryExchange({ mode, scope, shown, defaultLanguage, onClos
   const [result, setResult] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const t = en.dictionary.exchange;
+
+  /** The picker cannot filter for .apkg on every system, so the choice is checked here. */
+  const pick = (f: File | null) => {
+    if (f && !SUPPORTED.test(f.name)) {
+      setFile(null);
+      setResult({ kind: "error", text: t.unsupportedFile });
+      if (input.current) input.current.value = "";
+      return;
+    }
+    setFile(f);
+    setResult(null);
+  };
 
   const run = async () => {
     setBusy(true);
@@ -61,7 +75,7 @@ export function DictionaryExchange({ mode, scope, shown, defaultLanguage, onClos
             <div className="inline">
               <button type="button" className="btn secondary" onClick={() => input.current?.click()}>{file ? t.otherFile : t.chooseFile}</button>
               <span className="muted exchange-file">{file?.name ?? t.noFile}</span>
-              <input ref={input} type="file" hidden onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
+              <input ref={input} type="file" hidden onChange={(e) => pick(e.target.files?.[0] ?? null)} />
             </div>
             <label className="field"><span>{t.language}</span><LanguageSelect id="exchange-language" value={language} onChange={setLanguage} /></label>
             {file?.name.toLowerCase().endsWith(".apkg") && (

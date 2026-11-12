@@ -112,6 +112,8 @@ def import_deck(
     """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen.
     The upload goes to a temporary file in chunks and the deck is unzipped from there, so a big deck never sits in memory."""
     name = (file.filename or "").lower()
+    if not name.endswith(anki.IMPORT_EXTENSIONS):
+        raise AppError("unsupported_file", "That file type is not supported. Choose an Anki deck (.apkg) or a text list (.txt, .csv, .tsv).", 422)
     fd, tmp = tempfile.mkstemp(suffix=".upload")
     try:
         size = 0
@@ -127,7 +129,10 @@ def import_deck(
             notes = anki.parse_apkg(tmp, Path(env.media_dir) / "dictionary-audio")
         else:
             with open(tmp, "rb") as f:
-                notes = anki.parse_text(f.read().decode("utf-8-sig", errors="replace"))
+                raw = f.read()
+            if b"\0" in raw[:8192]:
+                raise AppError("unsupported_file", "That file is not a text list: it looks like a binary file.", 422)
+            notes = anki.parse_text(raw.decode("utf-8-sig", errors="replace"))
     finally:
         os.unlink(tmp)
     if not notes:
@@ -171,7 +176,7 @@ def review_next(
     words the Dictionary page's filters show). It is the closest-to-due card even when its time has not come yet;
     no card means every word has been shown."""
     entry = service.next_card(session, user, [int(x) for x in exclude.split(",") if x], None, scope.status, scope.language, scope.q)
-    card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language,
+    card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language, has_audio=bool(entry.audio_file),
                        intervals=Intervals(**srs.intervals(entry.interval_seconds))) if entry else None
     return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user, None, scope.status, scope.language, scope.q)))
 

@@ -333,7 +333,7 @@ export interface ReviewSummaryDto {
 }
 
 export interface ReviewNextDto {
-  card: { id: number; word: string; language: string; intervals: Record<Rating, number> } | null;
+  card: { id: number; word: string; language: string; has_audio: boolean; intervals: Record<Rating, number> } | null;
   summary: ReviewSummaryDto;
 }
 

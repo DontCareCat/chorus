@@ -17,7 +17,7 @@ const SIZES = [20, 40, 60] as const;
 /** A card rated Again or Hard comes back after this many other cards (at once when no other card is left). */
 const RETRY_GAP = 3;
 
-interface Retry { id: number; word: string; language: string; interval: number; wait: number }
+interface Retry { id: number; word: string; language: string; hasAudio: boolean; interval: number; wait: number }
 interface Session { target: number; shown: number[]; done: number; retry: Retry[] }
 
 /** The filters the Dictionary page has on (remembered in cookies): the review uses only the words they show. */
@@ -131,10 +131,10 @@ export function ReviewPage() {
     snippets.stop();
     const again = lastRating.current === "again" || lastRating.current === "hard";
     const retry: Retry[] = session.retry.map((c) => ({ ...c, wait: c.wait - 1 }));
-    if (again) retry.push({ id: back.id, word: back.surface, language: back.language, interval: back.interval_seconds, wait: RETRY_GAP });
+    if (again) retry.push({ id: back.id, word: back.surface, language: back.language, hasAudio: back.has_audio, interval: back.interval_seconds, wait: RETRY_GAP });
     const finished = session.done + (again ? 0 : 1);
     const ask = (c: Retry) => {
-      setNext({ card: { id: c.id, word: c.word, language: c.language, intervals: nextIntervals(c.interval) }, summary: next?.summary ?? summary! });
+      setNext({ card: { id: c.id, word: c.word, language: c.language, has_audio: c.hasAudio, intervals: nextIntervals(c.interval) }, summary: next?.summary ?? summary! });
       setBack(null);
       setError(null);
       setSession({ ...session, done: finished, retry: retry.filter((x) => x !== c) });
@@ -231,7 +231,7 @@ export function ReviewPage() {
 
       {session && card && !back && (
         <div className="review-card">
-          <p className="review-word" lang={card.language}>{card.word}</p>
+          <p className="review-word" lang={card.language}>{card.word}{card.has_audio && <WordAudio entryId={card.id} />}</p>
           <p className="hint">{en.dictionary.howHard}</p>
           <div className="rate" role="group" aria-label={en.dictionary.howHard}>
             {RATINGS.map((r, i) => (
@@ -247,10 +247,9 @@ export function ReviewPage() {
 
       {session && back && (
         <div className="review-card review-back">
-          <p className="review-word" lang={back.language}>{headword(back)}</p>
+          <p className="review-word" lang={back.language}>{headword(back)}{back.has_audio && <WordAudio entryId={back.id} />}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
           <p className="review-tr">{translationText(back)}</p>
-          {back.has_audio && <p><WordAudio entryId={back.id} /></p>}
           <ul className="examples">
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>

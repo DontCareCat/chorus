@@ -11,7 +11,7 @@ export const en = {
       importHelp: "An Anki deck (.apkg up to 500 MB, exported with \"Support older Anki versions\"; recordings in the deck are kept) or a text list: one word per line, the word and its translation separated by a tab, semicolon or comma. Words you already have stay as they are.",
       apkg: "Anki deck (.apkg)", txt: "Plain text (.txt)",
       withProgress: "Include my review progress", withProgressHelp: "In Anki, tick \"Include scheduling information\" when importing, or the cards start as new.",
-      chooseFile: "Choose a file", otherFile: "Choose another file", noFile: "No file chosen", language: "Language of the words",
+      unsupportedFile: "That file type is not supported. Choose an Anki deck (.apkg) or a text list (.txt, .csv, .tsv).", chooseFile: "Choose a file", otherFile: "Choose another file", noFile: "No file chosen", language: "Language of the words",
       takeProgress: "Take over the review progress", takeProgressHelp: "Cards you already reviewed in Anki come back due when Anki says so.",
       exported: (n: number, name: string) => `${n} ${n === 1 ? "word" : "words"} saved as ${name}`,
       imported: (added: number, existing: number, skipped: number) => `${added} added${existing ? `, ${existing} already in your dictionary` : ""}${skipped ? `, ${skipped} skipped` : ""}`,

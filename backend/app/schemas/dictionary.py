@@ -85,6 +85,7 @@ class ReviewFront(BaseModel):
     id: int
     word: str  # as it was sung: no article, no translation
     language: str
+    has_audio: bool = False  # a recording came with an imported deck
     intervals: Intervals  # seconds each button would set
 
 

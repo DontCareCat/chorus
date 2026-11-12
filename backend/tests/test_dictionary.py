@@ -270,7 +270,7 @@ def test_review_walks_a_card_through_the_buttons(api, song):
     assert s == {"due": 0, "new": 1, "total": 1, "available": 1, "reviewed_today": 0, "left_today": None}
     nxt = api.get("/api/dictionary/review/next").json()
     card = nxt["card"]
-    assert set(card) == {"id", "word", "language", "intervals"} and card["intervals"] == {"again": 60, "hard": 600, "good": 86400, "easy": 345600}
+    assert set(card) == {"id", "word", "language", "has_audio", "intervals"} and card["intervals"] == {"again": 60, "hard": 600, "good": 86400, "easy": 345600}
     back = api.post(f"/api/dictionary/review/{card['id']}/answer", json={"rating": "good"}).json()
     assert back["id"] == card["id"] and back["examples"] and back["interval_seconds"] == 86400 and back["reps"] == 1
     assert api.get("/api/dictionary/review/summary").json() == {"due": 0, "new": 0, "total": 1, "available": 1, "reviewed_today": 1, "left_today": None}

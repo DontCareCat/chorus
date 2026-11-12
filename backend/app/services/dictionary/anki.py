@@ -29,6 +29,7 @@ MODEL_ID = 1_700_000_000_001  # one note type for Chorus decks
 DECK_ID = 1_700_000_000_002
 SEP = "\x1f"
 MAX_NOTES = 20_000
+IMPORT_EXTENSIONS = (".apkg", ".txt", ".csv", ".tsv")  # what the import accepts: a deck or a text list
 MAX_BYTES = 500 * 1024 * 1024  # the deck as uploaded
 MAX_COLLECTION_BYTES = 256 * 1024 * 1024  # the collection.anki2 inside it
 MAX_AUDIO_BYTES = 20 * 1024 * 1024  # one sound file

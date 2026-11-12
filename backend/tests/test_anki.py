@@ -208,3 +208,16 @@ def test_audio_through_the_api(api, session, tmp_path):
     r = api.get(f"/api/dictionary/{hund['id']}/audio")
     assert r.status_code == 200 and r.content.startswith(b"ID3")
     assert api.get(f"/api/dictionary/{items['Katze']['id']}/audio").status_code == 404
+
+
+def test_import_refuses_files_that_are_not_a_deck_or_a_list(api):
+    for name in ("setup.exe", "photo.png", "notes", "deck.apkg.zip"):
+        r = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": (name, b"der Hund\tdog\n", "application/octet-stream")})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "unsupported_file", name
+    ok = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": ("list.csv", b"der Hund;dog\n", "text/csv")})
+    assert ok.status_code == 200 and ok.json()["added"] == 1
+
+
+def test_import_refuses_a_binary_file_named_like_a_list(api):
+    r = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": ("list.txt", b"MZ\x90\x00\x03\x00\x00\x00", "text/plain")})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "unsupported_file"
