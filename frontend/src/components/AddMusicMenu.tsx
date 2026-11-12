@@ -26,6 +26,8 @@ interface Props {
   steps: Record<string, { title: string; body: ReactNode }>;
   /** the line at the foot of the popover on a PC ("Or drop files anywhere on this page.") */
   footer?: string;
+  /** open straight on this second step (a link shared from another app) */
+  startStep?: string | null;
 }
 
 /**
@@ -33,9 +35,9 @@ interface Props {
  * "+ Add music" button on a PC (right-aligned, 300 px wide, 400 px for a second step); the popover fades and slides in and out and stays
  * mounted until the exit has finished. Rows with a chevron open a second step in the same layer, with a back arrow.
  */
-export function AddMusicMenu({ phone, open, onClose, anchor, items, steps, footer }: Props) {
-  const [step, setStep] = useState<string | null>(null);
-  useEffect(() => { if (!open) setStep(null); }, [open]);
+export function AddMusicMenu({ phone, open, onClose, anchor, items, steps, footer, startStep }: Props) {
+  const [step, setStep] = useState<string | null>(startStep ?? null);
+  useEffect(() => { setStep(open ? startStep ?? null : null); }, [open, startStep]);
   if (phone) return open ? <PhoneSheet onClose={onClose} items={items} steps={steps} step={step} setStep={setStep} /> : null;
   return <Popover open={open} onClose={onClose} anchor={anchor} items={items} steps={steps} step={step} setStep={setStep} footer={footer} />;
 }
