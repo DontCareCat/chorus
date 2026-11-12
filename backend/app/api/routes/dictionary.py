@@ -15,7 +15,7 @@ from app.db.database import get_session
 from app.db.models import DictionaryEntry, Song, User
 from app.db.models.types import utcnow
 from app.schemas.dictionary import (
-    DeckImportResult, EntryAdd, EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
+    BulkIn, BulkOut, DeckImportResult, EntryAdd, EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
     ReviewNext, ReviewSummary, ScheduleState, WordLookup,
 )
 from app.services.dictionary import anki, service, srs
@@ -226,6 +226,15 @@ def review_undo(entry_id: int, body: ScheduleState, session: Session = Depends(g
     entry = _own(session, entry_id, user)
     service.restore(session, entry, body.model_dump())
     return entry_out(session, entry)
+
+
+@router.post("/bulk", response_model=BulkOut)
+def bulk_action(body: BulkIn, session: Session = Depends(get_session), user: User = Depends(current_user)):
+    """Select mode on the Dictionary page: one action on the ticked words, or on every word its filters show ("Select all")."""
+    if body.ids is None and body.filter is None:
+        raise AppError("nothing_selected", "Pick some words first.", 422)
+    scope = body.filter.model_dump() if body.filter is not None else None
+    return BulkOut(changed=service.bulk(session, user, body.action, body.ids, scope, body.exclude))
 
 
 @router.get("/{entry_id}", response_model=EntryOut)

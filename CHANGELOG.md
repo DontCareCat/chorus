@@ -1,5 +1,9 @@
 # Changelog
 
+## Dictionary: select mode and infinite scroll (web, with Android beta.26)
+- Select mode (item 17, without subsets): a long press on a word (phones) or the Select button (PC) ticks words; the bar has select-all for every word the filters show, "N selected", ⋮ with Pause reviews / Resume reviews / Reset progress, a red Remove and the X. Remove and Reset ask first; Back, Esc or X leave select mode. `POST /api/dictionary/bulk {action, ids | filter + exclude}`, so "Select all" never sends thousands of ids.
+- The word list loads 100 words at a time and fetches the next page as the end of the list comes near (no more "Show more"); a change reloads only the loaded rows, in chunks of 500.
+
 ## Dictionary: add modes and the word card (web, with Android beta.24)
 - Word card: tap a lyric word in a game to pause and open a card (headword, type, meaning, the sung line translated, an add button). `GET /api/dictionary/lookup`, `POST /api/dictionary/entries`.
 - Settings switch "Add words to dictionary": Automatically / Only words I pick (`users.dictionary_mode`; manual mode skips adding answered words).

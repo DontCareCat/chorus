@@ -350,6 +350,10 @@ export interface RatedDto extends DictEntryDto {
 export type DictStatus = "all" | "due" | "new" | "suspended";
 export type Rating = "again" | "hard" | "good" | "easy";
 
+export type BulkAction = "pause" | "resume" | "reset" | "delete";
+/** Select mode on the Dictionary page: the ticked ids, or every word the filters show minus the unticked ones ("Select all"). */
+export type BulkTarget = { ids: number[] } | { filter: { status: DictStatus; language?: string; q?: string }; exclude: number[] };
+
 /** The Dictionary page's filters: a review is limited to the words they show. */
 export interface ReviewScope {
   status?: DictStatus;
@@ -492,6 +496,7 @@ export const api = {
   dictionary: (opts: { status?: DictStatus; language?: string; q?: string; limit?: number; offset?: number } = {}) =>
     request<DictListDto>(`/api/dictionary?${new URLSearchParams({ status: opts.status ?? "all", ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}), limit: String(opts.limit ?? 100), offset: String(opts.offset ?? 0) })}`),
   setSuspended: (id: number, suspended: boolean) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", { suspended })),
+  bulkWords: (action: BulkAction, target: BulkTarget) => request<{ changed: number }>("/api/dictionary/bulk", json("POST", { action, ...target })),
   deleteWord: (id: number) => request<{ deleted: number }>(`/api/dictionary/${id}`, { method: "DELETE" }),
   refreshWord: (id: number, overwrite = false) => request<DictEntryDto>(`/api/dictionary/${id}/refresh${overwrite ? "?overwrite=true" : ""}`, { method: "POST" }),
   editWord: (id: number, changes: EntryEdit) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", changes)),

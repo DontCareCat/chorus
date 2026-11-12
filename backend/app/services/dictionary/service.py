@@ -461,6 +461,28 @@ def restore(session: Session, entry: DictionaryEntry, state: dict) -> None:
     session.commit()
 
 
+def bulk(session: Session, user: User, action: str, ids: list[int] | None, scope: dict | None, exclude: list[int] | None = None) -> int:
+    """Pause, resume, reset the progress of or delete many words at once: the given ids (only the user's own), or every word the
+    page's filters show except `exclude`. Returns how many words it touched."""
+    if ids is not None:
+        rows = session.query(DictionaryEntry).filter(DictionaryEntry.user_id == user.id, DictionaryEntry.id.in_(set(ids))).all() if ids else []
+    elif scope is not None:
+        q = filtered(session, user, scope.get("status") or "all", scope.get("language"), scope.get("q"))
+        rows = q.filter(DictionaryEntry.id.not_in(set(exclude))).all() if exclude else q.all()
+    else:
+        rows = []
+    for entry in rows:
+        if action == "delete":
+            session.delete(entry)
+        elif action in ("pause", "resume"):
+            entry.suspended = action == "pause"
+        elif action == "reset":
+            for f in SCHEDULE_FIELDS:
+                setattr(entry, f, 0 if f in ("interval_seconds", "reps", "lapses") else None)
+    session.commit()
+    return len(rows)
+
+
 # ---------- Anki exchange (see anki.py) ----------
 
 def export_words(session: Session, user: User, status: str, language: str | None, text: str | None) -> list:

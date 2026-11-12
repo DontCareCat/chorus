@@ -687,6 +687,12 @@ button.fs-name:hover { background: var(--surface-2); }
 .word-main { width: calc(100% + 2 * var(--row-pad)); margin: 0 calc(-1 * var(--row-pad)); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px var(--row-pad); background: transparent; border: none; border-radius: 14px; color: inherit; text-align: left; }
 .word-main:hover, .word[data-open="true"] .word-main { background: var(--surface-2); }
 .word-text { min-width: 0; display: grid; gap: 2px; }
+/* select mode: a tick box at the start of every row, the words move right to make room; a ticked row keeps the hover colour */
+.word { position: relative; }
+.word > .pick { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1; }
+.words[data-selecting="true"] .word-main { padding-left: calc(var(--row-pad) + 34px); }
+.word[data-picked="true"] .word-main { background: var(--surface-2); }
+.list-end { min-height: 44px; display: flex; align-items: center; justify-content: center; margin: 12px 0; font-size: 14px; }
 .word-head { font-weight: 700; font-size: 21px; letter-spacing: -0.02em; line-height: 1.2; overflow-wrap: anywhere; }
 .word-tr { color: var(--text-2); font-size: 16px; overflow-wrap: anywhere; }
 .word-meta { flex: none; display: flex; align-items: center; gap: 10px; font-size: 14px; }

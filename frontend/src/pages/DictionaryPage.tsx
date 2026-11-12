@@ -2,7 +2,14 @@ import { useConfirm } from "../components/Confirm";
 import { DictionaryExchange } from "../components/DictionaryExchange";
 import { WordEditor } from "../components/WordEditor";
 import { useThumb } from "../hooks/useThumb";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActionMenu } from "../components/ActionMenu";
+import { Icon } from "../components/Icon";
+import { Toast, useToast } from "../components/Toast";
+import { useLayout } from "../hooks/useLayout";
+import { useLongPress } from "../hooks/useLongPress";
+import { useNearEnd, usePagedList } from "../hooks/usePagedList";
+import { useSelection } from "../hooks/useSelection";
 import { Example } from "../components/Example";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
@@ -11,10 +18,9 @@ import { en } from "../i18n/en";
 import { isOneOf, isString, usePref } from "../lib/prefs";
 import { noAutofill } from "../lib/noAutofill";
 import { api, ApiError } from "../services/api";
-import type { DictEntryDto, DictStatus } from "../services/api";
+import type { BulkAction, BulkTarget, DictEntryDto, DictListDto, DictStatus } from "../services/api";
 import { paths } from "../router";
 
-const PAGE = 100;
 const STATUSES: DictStatus[] = ["all", "due", "new", "suspended"];
 
 export function headword(e: DictEntryDto): string {
@@ -39,11 +45,17 @@ export function DictionaryPage() {
   const [language, setLanguage] = usePref("dict_language", "all", isString);
   const [query, setQuery] = usePref("dict_query", "", isString);
   const [debounced, setDebounced] = useState(query);
-  const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
   const [editor, setEditor] = useState<{ entry?: DictEntryDto } | null>(null);
   const [exchange, setExchange] = useState<"export" | "import" | null>(null);
-  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useToast();
+  const phone = useLayout() === "phone";
+  const selection = useSelection();
+  const [everyWord, setEveryWord] = useState(false); // "Select all": every word the filters show, minus the unticked ones
+  const [unticked, setUnticked] = useState<ReadonlySet<number>>(new Set());
+  const [barMenu, setBarMenu] = useState(false);
+  const barMenuBtn = useRef<HTMLButtonElement>(null);
+  const [busy, setBusy] = useState(false);
   const snippets = useSnippets();
   const summary = useAsync(() => api.reviewSummary(), []); // the counts on the chips: all words
   const scoped = useAsync(() => api.reviewSummary({ status, language, q: debounced }), [status, language, debounced]); // what a review would use
@@ -52,13 +64,14 @@ export function DictionaryPage() {
     const t = setTimeout(() => setDebounced(query), 250);
     return () => clearTimeout(t);
   }, [query]);
-  useEffect(() => setLimit(PAGE), [status, language, debounced]);
 
-  const list = useAsync(
-    () => api.dictionary({ status, language: language === "all" ? undefined : language, q: debounced || undefined, limit }),
-    [status, language, debounced, limit],
+  // infinite scroll: one page at a time, the next one when the end of the list comes near
+  const list = usePagedList<DictListDto, DictEntryDto>(
+    (offset, limit) => api.dictionary({ status, language: language === "all" ? undefined : language, q: debounced || undefined, limit, offset }),
+    [status, language, debounced],
   );
   const data = list.data;
+  const endRef = useNearEnd(list.loadMore, list.hasMore && !list.loadingMore && !list.error);
 
   // translations arrive in the background: look again while some are still being looked up
   const pending = useMemo(() => (data?.items ?? []).some((e) => e.enrich_status === "pending"), [data]);
@@ -75,6 +88,68 @@ export function DictionaryPage() {
   }, [data, language]);
 
   const fail = (e: unknown) => setNotice({ kind: "error", text: e instanceof ApiError ? e.message : en.errors.generic });
+
+  // select mode: what is ticked is what the filters show, so a new filter starts the ticks again
+  const endSelection = selection.clear;
+  const clearTicks = useCallback(() => { setEveryWord(false); setUnticked(new Set()); }, []);
+  useEffect(() => { if (!selection.active) clearTicks(); }, [selection.active, clearTicks]);
+  useEffect(() => { selection.keepOnly(new Set()); clearTicks(); }, [status, language, debounced, selection.keepOnly, clearTicks]);
+  useEffect(() => {
+    if (!selection.active) return;
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.querySelector(".song-menu, .sheet, .dialog")) endSelection(); };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [selection.active, endSelection]);
+  const shownTotal = data?.total ?? 0;
+  const pickedCount = everyWord ? Math.max(0, shownTotal - unticked.size) : selection.picked.size;
+  const isPicked = (id: number) => (everyWord ? !unticked.has(id) : selection.has(id));
+  const togglePick = (id: number) => {
+    if (!everyWord) return selection.toggle(id);
+    setUnticked((u) => { const n = new Set(u); if (!n.delete(id)) n.add(id); return n; });
+  };
+  const toggleAll = () => {
+    if (pickedCount > 0 && pickedCount === shownTotal) { clearTicks(); selection.selectAll([]); }
+    else { selection.selectAll([]); setUnticked(new Set()); setEveryWord(true); }
+  };
+  const target = (): BulkTarget =>
+    everyWord ? { filter: { status, language: language === "all" ? undefined : language, q: debounced || undefined }, exclude: [...unticked] } : { ids: [...selection.picked] };
+  const bulk = async (action: BulkAction) => {
+    const n = pickedCount;
+    if (n === 0) return;
+    if (action === "delete" && !(await confirm({ title: en.dictionary.removeMany(n), body: en.dictionary.removeManyBody, action: en.dictionary.removeAction }))) return;
+    if (action === "reset" && !(await confirm({ title: en.dictionary.resetMany(n), body: en.dictionary.resetManyBody, action: en.dictionary.resetAction }))) return;
+    setBusy(true);
+    try {
+      const r = await api.bulkWords(action, target());
+      endSelection();
+      setNotice({ kind: "ok", text: en.dictionary.bulkDone[action](r.changed) });
+      if (action === "delete") setOpen(null);
+      list.reload();
+      summary.reload();
+      scoped.reload();
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // a long press on a phone starts select mode with that word ticked; afterwards a tap ticks or unticks
+  const pressed = useRef<number | null>(null);
+  const press = useLongPress({
+    onLongPress: () => {
+      const id = pressed.current;
+      if (id === null) return;
+      if (!selection.active) setOpen(null);
+      if (everyWord) setUnticked((u) => { const n = new Set(u); n.delete(id); return n; });
+      else selection.add(id);
+    },
+  });
+  const rowClick = (id: number) => {
+    if (press.consumeClick()) return;
+    if (selection.active) togglePick(id);
+    else setOpen(open === id ? null : id);
+  };
   const act = useCallback(async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -107,6 +182,7 @@ export function DictionaryPage() {
         </div>
         <div className="dict-actions">
           <button type="button" className="btn quiet bordered small" onClick={() => setEditor({})}>{en.dictionary.addWord}</button>
+          {!phone && <button type="button" className="btn quiet bordered small" onClick={() => { setOpen(null); selection.selectAll([]); }} disabled={shownTotal === 0 || selection.active}>{en.dictionary.select}</button>}
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("export")} disabled={everything === 0}>{en.dictionary.exchange.export}</button>
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("import")}>{en.dictionary.exchange.import}</button>
         </div>
@@ -116,7 +192,7 @@ export function DictionaryPage() {
       </div>
       {editor && <WordEditor entry={editor.entry} defaultLanguage={language !== "all" ? language : data?.languages[0]?.code ?? "de"} onClose={() => setEditor(null)} onSaved={() => { list.reload(); summary.reload(); scoped.reload(); }} />}
       {exchange && <DictionaryExchange mode={exchange} scope={{ status, language: language === "all" ? undefined : language, q: debounced || undefined }} shown={total} defaultLanguage={language !== "all" ? language : data?.languages[0]?.code ?? "de"} onClose={() => setExchange(null)} onImported={() => { list.reload(); summary.reload(); }} />}
-      {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
+      <div className="toast-lane"><Toast toast={notice} onDismiss={() => setNotice(null)} /></div>
       {snippets.blocked && <p className="notice error" role="status">{en.errors.playBlocked}</p>}
 
       {everything > 0 && (
@@ -156,10 +232,36 @@ export function DictionaryPage() {
       )}
       {data && everything > 0 && data.items.length === 0 && <p className="empty">{en.dictionary.emptyFilter}</p>}
 
-      <ul className="words" key={`${status}|${language}`}>
+      {selection.active && (
+        <div className="select-bar" role="toolbar" aria-label={en.dictionary.selectedCount(pickedCount)}>
+          <input
+            type="checkbox" className="pick select-all" aria-label={en.dictionary.selectAll(shownTotal)} title={en.dictionary.selectAll(shownTotal)}
+            checked={pickedCount > 0 && pickedCount === shownTotal} ref={(el) => { if (el) el.indeterminate = pickedCount > 0 && pickedCount < shownTotal; }}
+            onChange={toggleAll} disabled={shownTotal === 0}
+          />
+          <strong>{en.dictionary.selectedCount(pickedCount)}</strong>
+          <button type="button" className="icon-btn" ref={barMenuBtn} onClick={() => setBarMenu((v) => !v)} aria-haspopup="menu" aria-expanded={barMenu} aria-label={en.dictionary.moreActions} title={en.dictionary.moreActions} disabled={busy || pickedCount === 0}><Icon name="more" /></button>
+          <button type="button" className="icon-btn danger" onClick={() => void bulk("delete")} disabled={busy || pickedCount === 0} aria-label={en.dictionary.removeSelected} title={en.dictionary.removeSelected}><Icon name="trash" /></button>
+          <button type="button" className="icon-btn" onClick={endSelection} aria-label={en.dictionary.cancelSelection} title={en.dictionary.cancelSelection}><Icon name="close" /></button>
+        </div>
+      )}
+      {barMenu && (
+        <ActionMenu
+          label={en.dictionary.selectedCount(pickedCount)} phone={phone} anchor={barMenuBtn.current} onClose={() => setBarMenu(false)}
+          items={[{ id: "pause", icon: "pause", label: en.dictionary.bulk.pause }, { id: "resume", icon: "play", label: en.dictionary.bulk.resume }, { id: "reset", icon: "undo", label: en.dictionary.bulk.reset }]}
+          onPick={(id) => void bulk(id as BulkAction)}
+        />
+      )}
+
+      <ul className="words" key={`${status}|${language}`} data-selecting={selection.active}>
         {(data?.items ?? []).map((e) => (
-          <li key={e.id} className="word" data-suspended={e.suspended} data-open={open === e.id}>
-            <button type="button" className="word-main" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? null : e.id)}>
+          <li key={e.id} className="word" data-suspended={e.suspended} data-open={open === e.id} data-picked={selection.active ? isPicked(e.id) : undefined}>
+            {selection.active && <input type="checkbox" className="pick" checked={isPicked(e.id)} onChange={() => togglePick(e.id)} aria-label={en.dictionary.pick(headword(e))} />}
+            <button
+              type="button" className="word-main" aria-expanded={selection.active ? undefined : open === e.id} aria-pressed={selection.active ? isPicked(e.id) : undefined}
+              onClick={() => rowClick(e.id)}
+              {...press.handlers} onPointerDown={(ev) => { pressed.current = e.id; press.handlers.onPointerDown(ev); }}
+            >
               <span className="word-text">
                 <span className="word-head" lang={e.language}>{headword(e)}</span>
                 <span className="word-tr">
@@ -171,7 +273,7 @@ export function DictionaryPage() {
                 <span className="muted">{en.dictionary.sentences(e.examples.length)}</span>
               </span>
             </button>
-            {open === e.id && (
+            {open === e.id && !selection.active && (
               <div className="expand"><div className="word-detail">
                 {(e.lemma || e.pos) && <p className="hint">{[e.pos ? en.wordCard.pos[e.pos] ?? e.pos : null, e.lemma ? en.dictionary.asSung(e.surface) : null].filter(Boolean).join(" · ")}</p>}
                 <ul className="examples">
@@ -189,8 +291,10 @@ export function DictionaryPage() {
           </li>
         ))}
       </ul>
-      {data && data.items.length < data.total && (
-        <p><button type="button" className="btn secondary" onClick={() => setLimit(limit + PAGE)}>{en.dictionary.more}</button></p>
+      {list.hasMore && (
+        <p className="list-end" ref={endRef} role="status">
+          {list.loadingMore || typeof IntersectionObserver !== "undefined" ? <span className="muted">{en.dictionary.loadingMore}</span> : <button type="button" className="btn secondary" onClick={list.loadMore}>{en.dictionary.more}</button>}
+        </p>
       )}
     </>
   );

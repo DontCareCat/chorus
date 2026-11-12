@@ -75,6 +75,27 @@ class EntryPatch(BaseModel):
     pos: str | None = Field(None, max_length=16)
 
 
+class BulkScope(BaseModel):
+    """The Dictionary page's filters: "Select all" sends these instead of thousands of ids."""
+
+    status: Literal["all", "due", "new", "suspended"] = "all"
+    language: str | None = Field(None, max_length=16)
+    q: str | None = Field(None, max_length=200)
+
+
+class BulkIn(BaseModel):
+    """One action on many words: the ticked ids, or every word the filters show."""
+
+    action: Literal["pause", "resume", "reset", "delete"]
+    ids: list[int] | None = Field(None, max_length=10000)
+    filter: BulkScope | None = None
+    exclude: list[int] = Field(default_factory=list, max_length=10000)  # with a filter: the words unticked after "Select all"
+
+
+class BulkOut(BaseModel):
+    changed: int
+
+
 class WordLookup(BaseModel):
     """The word card: what is known about a tapped word."""
 
