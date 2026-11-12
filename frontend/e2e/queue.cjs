@@ -151,7 +151,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   const cursor = () => ph.evaluate(() => JSON.parse(sessionStorage.getItem("chorus_queue")).cursor);
   { // a second song, added by swiping its row (the store keeps the queue in memory, so sessionStorage cannot be edited behind its back)
     const other = ph.locator(".song", { hasText: `Qc ${stamp}` });
-    await other.scrollIntoViewIfNeeded(); await ph.waitForTimeout(200);
+    await other.evaluate((e) => e.scrollIntoView({ block: "center" })); await ph.waitForTimeout(300); // clear of the queue bar and the tab bar
     const ob = await other.boundingBox(), oy = ob.y + 30;
     const ot = (type, x) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y: oy }] });
     await ot("touchStart", 60); for (let i = 1; i <= 8; i++) { await ot("touchMove", 60 + i * 25); await ph.waitForTimeout(20); } await ot("touchEnd", 260); await ph.waitForTimeout(400);

@@ -79,12 +79,15 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   ok(rail.variant === "rail" && rail.left === 0 && rail.w === 96 && rail.h === rail.vh, "wide screens: the menu is a rail down the left edge: " + JSON.stringify(rail));
   ok(rail.links.join() === "Home,Playlists,Dictionary,Scores,Settings", "Home, Playlists, Dictionary, Scores, Settings: " + rail.links.join());
   ok(await page.evaluate(() => !document.querySelector(".topbar > nav") && !document.querySelector(".library-tabs")), "no top menu and no songs/playlists switch any more");
-  const thumb = () => page.evaluate(() => { const c = getComputedStyle(document.querySelector(".theme-switch"), "::before"); return { t: c.transform, d: c.transitionDuration }; });
+  // the theme switch lives in Settings > Appearance (beta 0.2.0)
+  await page.goto(B + "#/settings"); await page.waitForSelector('.segmented button:has-text("Dark")');
+  const themeSel = '.segmented.thumbs[aria-label="Theme"]';
+  const thumb = () => page.evaluate((sel) => { const c = getComputedStyle(document.querySelector(sel), "::before"); return { t: c.transform, d: c.transitionDuration }; }, themeSel);
   const t0 = await thumb();
-  await page.click('.theme-switch button:has-text("Dark")'); await page.waitForTimeout(500);
+  await page.click(`${themeSel} button:has-text("Dark")`); await page.waitForTimeout(500);
   const t1 = await thumb();
-  ok(t0.t !== t1.t && parseFloat(t1.d) > 0, "the light/dark switch slides its thumb: " + t0.t + " -> " + t1.t + " in " + t1.d);
-  await page.click('.theme-switch button:has-text("Light")');
+  ok(t0.t !== t1.t && parseFloat(t1.d) > 0, "the light/dark switch in Settings slides its thumb: " + t0.t + " -> " + t1.t + " in " + t1.d);
+  await page.click(`${themeSel} button:has-text("Light")`);
 
   console.log("[phone]");
   const phone = await browser.newContext({ ...devices["Pixel 7"], hasTouch: true });
@@ -119,7 +122,7 @@ const SHOTS = process.env.SHOTS ?? "/tmp";
   await p.screenshot({ path: `${SHOTS}/redesign-phone-select.png` });
   await p.tap(".song-main >> nth=1 >> .song-text");
   ok((await p.textContent(".select-bar strong")) === "2 selected", "while selecting a tap ticks the song");
-  await p.tap(".select-bar .icon-btn");
+  await p.tap('.select-bar [aria-label="Cancel selection"]');
   ok((await p.$$(".select-bar")).length === 0, "cancel clears the selection");
   // tap opens play options (ready songs only): make one ready by checking the start panel exists for a ready row
   await phone.close();
