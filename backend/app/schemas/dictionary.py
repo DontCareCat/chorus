@@ -25,6 +25,7 @@ class EntryOut(BaseModel):
     translation_language: str | None
     enrich_status: str  # pending | done | failed
     suspended: bool
+    has_audio: bool = False  # a recording came with an imported deck: GET /api/dictionary/{id}/audio
     added_at: datetime
     due_at: datetime | None
     interval_seconds: int

@@ -1,5 +1,6 @@
 import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { WordAudio } from "../components/WordAudio";
 import { Example } from "../components/Example";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
@@ -249,6 +250,7 @@ export function ReviewPage() {
           <p className="review-word" lang={back.language}>{headword(back)}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
           <p className="review-tr">{translationText(back)}</p>
+          {back.has_audio && <p><WordAudio entryId={back.id} /></p>}
           <ul className="examples">
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>

@@ -25,6 +25,7 @@ class DictionaryEntry(Base):
     lookup_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # 1 = looked up with the parser of 2026-10-30; older ones are redone
     enrich_status: Mapped[str] = mapped_column(String(8), default="pending", server_default="pending")  # pending | done | failed
     suspended: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    audio_file: Mapped[str | None] = mapped_column(String(64), default=None)  # pronunciation from an imported Anki deck, in media/dictionary-audio
     added_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     # review schedule (services/dictionary/srs.py)
     due_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None, index=True)  # None = never reviewed

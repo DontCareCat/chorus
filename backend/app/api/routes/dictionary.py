@@ -1,9 +1,14 @@
+import mimetypes
+import os
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings as env
 from app.api.deps import current_user, get_session_factory, get_translator, get_wiktionary
 from app.core.errors import AppError
 from app.db.database import get_session
@@ -39,7 +44,7 @@ def entry_out(session: Session, entry: DictionaryEntry) -> EntryOut:
     return EntryOut(
         id=entry.id, language=entry.language, surface=entry.surface, lemma=entry.lemma, article=entry.article,
         translation=entry.translation, translation_language=entry.translation_language, enrich_status=entry.enrich_status,
-        suspended=entry.suspended, added_at=entry.added_at, due_at=entry.due_at, interval_seconds=entry.interval_seconds,
+        suspended=entry.suspended, has_audio=bool(entry.audio_file), added_at=entry.added_at, due_at=entry.due_at, interval_seconds=entry.interval_seconds,
         reps=entry.reps, lapses=entry.lapses, examples=examples,
     )
 
@@ -104,20 +109,41 @@ def import_deck(
     session: Session = Depends(get_session), user: User = Depends(current_user), factory: sessionmaker = Depends(get_session_factory),
     translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary),
 ):
-    """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen."""
-    data = file.file.read(anki.MAX_BYTES + 1)
-    if len(data) > anki.MAX_BYTES:
-        raise AppError("deck_too_big", "That file is too big to import (60 MB at most).", 413)
+    """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen.
+    The upload goes to a temporary file in chunks and the deck is unzipped from there, so a big deck never sits in memory."""
     name = (file.filename or "").lower()
-    if data[:2] == b"PK" or name.endswith(".apkg"):
-        notes = anki.parse_apkg(data)
-    else:
-        notes = anki.parse_text(data.decode("utf-8-sig", errors="replace"))
+    fd, tmp = tempfile.mkstemp(suffix=".upload")
+    try:
+        size = 0
+        with os.fdopen(fd, "wb") as out:
+            while chunk := file.file.read(1 << 20):
+                size += len(chunk)
+                if size > anki.MAX_BYTES:
+                    raise AppError("deck_too_big", "That file is too big to import (500 MB at most).", 413)
+                out.write(chunk)
+        with open(tmp, "rb") as f:
+            is_zip = f.read(2) == b"PK"
+        if is_zip or name.endswith(".apkg"):
+            notes = anki.parse_apkg(tmp, Path(env.media_dir) / "dictionary-audio")
+        else:
+            with open(tmp, "rb") as f:
+                notes = anki.parse_text(f.read().decode("utf-8-sig", errors="replace"))
+    finally:
+        os.unlink(tmp)
     if not notes:
         raise AppError("nothing_to_import", "No words found in that file.", 422)
     result = service.import_notes(session, user, notes, language, schedule, getattr(user, "translation_language", None))
     background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)
     return DeckImportResult(**result)
+
+
+@router.get("/{entry_id}/audio")
+def entry_audio(entry_id: int, session: Session = Depends(get_session), user: User = Depends(current_user)):
+    entry = _own(session, entry_id, user)
+    path = Path(env.media_dir) / "dictionary-audio" / (entry.audio_file or "")
+    if not entry.audio_file or not path.is_file():
+        raise AppError("no_audio", "This word has no recording", 404)
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream")  # Range handled by Starlette
 
 
 @router.post("/import-from-games", response_model=ImportResult)

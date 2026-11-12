@@ -505,6 +505,8 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
         if entry is not None:
             if translation and not entry.translation:
                 entry.translation, entry.translation_language = translation, translation_language
+            if n.audio and not entry.audio_file:
+                entry.audio_file = n.audio
             existing += 1
             continue
         entry = DictionaryEntry(user_id=user.id, language=note_lang, word=key, surface=headword[:100], article=article)
@@ -514,6 +516,7 @@ def import_notes(session: Session, user: User, notes: list, language: str, with_
             entry.interval_seconds, entry.due_at, entry.reps, entry.lapses = n.interval_seconds, n.due_at, n.reps, n.lapses
             entry.introduced_at = entry.last_reviewed_at = now
         entry.suspended = bool(with_schedule and n.suspended)
+        entry.audio_file = n.audio
         session.add(entry)
         added += 1
     session.commit()

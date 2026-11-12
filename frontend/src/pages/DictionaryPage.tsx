@@ -2,6 +2,7 @@ import { useConfirm } from "../components/Confirm";
 import { DictionaryExchange } from "../components/DictionaryExchange";
 import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { WordAudio } from "../components/WordAudio";
 import { Example } from "../components/Example";
 import { LANGUAGES, languageName } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
@@ -163,6 +164,7 @@ export function DictionaryPage() {
             {open === e.id && (
               <div className="expand"><div className="word-detail">
                 {e.lemma && <p className="hint">{en.dictionary.asSung(e.surface)}</p>}
+                {e.has_audio && <p><WordAudio entryId={e.id} /></p>}
                 <ul className="examples">
                   {e.examples.map((ex) => <Example key={ex.id} ex={ex} word={e.surface} snippets={snippets} />)}
                 </ul>

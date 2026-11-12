@@ -280,6 +280,7 @@ export interface DictEntryDto {
   translation_language: string | null;
   enrich_status: "pending" | "done" | "failed";
   suspended: boolean;
+  has_audio: boolean;
   added_at: string;
   due_at: string | null;
   interval_seconds: number;
