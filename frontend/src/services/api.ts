@@ -479,6 +479,7 @@ export const api = {
     fd.append("schedule", String(schedule));
     return request<DeckImportDto>("/api/dictionary/import-deck", { method: "POST", body: fd });
   },
+  dictionaryAudioUrl: async (id: number) => `/api/dictionary/${id}/audio`, // the recording that came with an imported deck
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
   reviewSummary: (scope?: ReviewScope) => request<ReviewSummaryDto>(`/api/dictionary/review/summary?${scopeQuery(scope)}`),
   reviewNext: (exclude: number[] = [], scope?: ReviewScope) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}&${scopeQuery(scope)}`),
