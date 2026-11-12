@@ -1,17 +1,22 @@
+import mimetypes
+import os
+import tempfile
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings as env
 from app.api.deps import current_user, get_session_factory, get_translator, get_wiktionary
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import DictionaryEntry, Song, User
 from app.db.models.types import utcnow
 from app.schemas.dictionary import (
-    DeckImportResult, EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
-    ReviewNext, ReviewSummary, ScheduleState,
+    DeckImportResult, EntryAdd, EntryList, EntryOut, EntryPatch, ExampleOut, ImportResult, Intervals, LanguageCount, RatedOut, RatingIn, ReviewFront,
+    ReviewNext, ReviewSummary, ScheduleState, WordLookup,
 )
 from app.services.dictionary import anki, service, srs
 from app.services.dictionary.service import sentence_key
@@ -21,7 +26,7 @@ router = APIRouter(prefix="/api/dictionary", tags=["dictionary"], dependencies=[
 
 
 def entry_out(session: Session, entry: DictionaryEntry) -> EntryOut:
-    songs = {s.id: s for s in session.query(Song).filter(Song.id.in_({e.song_id for e in entry.examples})).all()} if entry.examples else {}
+    songs = {s.id: s for s in session.query(Song).filter(Song.id.in_({e.song_id for e in entry.examples if e.song_id is not None})).all()} if entry.examples else {}
     examples = []
     seen: set[str] = set()
     for ex in entry.examples:
@@ -38,8 +43,9 @@ def entry_out(session: Session, entry: DictionaryEntry) -> EntryOut:
         ))
     return EntryOut(
         id=entry.id, language=entry.language, surface=entry.surface, lemma=entry.lemma, article=entry.article,
-        translation=entry.translation, translation_language=entry.translation_language, enrich_status=entry.enrich_status,
-        suspended=entry.suspended, added_at=entry.added_at, due_at=entry.due_at, interval_seconds=entry.interval_seconds,
+        translation=entry.translation, translation_language=entry.translation_language, pos=entry.pos, zipf=entry.zipf, source=entry.source,
+        meaning_edited=bool(entry.meaning_edited), enrich_status=entry.enrich_status,
+        suspended=entry.suspended, has_audio=bool(entry.audio_file), added_at=entry.added_at, due_at=entry.due_at, interval_seconds=entry.interval_seconds,
         reps=entry.reps, lapses=entry.lapses, examples=examples,
     )
 
@@ -104,20 +110,75 @@ def import_deck(
     session: Session = Depends(get_session), user: User = Depends(current_user), factory: sessionmaker = Depends(get_session_factory),
     translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary),
 ):
-    """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen."""
-    data = file.file.read(anki.MAX_BYTES + 1)
-    if len(data) > anki.MAX_BYTES:
-        raise AppError("deck_too_big", "That file is too big to import (60 MB at most).", 413)
+    """Words from an Anki deck (.apkg, the older format) or a plain-text / CSV list (front, back, tags), into the language chosen.
+    The upload goes to a temporary file in chunks and the deck is unzipped from there, so a big deck never sits in memory."""
     name = (file.filename or "").lower()
-    if data[:2] == b"PK" or name.endswith(".apkg"):
-        notes = anki.parse_apkg(data)
-    else:
-        notes = anki.parse_text(data.decode("utf-8-sig", errors="replace"))
+    if not name.endswith(anki.IMPORT_EXTENSIONS):
+        raise AppError("unsupported_file", "That file type is not supported. Choose an Anki deck (.apkg) or a text list (.txt, .csv, .tsv).", 422)
+    fd, tmp = tempfile.mkstemp(suffix=".upload")
+    try:
+        size = 0
+        with os.fdopen(fd, "wb") as out:
+            while chunk := file.file.read(1 << 20):
+                size += len(chunk)
+                if size > anki.MAX_BYTES:
+                    raise AppError("deck_too_big", "That file is too big to import (500 MB at most).", 413)
+                out.write(chunk)
+        with open(tmp, "rb") as f:
+            is_zip = f.read(2) == b"PK"
+        if is_zip or name.endswith(".apkg"):
+            notes = anki.parse_apkg(tmp, Path(env.media_dir) / "dictionary-audio")
+        else:
+            with open(tmp, "rb") as f:
+                raw = f.read()
+            if b"\0" in raw[:8192]:
+                raise AppError("unsupported_file", "That file is not a text list: it looks like a binary file.", 422)
+            notes = anki.parse_text(raw.decode("utf-8-sig", errors="replace"))
+    finally:
+        os.unlink(tmp)
     if not notes:
         raise AppError("nothing_to_import", "No words found in that file.", 422)
     result = service.import_notes(session, user, notes, language, schedule, getattr(user, "translation_language", None))
     background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)
     return DeckImportResult(**result)
+
+
+@router.get("/lookup", response_model=WordLookup)
+def lookup_word(
+    language: str = Query(min_length=2, max_length=16), word: str = Query(min_length=1, max_length=100), song_id: int | None = None,
+    line: str | None = Query(None, max_length=1000), session: Session = Depends(get_session), user: User = Depends(current_user),
+    translator: Translator = Depends(get_translator), wiktionary: Wiktionary = Depends(get_wiktionary),
+):
+    """The word card of a word tapped in a game: headword, type, meaning, the sung line translated, and the card when the word is in already."""
+    return WordLookup(**service.lookup_word(session, user, language, word, song_id, line, translator, wiktionary))
+
+
+@router.post("/entries", response_model=EntryOut, status_code=201)
+def add_entry(
+    body: EntryAdd, background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
+    factory: sessionmaker = Depends(get_session_factory), translator: Translator = Depends(get_translator),
+    wiktionary: Wiktionary = Depends(get_wiktionary),
+):
+    """Add a word the user picked: tapped in a game (source tap, with the song and line as its example) or typed by hand (source manual). A word that
+    is in already only gets the new example. Its article, type and meaning are filled in the background."""
+    if body.song_id is not None and session.get(Song, body.song_id) is None:
+        raise AppError("song_not_found", "Song not found", 404)
+    try:
+        entry, _ = service.add_word(session, user, body.language, body.word, body.source, body.song_id, body.line, body.translation, body.example)
+    except ValueError:
+        raise AppError("empty_word", "Type a word", 422)
+    if entry.enrich_status == "pending":
+        background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id)
+    return entry_out(session, entry)
+
+
+@router.get("/{entry_id}/audio")
+def entry_audio(entry_id: int, session: Session = Depends(get_session), user: User = Depends(current_user)):
+    entry = _own(session, entry_id, user)
+    path = Path(env.media_dir) / "dictionary-audio" / (entry.audio_file or "")
+    if not entry.audio_file or not path.is_file():
+        raise AppError("no_audio", "This word has no recording", 404)
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream")  # Range handled by Starlette
 
 
 @router.post("/import-from-games", response_model=ImportResult)
@@ -145,7 +206,7 @@ def review_next(
     words the Dictionary page's filters show). It is the closest-to-due card even when its time has not come yet;
     no card means every word has been shown."""
     entry = service.next_card(session, user, [int(x) for x in exclude.split(",") if x], None, scope.status, scope.language, scope.q)
-    card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language,
+    card = ReviewFront(id=entry.id, word=entry.surface, language=entry.language, has_audio=bool(entry.audio_file),
                        intervals=Intervals(**srs.intervals(entry.interval_seconds))) if entry else None
     return ReviewNext(card=card, summary=ReviewSummary(**service.review_summary(session, user, None, scope.status, scope.language, scope.q)))
 
@@ -175,8 +236,10 @@ def read_entry(entry_id: int, session: Session = Depends(get_session), user: Use
 @router.patch("/{entry_id}", response_model=EntryOut)
 def patch_entry(entry_id: int, body: EntryPatch, session: Session = Depends(get_session), user: User = Depends(current_user)):
     entry = _own(session, entry_id, user)
-    entry.suspended = body.suspended
-    session.commit()
+    if body.suspended is not None:
+        entry.suspended = body.suspended
+    fields = {f: getattr(body, f) for f in service.EDITABLE if f in body.model_fields_set}
+    service.edit_entry(session, entry, fields, user.translation_language)
     return entry_out(session, entry)
 
 
@@ -189,12 +252,17 @@ def delete_entry(entry_id: int, session: Session = Depends(get_session), user: U
 
 @router.post("/{entry_id}/refresh", response_model=EntryOut)
 def refresh_entry(
-    entry_id: int, background: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(current_user),
+    entry_id: int, background: BackgroundTasks, overwrite: bool = False, session: Session = Depends(get_session), user: User = Depends(current_user),
     factory: sessionmaker = Depends(get_session_factory), translator: Translator = Depends(get_translator),
     wiktionary: Wiktionary = Depends(get_wiktionary),
 ):
-    """Look the word up again (after a failure, or to pick up a corrected Wiktionary entry)."""
+    """Look the word up again (after a failure, or to pick up a corrected Wiktionary entry). What the user wrote by hand is only replaced with
+    `overwrite=true` (the page asks first)."""
     entry = _own(session, entry_id, user)
+    if entry.meaning_edited:
+        if not overwrite:
+            raise AppError("meaning_edited", "This word has a meaning you wrote. Look up again and replace it?", 409)
+        entry.meaning_edited = False
     entry.enrich_status = "pending"
     session.commit()
     background.add_task(service.enrich_pending, factory, translator, wiktionary, user.id, entry.id)

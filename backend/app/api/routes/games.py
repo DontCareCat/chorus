@@ -35,7 +35,7 @@ def answer(
 ):
     game = play.get_game(session, public_id, user)
     result = play.submit_answer(session, game, body.question_id, body.option_id, body.position, body.waited, body.text)
-    if not result.already_answered:  # the word goes into the dictionary; its article and translation follow in the background
+    if not result.already_answered and user.dictionary_mode != "manual":  # the word goes into the dictionary; its article and translation follow in the background
         dictionary.record_asked(session, user.id, game.language, session.get(Question, body.question_id))
         background.add_task(dictionary.enrich_pending, factory, translator, wiktionary, user.id)
     return result

@@ -1,5 +1,6 @@
 import { useConfirm } from "../components/Confirm";
 import { DictionaryExchange } from "../components/DictionaryExchange";
+import { WordEditor } from "../components/WordEditor";
 import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Example } from "../components/Example";
@@ -40,6 +41,7 @@ export function DictionaryPage() {
   const [debounced, setDebounced] = useState(query);
   const [limit, setLimit] = useState(PAGE);
   const [open, setOpen] = useState<number | null>(null);
+  const [editor, setEditor] = useState<{ entry?: DictEntryDto } | null>(null);
   const [exchange, setExchange] = useState<"export" | "import" | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const snippets = useSnippets();
@@ -85,6 +87,13 @@ export function DictionaryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [list.reload, summary.reload, scoped.reload]);
 
+  /** A word with a meaning the user wrote is only looked up again after they agree to lose it. */
+  const lookupAgain = async (e: DictEntryDto) => {
+    const replace = e.meaning_edited;
+    if (replace && !(await confirm({ title: en.dictionary.replaceMeaningTitle(headword(e)), body: en.dictionary.replaceMeaningBody, action: en.dictionary.replaceMeaningAction }))) return;
+    await act(() => api.refreshWord(e.id, replace));
+  };
+
   const total = summary.data?.total ?? data?.total ?? 0;
   const available = (scoped.data?.due ?? 0) + (scoped.data?.new ?? 0);
   const everything = Math.max(summary.data?.total ?? 0, (data?.languages ?? []).reduce((n, l) => n + l.count, 0)); // the whole dictionary, not what the filters leave
@@ -97,6 +106,7 @@ export function DictionaryPage() {
           <p className="count">{en.dictionary.count(total)}</p>
         </div>
         <div className="dict-actions">
+          <button type="button" className="btn quiet bordered small" onClick={() => setEditor({})}>{en.dictionary.addWord}</button>
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("export")} disabled={everything === 0}>{en.dictionary.exchange.export}</button>
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("import")}>{en.dictionary.exchange.import}</button>
         </div>
@@ -104,6 +114,7 @@ export function DictionaryPage() {
           {available > 0 ? en.dictionary.reviewDue(available) : en.dictionary.review}
         </a>
       </div>
+      {editor && <WordEditor entry={editor.entry} defaultLanguage={language !== "all" ? language : data?.languages[0]?.code ?? "de"} onClose={() => setEditor(null)} onSaved={() => { list.reload(); summary.reload(); scoped.reload(); }} />}
       {exchange && <DictionaryExchange mode={exchange} scope={{ status, language: language === "all" ? undefined : language, q: debounced || undefined }} shown={total} defaultLanguage={language !== "all" ? language : data?.languages[0]?.code ?? "de"} onClose={() => setExchange(null)} onImported={() => { list.reload(); summary.reload(); }} />}
       {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
       {snippets.blocked && <p className="notice error" role="status">{en.errors.playBlocked}</p>}
@@ -162,7 +173,7 @@ export function DictionaryPage() {
             </button>
             {open === e.id && (
               <div className="expand"><div className="word-detail">
-                {e.lemma && <p className="hint">{en.dictionary.asSung(e.surface)}</p>}
+                {(e.lemma || e.pos) && <p className="hint">{[e.pos ? en.wordCard.pos[e.pos] ?? e.pos : null, e.lemma ? en.dictionary.asSung(e.surface) : null].filter(Boolean).join(" · ")}</p>}
                 <ul className="examples">
                   {e.examples.map((ex) => <Example key={ex.id} ex={ex} word={e.surface} snippets={snippets} />)}
                 </ul>
@@ -170,7 +181,8 @@ export function DictionaryPage() {
                 <div className="song-actions">
                   <button type="button" className="btn quiet bordered danger small" onClick={() => { void confirm({ title: en.dictionary.removeConfirm(headword(e)), body: en.dictionary.removeConfirmBody, action: en.dictionary.removeAction }).then((ok) => { if (ok) void act(() => api.deleteWord(e.id)); }); }}>{en.dictionary.remove}</button>
                   <button type="button" className="btn secondary small" onClick={() => void act(() => api.setSuspended(e.id, !e.suspended))}>{e.suspended ? en.dictionary.resume : en.dictionary.pause}</button>
-                  <button type="button" className="btn secondary small" onClick={() => void act(() => api.refreshWord(e.id))}>{en.dictionary.lookupAgain}</button>
+                  <button type="button" className="btn secondary small" onClick={() => void lookupAgain(e)}>{en.dictionary.lookupAgain}</button>
+                  <button type="button" className="btn secondary small" onClick={() => setEditor({ entry: e })}>{en.dictionary.edit}</button>
                 </div>
               </div></div>
             )}

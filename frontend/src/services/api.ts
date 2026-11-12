@@ -278,14 +278,52 @@ export interface DictEntryDto {
   article: string | null;
   translation: string | null;
   translation_language: string | null;
+  pos: string | null;
+  zipf: number | null;
+  source: "game" | "tap" | "manual" | "import" | null;
+  meaning_edited: boolean; // written by the user: a look-up asks before replacing it
   enrich_status: "pending" | "done" | "failed";
   suspended: boolean;
+  has_audio: boolean;
   added_at: string;
   due_at: string | null;
   interval_seconds: number;
   reps: number;
   lapses: number;
   examples: DictExampleDto[];
+}
+
+/** The word card of a word tapped in a game. */
+export interface WordLookupDto {
+  word: string;
+  headword: string;
+  lemma: string | null;
+  article: string | null;
+  pos: string | null;
+  translation: string | null;
+  translation_language: string | null;
+  sentence: string;
+  sentence_translation: string | null;
+  entry_id: number | null; // the card, when the word is in the dictionary already
+  offline: boolean; // the services could not be reached
+}
+
+export interface AddWordBody {
+  language: string;
+  word: string;
+  song_id?: number;
+  line?: string;
+  source?: "tap" | "manual";
+  translation?: string;
+  example?: string;
+}
+
+/** Only the fields sent change; an empty text clears the field. */
+export interface EntryEdit {
+  translation?: string;
+  lemma?: string;
+  article?: string;
+  pos?: string;
 }
 
 export interface DictListDto {
@@ -332,7 +370,7 @@ export interface ReviewSummaryDto {
 }
 
 export interface ReviewNextDto {
-  card: { id: number; word: string; language: string; intervals: Record<Rating, number> } | null;
+  card: { id: number; word: string; language: string; has_audio: boolean; intervals: Record<Rating, number> } | null;
   summary: ReviewSummaryDto;
 }
 
@@ -344,6 +382,7 @@ export interface UserDto {
   is_admin: boolean;
   translation_language: string;
   daily_card_limit: number; // 0 = unlimited
+  dictionary_mode: "auto" | "manual"; // auto: answered words are added; manual: only the words the user picks
 }
 
 export interface AuthStateDto {
@@ -449,12 +488,16 @@ export const api = {
   logout: () => request<AuthStateDto>("/api/auth/logout", { method: "POST" }),
   changePassword: (current: string, next: string) =>
     request<{ ok: boolean }>("/api/auth/password", json("POST", { current_password: current, new_password: next })),
-  updateAccount: (changes: { translation_language?: string; daily_card_limit?: number }) => request<AuthStateDto>("/api/auth/me", json("PATCH", changes)),
+  updateAccount: (changes: { translation_language?: string; daily_card_limit?: number; dictionary_mode?: "auto" | "manual" }) => request<AuthStateDto>("/api/auth/me", json("PATCH", changes)),
   dictionary: (opts: { status?: DictStatus; language?: string; q?: string; limit?: number; offset?: number } = {}) =>
     request<DictListDto>(`/api/dictionary?${new URLSearchParams({ status: opts.status ?? "all", ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}), limit: String(opts.limit ?? 100), offset: String(opts.offset ?? 0) })}`),
   setSuspended: (id: number, suspended: boolean) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", { suspended })),
   deleteWord: (id: number) => request<{ deleted: number }>(`/api/dictionary/${id}`, { method: "DELETE" }),
-  refreshWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}/refresh`, { method: "POST" }),
+  refreshWord: (id: number, overwrite = false) => request<DictEntryDto>(`/api/dictionary/${id}/refresh${overwrite ? "?overwrite=true" : ""}`, { method: "POST" }),
+  editWord: (id: number, changes: EntryEdit) => request<DictEntryDto>(`/api/dictionary/${id}`, json("PATCH", changes)),
+  lookupWord: (language: string, word: string, songId?: number, line?: string) =>
+    request<WordLookupDto>(`/api/dictionary/lookup?${new URLSearchParams({ language, word, ...(songId !== undefined ? { song_id: String(songId) } : {}), ...(line ? { line } : {}) })}`),
+  addWord: (body: AddWordBody) => request<DictEntryDto>("/api/dictionary/entries", json("POST", body)),
   getWord: (id: number) => request<DictEntryDto>(`/api/dictionary/${id}`),
   exportDictionary: async (opts: { format: "apkg" | "txt"; schedule: boolean; status: DictStatus; language?: string; q?: string }): Promise<{ filename: string; mime: string; bytes: Uint8Array }> => {
     const query = new URLSearchParams({ format: opts.format, schedule: String(opts.schedule), status: opts.status, ...(opts.language ? { language: opts.language } : {}), ...(opts.q ? { q: opts.q } : {}) });
@@ -478,6 +521,7 @@ export const api = {
     fd.append("schedule", String(schedule));
     return request<DeckImportDto>("/api/dictionary/import-deck", { method: "POST", body: fd });
   },
+  dictionaryAudioUrl: async (id: number) => `/api/dictionary/${id}/audio`, // the recording that came with an imported deck
   importWords: () => request<{ added: number; words: number }>("/api/dictionary/import-from-games", { method: "POST" }),
   reviewSummary: (scope?: ReviewScope) => request<ReviewSummaryDto>(`/api/dictionary/review/summary?${scopeQuery(scope)}`),
   reviewNext: (exclude: number[] = [], scope?: ReviewScope) => request<ReviewNextDto>(`/api/dictionary/review/next?exclude=${exclude.join(",")}&${scopeQuery(scope)}`),

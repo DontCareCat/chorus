@@ -51,6 +51,9 @@ def update_me(body: AccountPatch, background: BackgroundTasks, user: User = Depe
     if body.daily_card_limit is not None:
         user.daily_card_limit = body.daily_card_limit
         session.commit()
+    if body.dictionary_mode is not None:
+        user.dictionary_mode = body.dictionary_mode
+        session.commit()
     if body.translation_language is not None:
         code = base_language(body.translation_language)
         if code != user.translation_language:

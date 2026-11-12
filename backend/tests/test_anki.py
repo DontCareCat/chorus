@@ -161,3 +161,63 @@ def test_quoted_csv_and_plain_text():
     from app.services.dictionary import anki
     notes = anki.parse_text('"dog, hound";"a ""pet"""\nR&B < 3;x\n')
     assert notes[0].front == "dog, hound" and notes[0].back == 'a "pet"'
+
+
+def _deck_with_sound(extra_members=None, media=None):
+    import os
+    import sqlite3
+    import tempfile
+    fd, path = tempfile.mkstemp(suffix=".anki2"); os.close(fd)
+    db = sqlite3.connect(path)
+    db.executescript("CREATE TABLE col (id, crt, models); CREATE TABLE notes (id, mid, tags, flds); CREATE TABLE cards (nid, type, queue, due, ivl, reps, lapses, ord, id);")
+    db.execute("INSERT INTO col VALUES (1, 0, '{}')")
+    db.execute("INSERT INTO notes VALUES (1, 5, '', ?)", ("der Hund\x1fdog[sound:hund.mp3]",))
+    db.execute("INSERT INTO notes VALUES (2, 5, '', ?)", ("die Katze\x1fcat[sound:katze.exe]",))
+    db.commit(); db.close()
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.write(path, "collection.anki2")
+        z.writestr("media", media or '{"0": "hund.mp3", "1": "katze.exe"}')
+        z.writestr("0", b"ID3" + b"\0" * 100)
+        z.writestr("1", b"MZ")
+    os.unlink(path)
+    return buf.getvalue()
+
+
+def test_parse_apkg_streams_from_a_path_and_stores_audio(tmp_path):
+    deck = tmp_path / "d.apkg"
+    deck.write_bytes(_deck_with_sound())
+    notes = anki.parse_apkg(str(deck), tmp_path / "audio")
+    assert [n.front for n in notes] == ["der Hund", "die Katze"]
+    assert notes[0].audio and notes[0].audio.endswith(".mp3") and (tmp_path / "audio" / notes[0].audio).read_bytes().startswith(b"ID3")
+    assert notes[1].audio is None  # not an audio type
+    assert [p.name for p in (tmp_path / "audio").iterdir()] == [notes[0].audio]  # no temp files left
+    assert anki.parse_apkg(deck.read_bytes())[0].audio is None  # no folder, no audio kept
+
+
+def test_limit_is_500_mb():
+    assert anki.MAX_BYTES == 500 * 1024 * 1024
+
+
+def test_audio_through_the_api(api, session, tmp_path):
+    out = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": ("d.apkg", _deck_with_sound(), "application/octet-stream")}).json()
+    assert out["added"] == 2
+    items = {i["surface"]: i for i in api.get("/api/dictionary", params={"language": "de"}).json()["items"]}
+    hund = items["Hund"]
+    assert hund["has_audio"] is True and items["Katze"]["has_audio"] is False
+    r = api.get(f"/api/dictionary/{hund['id']}/audio")
+    assert r.status_code == 200 and r.content.startswith(b"ID3")
+    assert api.get(f"/api/dictionary/{items['Katze']['id']}/audio").status_code == 404
+
+
+def test_import_refuses_files_that_are_not_a_deck_or_a_list(api):
+    for name in ("setup.exe", "photo.png", "notes", "deck.apkg.zip"):
+        r = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": (name, b"der Hund\tdog\n", "application/octet-stream")})
+        assert r.status_code == 422 and r.json()["error"]["code"] == "unsupported_file", name
+    ok = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": ("list.csv", b"der Hund;dog\n", "text/csv")})
+    assert ok.status_code == 200 and ok.json()["added"] == 1
+
+
+def test_import_refuses_a_binary_file_named_like_a_list(api):
+    r = api.post("/api/dictionary/import-deck", data={"language": "de"}, files={"file": ("list.txt", b"MZ\x90\x00\x03\x00\x00\x00", "text/plain")})
+    assert r.status_code == 422 and r.json()["error"]["code"] == "unsupported_file"

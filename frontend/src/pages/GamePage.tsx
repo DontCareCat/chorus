@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Vinyl } from "../components/Vinyl";
 import { LyricWindow } from "../components/LyricWindow";
+import type { WordHit } from "../components/LyricWindow";
+import { WordCard } from "../components/WordCard";
 import { Question } from "../components/Question";
 import { ScorePanel } from "../components/ScorePanel";
 import { QueueDialog } from "../components/QueueDialog";
@@ -60,6 +62,9 @@ function GameScreen({ game }: { game: GameDto }) {
   const queueActions = useQueueActions();
   const settings = useAsync(() => api.settings(), []);
   const [queueOpen, setQueueOpen] = useState(false);
+  // a tapped lyric word: the song is paused while its card is open, and goes on when the card closes (only if it was playing)
+  const [wordHit, setWordHit] = useState<WordHit | null>(null);
+  const resumeAfterWord = useRef(false);
   const [manualFocus, setManualFocus] = useState<number | null>(null);
   const [, setFrame] = useState(0);
   const [lastAnswered, setLastAnswered] = useState<number | null>(null);
@@ -332,6 +337,21 @@ function GameScreen({ game }: { game: GameDto }) {
     if (n === "PLAYING" || n === "FADING_IN" || n === "FADING_OUT") playback.pause();
     else if (n !== "SEEKING") playback.play();
   };
+  const openWord = useCallback((hit: WordHit) => {
+    const n = stateName.current;
+    if (!wordOpen.current) resumeAfterWord.current = n === "PLAYING" || n === "FADING_IN"; // a second tap keeps the first decision
+    if (n === "PLAYING" || n === "FADING_IN") playbackRef.current.pause();
+    wordOpen.current = true;
+    setWordHit(hit);
+  }, []);
+  const closeWord = useCallback(() => {
+    wordOpen.current = false;
+    setWordHit(null);
+    if (resumeAfterWord.current) { resumeAfterWord.current = false; playbackRef.current.play(); }
+  }, []);
+  const wordOpen = useRef(false);
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
   const stop = () => playback.stop();
   const back5 = () => playback.rewind(5);
   useEffect(() => {
@@ -399,7 +419,7 @@ function GameScreen({ game }: { game: GameDto }) {
   );
   const lyricWindow = (
     <div className="game-side">
-      <LyricWindow lines={windowLines} current={centerOn} playing={g.synced ? currentLine : -1} asked={asked} synced={g.synced} onFocus={focusFromSheet} pulse={pulse} />
+      <LyricWindow lines={windowLines} current={centerOn} playing={g.synced ? currentLine : -1} asked={asked} synced={g.synced} onFocus={focusFromSheet} pulse={pulse} onWord={openWord} />
     </div>
   );
 
@@ -469,6 +489,7 @@ function GameScreen({ game }: { game: GameDto }) {
         queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
+      {wordHit && <WordCard hit={wordHit} language={game.language} songId={game.song_id} onClose={closeWord} />}
       {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} />}
     </div>
   );

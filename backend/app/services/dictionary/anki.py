@@ -20,6 +20,7 @@ import time
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from app.core.errors import AppError
 
@@ -28,7 +29,11 @@ MODEL_ID = 1_700_000_000_001  # one note type for Chorus decks
 DECK_ID = 1_700_000_000_002
 SEP = "\x1f"
 MAX_NOTES = 20_000
-MAX_BYTES = 60 * 1024 * 1024
+IMPORT_EXTENSIONS = (".apkg", ".txt", ".csv", ".tsv")  # what the import accepts: a deck or a text list
+MAX_BYTES = 500 * 1024 * 1024  # the deck as uploaded
+MAX_COLLECTION_BYTES = 256 * 1024 * 1024  # the collection.anki2 inside it
+MAX_AUDIO_BYTES = 20 * 1024 * 1024  # one sound file
+AUDIO_TYPES = {".mp3", ".ogg", ".oga", ".opus", ".m4a", ".aac", ".wav", ".flac", ".webm"}
 
 
 @dataclass
@@ -59,6 +64,7 @@ class ImportedNote:
     reps: int = 0
     lapses: int = 0
     suspended: bool = False
+    audio: str | None = None  # file name of the note's [sound:...], when the deck carries the file
 
 
 def _plain(text: str) -> str:
@@ -201,17 +207,24 @@ def build_text(words: list[ExportWord]) -> str:
 
 # ---------- reading ----------
 
+TOO_BIG = "That deck is too big to import (500 MB at most)."
 NEWER_FORMAT = (
     "This deck was exported in Anki's newer format, which Chorus cannot read. In Anki choose Export, tick \"Support older Anki versions\" "
     "(or choose Notes in Plain Text) and try again."
 )
 
 
-def parse_apkg(data: bytes) -> list[ImportedNote]:
-    if len(data) > MAX_BYTES:
-        raise AppError("deck_too_big", "That deck is too big to import (60 MB at most).", 413)
+def parse_apkg(source: "bytes | str | os.PathLike", audio_dir: "Path | None" = None) -> list[ImportedNote]:
+    """The notes of a deck, given as bytes or a path (a path is streamed: only the collection is unpacked, one chunk at a time). With
+    `audio_dir` the sound files the notes use are stored there too, and each note's `audio` becomes the stored file's name."""
+    if isinstance(source, (bytes, bytearray)):
+        if len(source) > MAX_BYTES:
+            raise AppError("deck_too_big", TOO_BIG, 413)
+        source = io.BytesIO(source)
+    elif os.path.getsize(source) > MAX_BYTES:
+        raise AppError("deck_too_big", TOO_BIG, 413)
     try:
-        z = zipfile.ZipFile(io.BytesIO(data))
+        z = zipfile.ZipFile(source)
     except zipfile.BadZipFile as e:
         raise AppError("not_a_deck", "That file is not an Anki deck (.apkg).", 422) from e
     with z:
@@ -221,8 +234,7 @@ def parse_apkg(data: bytes) -> list[ImportedNote]:
         if "collection.anki2" not in names and "collection.anki21" not in names:
             raise AppError("not_a_deck", "That file is not an Anki deck (.apkg).", 422)
         name = "collection.anki21" if "collection.anki21" in names else "collection.anki2"
-        info = z.getinfo(name)
-        if info.file_size > 4 * MAX_BYTES:
+        if z.getinfo(name).file_size > MAX_COLLECTION_BYTES:
             raise AppError("deck_too_big", "That deck is too big to import.", 413)
         fd, path = tempfile.mkstemp(suffix=".anki2")
         try:
@@ -230,12 +242,60 @@ def parse_apkg(data: bytes) -> list[ImportedNote]:
             with os.fdopen(fd, "wb") as f, z.open(name) as src:
                 while chunk := src.read(1 << 20):
                     written += len(chunk)
-                    if written > 4 * MAX_BYTES:
+                    if written > MAX_COLLECTION_BYTES:
                         raise AppError("deck_too_big", "That deck is too big to import.", 413)
                     f.write(chunk)
-            return _open_collection(path)
+            notes = _open_collection(path)
         finally:
             os.unlink(path)
+        if audio_dir is not None:
+            _store_audio(z, names, notes, audio_dir)
+        else:
+            for n in notes:
+                n.audio = None
+        return notes
+
+
+def _store_audio(z: zipfile.ZipFile, names: set[str], notes: list[ImportedNote], audio_dir) -> None:
+    """Copy the sound files the notes use out of the zip (streamed, one at a time) under a content-hash name."""
+    try:
+        media = json.loads(z.read("media")) if "media" in names and z.getinfo("media").file_size < 8 * 1024 * 1024 else {}
+    except (ValueError, KeyError):
+        media = {}
+    member_of = {v: k for k, v in media.items() if isinstance(k, str) and isinstance(v, str) and k in names} if isinstance(media, dict) else {}
+    stored: dict[str, str | None] = {}
+    for n in notes:
+        orig = n.audio
+        n.audio = None
+        if not orig:
+            continue
+        if orig not in stored:
+            stored[orig] = _copy_sound(z, member_of.get(orig), orig, audio_dir)
+        n.audio = stored[orig]
+
+
+def _copy_sound(z: zipfile.ZipFile, member: str | None, orig: str, audio_dir) -> str | None:
+    ext = os.path.splitext(orig)[1].lower()
+    if member is None or ext not in AUDIO_TYPES or z.getinfo(member).file_size > MAX_AUDIO_BYTES:
+        return None
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha1()
+    fd, tmp = tempfile.mkstemp(dir=audio_dir, suffix=".part")
+    try:
+        written = 0
+        with os.fdopen(fd, "wb") as f, z.open(member) as src:
+            while chunk := src.read(1 << 18):
+                written += len(chunk)
+                if written > MAX_AUDIO_BYTES:  # the header lied about the size
+                    return None
+                digest.update(chunk)
+                f.write(chunk)
+        final = f"{digest.hexdigest()}{ext}"
+        os.replace(tmp, audio_dir / final)
+        return final
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 def _open_collection(path: str) -> list[ImportedNote]:
@@ -291,9 +351,10 @@ def _read_collection(db: sqlite3.Connection) -> list[ImportedNote]:
         if mid == MODEL_ID:  # our own notes: the song lines are not a translation
             back_raw = re.sub(r'(?s)<div class="ex">.*?</div>', "", back_raw)
         back = _plain(back_raw)
+        sound = next(iter(re.findall(r"\[sound:([^\]]+)\]", " ".join(fields))), None) if mid != MODEL_ID else None
         if not front:
             continue
-        note = ImportedNote(front=front.split("\n")[0].strip(), back=back, tags=[t for t in tags.split() if t])
+        note = ImportedNote(front=front.split("\n")[0].strip(), back=back, tags=[t for t in tags.split() if t], audio=html.unescape(sound).strip() if sound else None)
         card = cards.get(nid)
         if card is not None:
             ctype, queue, due, ivl, reps, lapses = card
