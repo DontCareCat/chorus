@@ -12,6 +12,8 @@ export type WindowPart =
 
 export interface WindowLine {
   lineId: number;
+  /** The whole line as it is sung (a tapped word is looked up with it). */
+  text: string;
   /** Audio time the line starts (lyric time + offset); null for unsynchronized lyrics. */
   startTime: number | null;
   parts: WindowPart[];
@@ -27,6 +29,23 @@ export interface LineInput {
   text: string | null;
 }
 
+/** A line with blanks as the card quotes it: the answered words in place, an open blank as "…" (the answer is not given away). */
+export const lineText = (parts: readonly WindowPart[]): string =>
+  parts.map((p) => (p.kind === "text" ? p.text : p.kind === "blank" ? "…" : p.word)).join("").replace(/\s+/g, " ").trim();
+
+/** The words of a piece of text, with where each starts, for tapping (letters, with an apostrophe or hyphen inside: geh'n, e-mail). */
+export function wordSpans(text: string): { text: string; word: boolean }[] {
+  const out: { text: string; word: boolean }[] = [];
+  let at = 0;
+  for (const m of text.matchAll(/[\p{L}\p{M}]+(?:['’-][\p{L}\p{M}]+)*/gu)) {
+    if (m.index! > at) out.push({ text: text.slice(at, m.index), word: false });
+    out.push({ text: m[0], word: true });
+    at = m.index! + m[0].length;
+  }
+  if (at < text.length) out.push({ text: text.slice(at), word: false });
+  return out;
+}
+
 /** All lines of the game, in song order, with their blanks resolved against the answers given so far. */
 export function buildWindowLines(
   lines: readonly LineInput[],
@@ -40,7 +59,7 @@ export function buildWindowLines(
   return lines.map((l) => {
     const startTime = l.audio_start === null ? null : l.audio_start + offset;
     const qs = byLine.get(l.line_id);
-    if (!qs) return { lineId: l.line_id, startTime, parts: [{ kind: "text", text: l.text ?? "" }], targetId: null, status: "plain" };
+    if (!qs) return { lineId: l.line_id, text: l.text ?? "", startTime, parts: [{ kind: "text", text: l.text ?? "" }], targetId: null, status: "plain" };
     const pieces = qs[0]!.questionText.split(BLANK);
     const byIndex = new Map(qs.map((q) => [q.blankIndex, q]));
     const parts: WindowPart[] = [];
@@ -58,7 +77,7 @@ export function buildWindowLines(
     const open = qs.filter((q) => !results.has(q.id));
     const wrong = qs.some((q) => results.get(q.id)?.correct === false);
     return {
-      lineId: l.line_id, startTime, parts, targetId: (open[0] ?? qs[0]!).id,
+      lineId: l.line_id, text: lineText(parts), startTime, parts, targetId: (open[0] ?? qs[0]!).id,
       status: open.length > 0 ? "open" : wrong ? "wrong" : "correct",
     };
   });
@@ -73,7 +92,7 @@ const samePart = (a: WindowPart, b: WindowPart): boolean => {
 };
 
 const sameLine = (a: WindowLine, b: WindowLine): boolean =>
-  a.lineId === b.lineId && a.startTime === b.startTime && a.targetId === b.targetId && a.status === b.status && a.parts.length === b.parts.length && a.parts.every((p, i) => samePart(p, b.parts[i]!));
+  a.lineId === b.lineId && a.text === b.text && a.startTime === b.startTime && a.targetId === b.targetId && a.status === b.status && a.parts.length === b.parts.length && a.parts.every((p, i) => samePart(p, b.parts[i]!));
 
 /**
  * After an answer only one or two lines of the window change, but `buildWindowLines` makes new objects for all of them. This hands back the

@@ -31,6 +31,7 @@ export function SettingsPage() {
   const [notice, setNotice] = useState<Notice>(null);
   const queueThumb = useThumb();
   const fadeThumb = useThumb();
+  const modeThumb = useThumb();
 
   useEffect(() => {
     if (loaded.data) {
@@ -159,6 +160,18 @@ export function SettingsPage() {
             <LanguageSelect value={user?.translation_language ?? "en"} onChange={(code) => { void api.updateAccount({ translation_language: code }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.translationSaved }), (e) => setNotice({ kind: "error", text: msg(e) })); }} />
             <small>{en.settings.translateIntoHelp}</small>
           </label>
+          <div className="field">
+            <span>{en.settings.addWords}</span>
+            <div className="segmented thumbs" role="group" aria-label={en.settings.addWords} ref={modeThumb}>
+              {(["auto", "manual"] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={(user?.dictionary_mode ?? "auto") === m}
+                  onClick={() => { void api.updateAccount({ dictionary_mode: m }).then(() => refresh()).then(() => setNotice({ kind: "ok", text: en.settings.addWordsSaved }), (err) => setNotice({ kind: "error", text: msg(err) })); }}>
+                  {m === "auto" ? en.settings.addWordsAuto : en.settings.addWordsManual}
+                </button>
+              ))}
+            </div>
+            <small>{en.settings.addWordsHelp}</small>
+          </div>
           <label className="field">
             <span>{en.settings.dailyLimit}</span>
             <Select

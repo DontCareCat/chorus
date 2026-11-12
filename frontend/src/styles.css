@@ -813,6 +813,27 @@ button.fs-name:hover { background: var(--surface-2); }
 .status-bubble .btn { display: inline-flex; margin-top: 10px; background: var(--fill); border-color: transparent; color: var(--on-fill); }
 .status-bubble .arrow { position: absolute; bottom: -7px; width: 14px; height: 14px; transform: rotate(45deg); background: var(--text); border-radius: 3px; }
 
+/* the word card: the lyrics-status bubble (inverse colours, radius 14) with its arrow on the tapped word */
+.lw-tap { cursor: pointer; border-radius: 4px; }
+.lw-tap:hover { background: var(--fill-soft, var(--surface-2)); }
+.word-card { position: fixed; z-index: 60; box-sizing: border-box; padding: 14px 14px 12px; border-radius: 14px; background: var(--text); color: var(--bg); font-size: 15px; line-height: 1.35; box-shadow: 0 10px 30px color-mix(in oklch, var(--text) 30%, transparent); }
+.word-card .arrow { position: absolute; top: -7px; width: 14px; height: 14px; transform: rotate(45deg); background: var(--text); border-radius: 2px; }
+.word-card[data-above] .arrow { top: auto; bottom: -7px; }
+.wc-top { display: flex; align-items: flex-start; gap: 12px; }
+.wc-head { flex: 1; min-width: 0; }
+.wc-word { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.wc-word strong { font-size: 21px; font-weight: 800; }
+.wc-pos { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.wc-meaning { margin-top: 2px; font-size: 17px; font-weight: 600; }
+.wc-add { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 0; border-radius: 999px; padding: 0; background: var(--fill); color: var(--on-fill); transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.wc-add .icon { font-size: 26px; }
+.wc-add[data-pop] { transform: scale(1.15) rotate(-8deg); }
+.wc-line { margin-top: 10px; padding-top: 10px; border-top: 1px solid color-mix(in oklch, var(--bg) 22%, transparent); }
+.wc-sung { opacity: 0.75; }
+.wc-tr { font-weight: 600; }
+.wc-status { margin-top: 8px; font-size: 13px; opacity: 0.7; }
+@media (prefers-reduced-motion: reduce) { .wc-add { transition: none; } .wc-add[data-pop] { transform: none; } }
+
 /* the ⋮ menu: a popover on a PC, a bottom sheet on a phone */
 .song-menu { position: fixed; z-index: 60; padding: 8px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 0 14px 40px color-mix(in oklch, var(--text) 22%, transparent); }
 .mi { display: flex; align-items: center; gap: 14px; height: 44px; padding: 0 14px; border-radius: 10px; border: none; background: transparent; width: 100%; text-align: left; font-weight: 600; font-size: 16px; color: var(--text); text-decoration: none; }

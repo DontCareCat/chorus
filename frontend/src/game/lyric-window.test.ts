@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, currentLineIndex, followLine, reuseLines, timecode } from "./lyric-window";
-import type { WindowLine } from "./lyric-window";
+import { buildWindowLines, centerOffset, currentLineIndex, followLine, lineText, reuseLines, timecode, wordSpans } from "./lyric-window";
+import type { WindowLine, WindowPart } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
 
@@ -107,7 +107,7 @@ describe("helpers", () => {
 });
 
 describe("reuseLines", () => {
-  const line = (id: number, word: string): WindowLine => ({ lineId: id, startTime: id, targetId: id, status: "open", parts: [{ kind: "text", text: "a " }, { kind: "blank", index: 0, focused: false }, { kind: "word", index: 1, word, state: "correct", focused: false }] });
+  const line = (id: number, word: string): WindowLine => ({ lineId: id, text: "", startTime: id, targetId: id, status: "open", parts: [{ kind: "text", text: "a " }, { kind: "blank", index: 0, focused: false }, { kind: "word", index: 1, word, state: "correct", focused: false }] });
   it("keeps the previous object for every line that did not change", () => {
     const prev = [line(1, "x"), line(2, "y"), line(3, "z")];
     const next = [line(1, "x"), line(2, "CHANGED"), line(3, "z")];
@@ -125,5 +125,21 @@ describe("reuseLines", () => {
     const first = [line(1, "x")];
     expect(reuseLines(null, first)).toBe(first);
     expect(reuseLines(first, [line(1, "x"), line(2, "y")])).toHaveLength(2);
+  });
+});
+
+describe("tapping words", () => {
+  it("splits a line into words and the rest, keeping apostrophes and hyphens inside a word", () => {
+    expect(wordSpans("Geh'n wir, e-mail!")).toEqual([
+      { text: "Geh'n", word: true }, { text: " ", word: false }, { text: "wir", word: true }, { text: ", ", word: false },
+      { text: "e-mail", word: true }, { text: "!", word: false },
+    ]);
+    expect(wordSpans("")).toEqual([]);
+    expect(wordSpans("ñandú über")).toEqual([{ text: "ñandú", word: true }, { text: " ", word: false }, { text: "über", word: true }]);
+  });
+
+  it("quotes a line with an open blank as dots, not as the answer", () => {
+    const parts: WindowPart[] = [{ kind: "text", text: "Ich " }, { kind: "blank", index: 0, focused: false }, { kind: "text", text: " dich " }, { kind: "word", index: 1, word: "liebe", state: "correct", focused: false }];
+    expect(lineText(parts)).toBe("Ich … dich liebe");
   });
 });

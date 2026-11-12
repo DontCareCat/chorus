@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { centerOffset, timecode } from "../game/lyric-window";
+import { centerOffset, timecode, wordSpans } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
 
@@ -15,6 +15,16 @@ interface Props {
   asked: number;
   /** Changes when the window should take the reader back to its line at once (an answer was given). */
   pulse: number;
+  /** A word of the lyrics was tapped (the word card opens). Without it the words are plain text. */
+  onWord?: (hit: WordHit) => void;
+}
+
+export interface WordHit {
+  word: string;
+  /** The whole line the word was sung in (open blanks as "…"). */
+  line: string;
+  /** Where the word is on the screen, for the card's arrow. */
+  rect: DOMRect;
 }
 
 const MARKS: Record<string, { d: string; label: string }> = {
@@ -38,19 +48,26 @@ function Mark({ state }: { state: string }) {
 }
 
 /** One line of the window. Memoised: after an answer only the changed lines (and the ones whose distance from the current line changed) are redrawn. */
-const LyricLine = memo(function LyricLine({ line: l, d, synced, playing, follow, onFocus }: { line: WindowLine; d: number; synced: boolean; playing: boolean; follow: boolean; onFocus: (questionId: number) => void }) {
+const LyricLine = memo(function LyricLine({ line: l, d, synced, playing, follow, onFocus, onWord }: { line: WindowLine; d: number; synced: boolean; playing: boolean; follow: boolean; onFocus: (questionId: number) => void; onWord?: (hit: WordHit) => void }) {
+  /** The words of a piece of the line; a tap opens the word card and is not the line's own click (which would only move the question). */
+  const words = (text: string) =>
+    !onWord ? text : wordSpans(text).map((w, i) =>
+      w.word ? (
+        <span key={i} className="lw-tap" data-word onClick={(e) => { e.stopPropagation(); onWord({ word: w.text, line: l.text, rect: e.currentTarget.getBoundingClientRect() }); }}>{w.text}</span>
+      ) : w.text,
+    );
   const body = (
     <>
       <time>{synced ? timecode(l.startTime) : ""}</time>
       <span>
         {l.parts.map((p, k) =>
           p.kind === "text" ? (
-            <span key={k}>{p.text}</span>
+            <span key={k}>{words(p.text)}</span>
           ) : p.kind === "blank" ? (
             <span key={k} className="lw-blank" data-focus={p.focused} aria-label="blank" />
           ) : (
             <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>
-              {p.word}
+              {words(p.word)}
               <Mark state={p.state} />
             </span>
           ),
@@ -84,7 +101,7 @@ const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home
  * The reader can scroll anywhere. Then the window stops following and a chip offers the way back; it follows again by itself at the next
  * line change once the reader has been idle for BROWSE_IDLE_MS, and at once when `pulse` changes (an answer was given).
  */
-export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus, pulse, playing, asked }: Props) {
+export const LyricWindow = memo(function LyricWindow({ lines, current, synced, onFocus, pulse, playing, asked, onWord }: Props) {
   const big = asked >= 0 ? asked : current; // the size follows the question being answered, the highlight the song
   const viewport = useRef<HTMLDivElement>(null);
   const browsing = useRef(false);
@@ -156,7 +173,7 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
       >
         <div className="lw-track">
           {lines.map((l, i) => (
-            <LyricLine key={l.lineId} line={l} d={Math.min(3, Math.abs(i - big))} synced={synced} playing={i === playing} follow={i === current} onFocus={onFocus} />
+            <LyricLine key={l.lineId} line={l} d={Math.min(3, Math.abs(i - big))} synced={synced} playing={i === playing} follow={i === current} onFocus={onFocus} onWord={onWord} />
           ))}
         </div>
       </div>
