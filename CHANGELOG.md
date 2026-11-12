@@ -1,5 +1,11 @@
 # Changelog
 
+## Dictionary: add modes and the word card (web, with Android beta.24)
+- Word card: tap a lyric word in a game to pause and open a card (headword, type, meaning, the sung line translated, an add button). `GET /api/dictionary/lookup`, `POST /api/dictionary/entries`.
+- Settings switch "Add words to dictionary": Automatically / Only words I pick (`users.dictionary_mode`; manual mode skips adding answered words).
+- Dictionary page: "Add word" and Edit (meaning, lemma, article, type); `PATCH /api/dictionary/{id}`; "Look up again" asks before it replaces a written meaning (`refresh?overwrite=true`).
+- Migration 0016: entries keep pos, zipf, source and whether the meaning was written by hand; examples may have no song. Backfilled from the lookup cache and wordfreq; a second run changes nothing.
+
 ## Beta stage (Android 0.2.0-beta.1 to beta.13, web 0.7.0-beta)
 
 The beta adds songs played from YouTube, a single field for adding music from links, sharing into the app, Anki exchange of the dictionary, real song lengths, a sturdier dictionary and a lyrics lookup that keeps going in the background. The beta installs as its own app (`io.github.dontcarecat.chorus.beta`, shown as "Chorus") next to the alpha. The web app is the source of truth: every change was made there first.
