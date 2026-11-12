@@ -20,3 +20,34 @@ export function scrollTarget({ itemTop, panelBottom, viewTop, viewBottom, margin
   if (itemTop < top) return Math.round(itemTop - top); // the row is cut off at the top: bring it down
   return 0;
 }
+
+/** Ease-out cubic: fast start, soft landing. */
+export const easeOut = (t: number): number => 1 - (1 - t) ** 3;
+
+let running: { cancel: () => void } | null = null;
+
+/**
+ * Scroll the window by `dy` pixels over `ms`, frame by frame. (`scrollBy({ behavior: "smooth" })` is left to the browser, and a phone's
+ * web view may jump at once; a scroll we draw ourselves always animates.) A newer call takes over from a running one.
+ * `reduced` (the person asked for no motion) scrolls at once.
+ */
+export function animateScrollBy(dy: number, { ms = 320, reduced = false }: { ms?: number; reduced?: boolean } = {}): void {
+  running?.cancel();
+  running = null;
+  if (dy === 0) return;
+  if (reduced || ms <= 0) { window.scrollBy(0, dy); return; }
+  const from = window.scrollY;
+  const start = performance.now();
+  let frame = 0;
+  let last = 0;
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / ms);
+    const y = Math.round(from + dy * easeOut(t));
+    window.scrollBy(0, y - (from + last));
+    last = y - from;
+    if (t < 1) frame = requestAnimationFrame(step);
+    else running = null;
+  };
+  frame = requestAnimationFrame(step);
+  running = { cancel: () => cancelAnimationFrame(frame) };
+}

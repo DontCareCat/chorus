@@ -19,7 +19,7 @@ import type { DuplicateReason } from "../lib/duplicates";
 import { songStatus } from "../lib/lyrics-status";
 import { sortValue } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
-import { scrollTarget } from "../lib/scroll-into-view";
+import { animateScrollBy, scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
 import { isTopicChannel, youtubeWatchUrl } from "../lib/youtube-add";
 import { paths } from "../router";
@@ -81,7 +81,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
         itemTop: main.getBoundingClientRect().top, panelBottom: panel.getBoundingClientRect().bottom,
         viewTop: Math.max(vv?.offsetTop ?? 0, bar ? bar.bottom : 0), viewBottom: (vv?.offsetTop ?? 0) + (vv?.height ?? window.innerHeight),
       });
-      if (dy !== 0) window.scrollBy({ top: dy, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      animateScrollBy(dy, { reduced: window.matchMedia("(prefers-reduced-motion: reduce)").matches });
     };
     const first = requestAnimationFrame(bring);
     const later = setTimeout(bring, 350); // the history and scores arrive after the panel opens and change its height
