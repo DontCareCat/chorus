@@ -104,10 +104,6 @@ const audit = () => {
     ok(dd.h >= 44 && dd.pad >= 12 && dd.inside, `open dropdown: items ${dd.h}px tall, ${dd.pad}px inner padding, inside the screen: ${dd.inside}`);
     await page.keyboard.press("Escape");
     if (label === "phone") { // the menu panel with the theme switch
-      await page.goto(B); await page.waitForSelector(".song"); await page.click(".menu-btn"); await page.waitForSelector(".menu-panel .theme-switch");
-      const r = await page.evaluate(audit);
-      ok(r.out.length === 0 && r.stretched.length === 0, `menu panel: ${r.out.length + r.stretched.length ? [...r.out, ...r.stretched].join(" | ") : "theme switch is as wide as its options and centred"}`);
-      await page.screenshot({ path: "/tmp/audit-menu.png" });
       await page.goto(B + "#/dictionary"); await page.waitForSelector(".word"); await page.click(".word-main >> nth=0"); await page.waitForSelector(".example");
       await page.screenshot({ path: "/tmp/audit-dictionary.png" });
     }

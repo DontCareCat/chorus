@@ -55,14 +55,7 @@ const LRC = ["Ich gehe jeden Morgen zur Arbeit", "Du hast mich gefragt und ich h
   const p = await phone.newPage();
   p.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   await p.goto(B); await p.waitForSelector(".song");
-  await p.tap(".menu-btn"); await p.waitForTimeout(400);
-  const open = await p.evaluate(() => ({ state: document.querySelector(".menu-panel")?.dataset.state, b2: getComputedStyle(document.querySelector(".burger .b2")).opacity, expanded: document.querySelector(".menu-btn").getAttribute("aria-expanded") }));
-  ok(open.state === "open" && open.expanded === "true" && parseFloat(open.b2) < 0.1, "the menu rolls down and the bars turn into a cross: " + JSON.stringify(open));
-  const rowBefore = await p.evaluate(() => document.querySelectorAll(".start-panel").length);
-  await p.tap(".song-main >> nth=4 >> .song-text"); await p.waitForTimeout(500);
-  ok((await p.$$(".menu-panel")).length === 0 && (await p.evaluate(() => document.querySelectorAll(".start-panel").length)) === rowBefore, "a tap outside closes the menu and opens nothing underneath");
-  const closed = await p.evaluate(() => getComputedStyle(document.querySelector(".burger .b2")).opacity);
-  ok(parseFloat(closed) === 1, "the bars come back");
+  ok((await p.$$(".menu-btn, .burger, .menu-panel")).length === 0, "the top hamburger menu is gone (the bottom tabs replaced it)");
 
   // song sheet
   await p.tap(".song-main >> nth=0 >> .kebab"); await p.waitForSelector(".sheet");

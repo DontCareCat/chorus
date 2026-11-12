@@ -45,10 +45,14 @@ export function followSmoothly(el: HTMLElement, target: () => number, ms: number
   if (instant) { el.scrollTop = clamp(target()); return () => undefined; }
   let id = 0;
   const start = performance.now();
+  let dir = 0; // the way the first move went: the lines above shrink while the target settles, which must not make the scroll turn back
   const step = (now: number) => {
     const to = clamp(target());
-    if (now - start >= ms) { el.scrollTop = to; return; }
-    el.scrollTop = followStep(el.scrollTop, to);
+    const from = el.scrollTop;
+    if (now - start >= ms) { el.scrollTop = dir !== 0 && (to - from) * dir < 0 ? from : to; return; }
+    const next = followStep(from, to);
+    if (dir === 0 && next !== from) dir = Math.sign(next - from);
+    if (dir === 0 || (next - from) * dir >= 0) el.scrollTop = next;
     id = requestAnimationFrame(step);
   };
   id = requestAnimationFrame(step);

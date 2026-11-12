@@ -132,7 +132,7 @@ const wait = (p, ms) => p.waitForTimeout(ms);
   a = await st();
   ok(a.focused && (Math.abs(a.off) < 60 || a.top === a.max), `and the question's line is in the middle (${a.off} px off)`);
   const fonts = await lw.evaluate(() => [...new Set([...document.querySelectorAll(".lw-line")].map((l) => getComputedStyle(l).transitionProperty))]);
-  ok(fonts.every((t) => !/font-size/.test(t)), "game text is never animated: no font-size transition on the lines (" + fonts.join(",") + ")");
+  ok(fonts.every((t) => /font-size/.test(t)), "the lines animate their size again (the focus animation, beta.26): " + fonts.join(","));
 
   await lw.goto(B + "#/settings"); await lw.waitForSelector('[aria-label="Lyrics follow"]');
   const pressed = await lw.$$eval('[aria-label="Lyrics follow"] button', (b) => b.map((x) => x.textContent + ":" + x.getAttribute("aria-pressed")));

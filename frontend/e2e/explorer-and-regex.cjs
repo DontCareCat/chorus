@@ -108,7 +108,6 @@ const importNow = async (page) => { const [res] = await Promise.all([page.waitFo
   console.log("[phone: the window fills the screen]");
   const m = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   await m.goto(B); await m.waitForSelector(".song");
-  await m.click(".menu-btn").catch(() => {}); await m.click(".menu-btn").catch(() => {});
   await m.click('button:has-text("Add music")'); await m.click('.add-panel button:has-text("Browse")');
   await m.waitForSelector('[role="dialog"]');
   const d = await m.$eval(".dialog", (e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), top: r.top }; });
