@@ -29,6 +29,7 @@ import { useSelection } from "../hooks/useSelection";
 import { useThumb } from "../hooks/useThumb";
 import { en } from "../i18n/en";
 import { paths } from "../router";
+import { Toast, useToast } from "../components/Toast";
 import { api, ApiError } from "../services/api";
 import type { SongDto } from "../services/api";
 
@@ -41,7 +42,7 @@ export function LibraryPage() {
   // a reload gives back the very objects of the songs that did not change, so the list re-renders only the rows that did
   const songs = useAsync(() => api.songs().then((next) => (previous.current = keepUnchanged(previous.current, next))), []);
   const games = useAsync(() => api.myGames(), []);
-  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useToast();
   const [busy, setBusy] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [over, setOver] = useState(false);
@@ -115,7 +116,7 @@ export function LibraryPage() {
       let added = 0;
       const problems: string[] = [];
       for (const [i, f] of list.entries()) {
-        setNotice({ kind: "ok", text: en.library.uploading(i + 1, list.length) });
+        setNotice({ kind: "progress", text: en.library.uploading(i + 1, list.length) });
         try {
           await api.uploadSong(f);
           added++;
@@ -302,7 +303,7 @@ export function LibraryPage() {
           )}
         </section>
       )}
-      {notice && <p className={`notice ${notice.kind}`} role="status">{notice.text}</p>}
+      <div className="toast-lane"><Toast toast={notice} onDismiss={() => setNotice(null)} /></div>
       {browsing && (
         <FolderBrowser
           mode="import" start={path.trim() && path.trim().startsWith("/") ? path.trim() : ""} recursiveDefault={recursive} copyDefault={copyFiles}

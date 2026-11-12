@@ -148,6 +148,21 @@ nav.thumbs { --thumb-bg: var(--fill); }
 .save-bar > * { pointer-events: auto; }
 .save-bar .btn { box-shadow: 0 6px 20px oklch(0.2 0.01 95 / 0.28); }
 .save-bar .notice { margin: 0; max-width: min(92vw, 520px); box-shadow: 0 4px 14px oklch(0.2 0.01 95 / 0.18); }
+/* floating messages (design: Toasts) */
+.toast-lane { position: fixed; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 64px); z-index: 30; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.toast-lane > * { pointer-events: auto; }
+.float-toast { display: flex; align-items: center; gap: 10px; box-sizing: border-box; max-width: min(100%, 520px); padding: 12px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px color-mix(in oklch, var(--text) 22%, transparent); font-size: 15px; line-height: 1.3; transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.float-toast[data-state="closed"] { opacity: 0; transform: translateY(8px); }
+.toast-lane .float-toast[data-state="closed"] { transform: translateY(-8px); }
+.float-toast[data-pill] { padding: 10px 16px; border-radius: var(--r-pill); }
+.toast-icon { flex: none; display: inline-grid; font-size: 20px; }
+.float-toast[data-kind="ok"] .toast-icon { color: var(--correct); }
+.float-toast[data-kind="error"] .toast-icon { color: var(--wrong); }
+.float-toast[data-kind="progress"] .toast-icon { color: var(--accent); }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-x { flex: none; width: 32px; height: 32px; margin: -6px -6px -6px 0; display: grid; place-items: center; border: none; border-radius: 50%; background: transparent; color: var(--text-2); font-size: 20px; }
+.toast-x:hover { background: var(--raised); }
+@media (prefers-reduced-motion: reduce) { .float-toast { transition: none; } .toast-icon.spin { animation: none; } }
 .song-actions { display: flex; gap: var(--gap-actions); flex-wrap: wrap; margin-top: 14px; } /* the buttons of an open dictionary word */
 .page-actions { display: flex; gap: var(--gap-actions); flex-wrap: wrap; }
 .crumb { display: inline-block; font-size: 15px; color: var(--text-2); text-decoration: none; margin-top: 8px; }

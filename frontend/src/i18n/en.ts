@@ -120,6 +120,7 @@ export const en = {
     unreachable: "The server did not answer the sign-in check. It may be stopped, or older than this page: restart the backend (python -m app.launcher serve updates the database by itself; with plain uvicorn run alembic upgrade head first).",
     retry: "Try again",
   },
+  toast: { dismiss: "Dismiss" },
   queue: {
     title: "Queue",
     progressive: "Progressive",
