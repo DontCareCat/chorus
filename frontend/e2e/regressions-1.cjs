@@ -49,7 +49,12 @@ async function inkOffset(page, el) {
     await p.goto(B + "#/");
     await p.waitForSelector(".topbar");
     ok((await p.locator(".menu-btn, .burger, .menu-panel").count()) === 0, "no hamburger button or menu panel");
-    ok((await p.locator(".topbar .account").count()) === 1, "the account (sign in / out) is still in the top bar");
+    if (name === "phone") { // the top bar has no room for Guest + Sign in + Create account: on a phone the account is in Settings > Account
+      ok((await p.locator(".topbar .account").count()) === 0 && (await p.evaluate(() => document.documentElement.scrollWidth <= innerWidth)), "no account in the phone's top bar, and the page is no wider than the screen");
+      await p.goto(B + "#/settings"); await p.waitForSelector("#settings-account");
+      ok((await p.locator('#settings-account a:has-text("Sign in")').count()) === 1, "Settings > Account has Sign in");
+      await p.goto(B + "#/");
+    } else ok((await p.locator(".topbar .account").count()) === 1, "the account (sign in / out) is in the top bar");
 
     // dictionary badge: centred over the icon, inside the tab
     if (name === "phone") {

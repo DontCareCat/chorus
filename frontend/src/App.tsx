@@ -74,7 +74,7 @@ export function App() {
             <span className="bars" key={wave} data-wave={wave > 0 || undefined} aria-hidden="true"><i /><i /><i /></span>
             {en.appName}
           </a>
-          <div className="top-right">{account}</div>
+          {!phone && <div className="top-right">{account}</div>} {/* on a phone the account lives in Settings > Account: Guest + Sign in + Create account pushed the page wider than the screen */}
         </header>
       )}
       {!isGame && !needsSignIn && route.name !== "login" && route.name !== "review" && <QueueBar phone={phone} />}
