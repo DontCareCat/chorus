@@ -3,7 +3,7 @@ import { initialState, transition } from "./playback-state-machine";
 import type { Effect, MachineEvent, MachineState, NextBlocking } from "./playback-state-machine";
 import { getEarliestUnanswered, getRecoveryPosition, isOverdue, limitSeek, updateSynchronization } from "./synchronization";
 import type { SyncQuestion } from "./synchronization";
-import { FADE_IN_MS, FADE_OUT_MS, SYNC_GRACE_PERIOD } from "./timing";
+import { FADE_IN_MS, FADE_OUT_MS, SCRUB_FADE_IN_MS, SCRUB_FADE_OUT_MS, SYNC_GRACE_PERIOD } from "./timing";
 
 /** What a player seek did: `clamped` = it was limited because an unanswered question cannot be skipped. */
 export interface SeekOutcome {
@@ -144,6 +144,45 @@ export class PlaybackController {
         return { applied: false, clamped };
       },
     );
+  }
+
+  /**
+   * The player's strip was grabbed: sound that is running fades out (150 ms) and pauses. Returns whether it was playing (or the game was waiting for an
+   * answer), so scrubEnd knows to start again; null while the game is recovering by itself (FADING_OUT / SEEKING): not scrubbable then.
+   */
+  scrubStart(): { wasPlaying: boolean } | null {
+    const { name } = this.state;
+    if (name === "FADING_OUT" || name === "SEEKING") return null;
+    const running = name === "PLAYING" || name === "FADING_IN";
+    if (running) {
+      const e = this.o.engine;
+      e.cancelFade();
+      const epoch = ++this.scrubEpoch;
+      void e.fadeOut(SCRUB_FADE_OUT_MS).then((done) => {
+        if (done && epoch === this.scrubEpoch) this.pauseForScrub();
+      });
+    }
+    return { wasPlaying: running || name === "PAUSED_FOR_QUESTION" };
+  }
+
+  private scrubEpoch = 0;
+  private pauseForScrub(): void {
+    const { name } = this.state;
+    if (name === "PLAYING" || name === "FADING_IN") this.dispatch({ type: "USER_PAUSE" });
+  }
+
+  /** The strip was let go on `time`: seek there (never past an open question) and, if sound was running, fade it back in (250 ms). A paused song stays paused. */
+  async scrubEnd(time: number, wasPlaying: boolean): Promise<SeekOutcome> {
+    this.scrubEpoch++;
+    this.o.engine.cancelFade(); // let go before the 150 ms fade was over: cut it, pause now
+    this.pauseForScrub();
+    const outcome = await this.userSeek(time);
+    const e = this.o.engine;
+    const end = e.getDuration();
+    const atEnd = Number.isFinite(end) && end > 0 && e.getCurrentTime() >= end - 0.25;
+    const { name } = this.state;
+    if (wasPlaying && !atEnd && (name === "PAUSED" || name === "PAUSED_FOR_QUESTION" || name === "IDLE")) this.playFadingIn(SCRUB_FADE_IN_MS);
+    return outcome;
   }
 
   /** Poll hook (~150 ms). Reads the real position; does nothing unless audio is actually running. */

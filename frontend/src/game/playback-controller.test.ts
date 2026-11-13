@@ -765,3 +765,82 @@ describe("a song that follows another (fade between songs)", () => {
     expect(g.c.state.name).toBe("PLAYING");
   });
 });
+
+describe("scrubbing the player's strip", () => {
+  it("fades out over 150 ms and pauses; letting go seeks, then plays with a 250 ms fade-in", async () => {
+    const g = rig([], { gating: false });
+    g.c.play(); await flush(); await g.run(600);
+    const s = g.c.scrubStart();
+    expect(s).toEqual({ wasPlaying: true });
+    expect(g.engine.fading).toBe(true);
+    expect(g.engine.playing).toBe(true); // still audible while it fades
+    await g.run(200);
+    expect(g.engine.playing).toBe(false);
+    expect(g.engine.getVolume()).toBe(0);
+    expect(g.c.state.name).toBe("PAUSED");
+    g.engine.log.length = 0;
+    const done = g.c.scrubEnd(120, true);
+    await flush();
+    await done;
+    expect(g.engine.time).toBe(120);
+    expect(g.engine.log.indexOf("seek:120")).toBeLessThan(g.engine.log.indexOf("play"));
+    expect(g.engine.playing).toBe(true);
+    expect(g.engine.getVolume()).toBe(0); // starts silent
+    await g.run(100);
+    expect(g.engine.getVolume()).toBeGreaterThan(0.2);
+    expect(g.engine.getVolume()).toBeLessThan(0.6);
+    await g.run(200);
+    expect(g.engine.getVolume()).toBe(1);
+  });
+  it("a paused song stays paused", async () => {
+    const g = rig([], { gating: false });
+    g.engine.time = 30;
+    const s = g.c.scrubStart();
+    expect(s).toEqual({ wasPlaying: false });
+    await g.c.scrubEnd(90, false);
+    expect(g.engine.time).toBe(90);
+    expect(g.engine.playing).toBe(false);
+    expect(g.c.state.name).toBe("IDLE");
+  });
+  it("let go before the fade finished: paused at once, then seeks and resumes", async () => {
+    const g = rig([], { gating: false });
+    g.c.play(); await flush(); await g.run(600);
+    g.c.scrubStart();
+    await g.run(50);
+    const done = g.c.scrubEnd(10, true);
+    await flush(); await done;
+    expect(g.engine.time).toBe(10);
+    expect(g.engine.playing).toBe(true);
+  });
+  it("forward stops at the open question (+3 s grace), like any seek", async () => {
+    const g = rig([Q19, Q20]);
+    g.engine.time = 40; g.c.play(); await flush(); await g.run(400);
+    g.c.scrubStart(); await g.run(200);
+    const out = await g.c.scrubEnd(200, true);
+    expect(out.clamped).toBe(true);
+    expect(g.engine.time).toBeLessThanOrEqual(Q19.endTime + 3);
+  });
+  it("while the game waits for an answer a scrub back plays again from there", async () => {
+    const g = rig([Q19, Q20]);
+    g.engine.time = 54.9; g.c.play(); await flush(); await g.run(5000);
+    expect(g.c.state.name).toBe("PAUSED_FOR_QUESTION");
+    expect(g.c.scrubStart()).toEqual({ wasPlaying: true });
+    await g.c.scrubEnd(20, true);
+    expect(g.engine.time).toBe(20);
+    expect(g.engine.playing).toBe(true);
+    expect(g.c.state.name).toBe("PLAYING");
+  });
+  it("is refused while the game recovers by itself", async () => {
+    const g = rig([Q19, Q20]);
+    await overrun(g);
+    expect(["FADING_OUT", "SEEKING"]).toContain(g.c.state.name);
+    expect(g.c.scrubStart()).toBeNull();
+  });
+  it("dragged to the very end: no restart from the top", async () => {
+    const g = rig([], { gating: false });
+    g.c.play(); await flush(); await g.run(600);
+    g.c.scrubStart(); await g.run(200);
+    await g.c.scrubEnd(240, true);
+    expect(g.engine.playing).toBe(false);
+  });
+});

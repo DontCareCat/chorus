@@ -27,6 +27,9 @@ export interface PlaybackSync {
   stop: () => void;
   /** Go back this many seconds and carry on playing (also while the game waits for an answer). */
   rewind: (seconds: number) => void;
+  /** The player's strip was grabbed / let go (see PlaybackController.scrubStart / scrubEnd). */
+  scrubStart: () => { wasPlaying: boolean } | null;
+  scrubEnd: (time: number, wasPlaying: boolean) => Promise<SeekOutcome>;
   /** Mark a question answered NOW (optimistic) and tell the controller. Never waits for the network. */
   markAnswered: (questionId: number) => void;
   /** The page is leaving while the song fades out on its own: stop controlling the audio. */
@@ -76,6 +79,8 @@ export function usePlaybackSync(opts: UsePlaybackSyncOptions): PlaybackSync {
   const play = useCallback(() => controller?.play(), [controller]);
   const pause = useCallback(() => controller?.pause(), [controller]);
   const seek = useCallback((t: number) => controller?.userSeek(t) ?? Promise.resolve({ applied: false, clamped: false }), [controller]);
+  const scrubStart = useCallback(() => controller?.scrubStart() ?? null, [controller]);
+  const scrubEnd = useCallback((t: number, was: boolean) => controller?.scrubEnd(t, was) ?? Promise.resolve({ applied: false, clamped: false }), [controller]);
   const stop = useCallback(() => controller?.stop(), [controller]);
   const rewind = useCallback((seconds: number) => controller?.rewind(seconds), [controller]);
   const markAnswered = useCallback(
@@ -88,5 +93,5 @@ export function usePlaybackSync(opts: UsePlaybackSyncOptions): PlaybackSync {
 
   const release = useCallback(() => controller?.release(), [controller]);
 
-  return { state, controller, play, pause, seek, stop, rewind, markAnswered, release };
+  return { state, controller, play, pause, seek, scrubStart, scrubEnd, stop, rewind, markAnswered, release };
 }

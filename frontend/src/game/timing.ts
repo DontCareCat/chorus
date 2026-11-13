@@ -14,3 +14,6 @@ export const POLL_INTERVAL_MS = 150;
 export function toAudioTime(lyricTime: number, offset: number): number {
   return Math.max(0, lyricTime + offset);
 }
+/** Grabbing the player's strip fades the sound out over this long, letting go fades it back in. */
+export const SCRUB_FADE_OUT_MS = 150;
+export const SCRUB_FADE_IN_MS = 250;

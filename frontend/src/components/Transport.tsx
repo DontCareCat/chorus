@@ -1,55 +1,53 @@
-import { memo, useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, Ref } from "react";
 import { volumeIcon } from "../game/volume";
 import { Icon } from "./Icon";
 import { PlayButton } from "./PlayButton";
-import { useSwipe } from "../hooks/useSwipe";
-import { useSwipeHint } from "../hooks/useSwipeHint";
+import { ProgressStrip } from "./ProgressStrip";
+import type { StripHandle } from "./ProgressStrip";
+import { WINDOW_PHONE_S, WINDOW_WIDE_S } from "../game/strip";
+import type { Peaks, StripLine } from "../game/strip";
 import { en } from "../i18n/en";
 import type { PlaybackStateName } from "../game/playback-state-machine";
-import type { Runway, RunwayTick } from "../game/runway";
 
 interface Props {
   engineReady: boolean;
   state: PlaybackStateName;
-  time: number;
+  /** the song's position now (read every frame by the strip) */
+  getTime: () => number;
   duration: number;
   onStart: () => void;
   onPlay: () => void;
   onPause: () => void;
-  onBack: () => void;
-  /** a touch screen (guide section 11): no Next or volume buttons, a left swipe on the bar is Next */
+  /** a touch screen (guide section 11): no volume control, a 24 s window */
   phone: boolean;
-  /** start the next song of the queue; the bar offers it only while one waits */
-  onNext: () => void;
-  /** Resolves when the seek is done, so the thumb can show the real position again. */
-  onSeek: (time: number) => Promise<unknown>;
   /** the play queue: how many songs wait, and open its list */
   queue?: { count: number; onOpen: () => void };
-  /** the question dots and the "audio waits here" mark that sit on the progress track (guide section 23) */
-  runway: Runway;
-  /** the dots, from a memo that changes only with the answers (the rest of `runway` moves with the playhead) */
-  ticks: readonly RunwayTick[];
-  gated: boolean;
-  focusedId: number | null;
-  onFocus: (questionId: number) => void;
+  /** the strip: one line per lyric line with questions, the loudness, how far forward a scrub may go, and what a scrub does */
+  lines: readonly StripLine[];
+  peaks: Peaks | null;
+  limit: number;
+  onScrubStart: () => { wasPlaying: boolean } | null;
+  onScrubEnd: (time: number, wasPlaying: boolean) => Promise<unknown>;
+  onGate: () => void;
+  strip?: Ref<StripHandle>;
   volume: { level: number; muted: boolean; set: (v: number) => void; toggleMute: () => void; step: (d: 1 | -1) => void };
 }
 
-const mmss = (s: number) => {
-  const t = Math.max(0, Math.floor(Number.isFinite(s) ? s : 0));
-  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
-};
+function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => window.matchMedia?.(query).matches ?? false);
+  useEffect(() => {
+    const list = window.matchMedia?.(query);
+    if (!list) return;
+    const f = () => setOn(list.matches);
+    list.addEventListener("change", f);
+    return () => list.removeEventListener("change", f);
+  }, [query]);
+  return on;
+}
 
-export function Transport({ engineReady, state, time, duration, onStart, onPlay, onPause, onBack, phone, onNext, onSeek, volume, queue, runway, ticks, gated, focusedId, onFocus }: Props) {
+export function Transport({ engineReady, state, getTime, duration, onStart, onPlay, onPause, phone, volume, queue, lines, peaks, limit, onScrubStart, onScrubEnd, onGate, strip }: Props) {
   const running = state === "PLAYING" || state === "FADING_IN" || state === "FADING_OUT";
-  // While the thumb is being dragged it shows the drag position; the seek happens when it is released.
-  const [dragging, setDragging] = useState<number | null>(null);
-  const commit = () => {
-    if (dragging === null) return;
-    // keep showing the target until the seek is done: no jump back to the old position and forward again
-    void onSeek(dragging).finally(() => setDragging(null));
-  };
   // the mouse wheel over the volume control changes the volume (a non-passive listener, so the page does not scroll)
   const volumeBox = useRef<HTMLDivElement>(null);
   const stepRef = useRef(volume.step);
@@ -65,15 +63,10 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
   const shown = volume.muted ? 0 : volume.level;
-  const hasNext = (queue?.count ?? 0) > 0;
-  // Left swipe on the bar is Next (the track keeps its own horizontal drag, so a swipe never starts on it)
-  const bar = useRef<HTMLDivElement>(null);
-  const hint = useSwipeHint(phone && hasNext);
-  useSwipe(bar, { directions: ["left"], onSwipe: () => { hint.used(); onNext(); }, enabled: phone && hasNext, ignore: ".seek-wrap" });
+  const sideways = useMedia("(orientation: landscape) and (max-height: 500px)"); // a phone on its side: one thin row, the PC's 60 s window
   return (
-    <div className="transport" ref={bar}>
-      {phone && <div className="swipe-reveal next" aria-hidden="true">{en.queue.swipeNext}<Icon name="skipNext" /></div>}
-      <div className="transport-inner" data-swipe-face>
+    <div className="transport">
+      <div className="transport-inner">
         <div className="controls" role="group" aria-label="Playback">
           <PlayButton
             size="l"
@@ -83,37 +76,21 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
             aria-label={running ? en.game.pause : en.game.play}
             title={running ? en.game.pause : en.game.play}
           />
-          <button type="button" className="icon-btn" onClick={onBack} disabled={!engineReady} aria-label={en.game.back5} title={en.game.back5}>
-            <Icon name="rewind5" />
-          </button>
-          {!phone && (
-            <button type="button" className="icon-btn" onClick={onNext} disabled={!hasNext} aria-label={en.queue.skip} title={en.queue.skip}>
-              <Icon name="skipNext" />
-            </button>
-          )}
         </div>
-        <div className="seek-wrap">
-          <input
-            className="seek"
-            type="range"
-            min={0}
-            max={Math.max(duration, 1)}
-            step={1}
-            value={dragging ?? Math.min(time, Math.max(duration, 1))}
-            style={{ "--p": `${(100 * (dragging ?? Math.min(time, Math.max(duration, 1)))) / Math.max(duration, 1)}%` } as CSSProperties}
-            disabled={!engineReady || duration <= 0}
-            aria-label={en.game.position}
-            aria-valuetext={`${mmss(dragging ?? time)} of ${mmss(duration)}`}
-            onChange={(e) => setDragging(Number(e.target.value))}
-            onPointerUp={commit}
-            onKeyUp={(e) => e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" ? commit() : undefined}
-            onBlur={commit}
-          />
-          {gated && <SeekTicks ticks={ticks} focusedId={focusedId} onFocus={onFocus} />}
-          {gated && runway.deadlinePct !== null && <i className="seek-deadline" style={{ "--t": runway.deadlinePct / 100 } as CSSProperties} title={en.game.audioWaitsHere} />}
-        </div>
-        <span className="transport-time" aria-hidden="true" title={dragging !== null ? mmss(dragging) : undefined}>{mmss(duration)}</span>
-        {phone && <span className="swipe-hint" data-shown={hint.shown} aria-hidden="true"><Icon name="arrowBack" />{en.queue.swipeHint}</span>}
+        <ProgressStrip
+          ref={strip}
+          getTime={getTime}
+          duration={duration}
+          lines={lines}
+          limit={limit}
+          waiting={state === "PAUSED_FOR_QUESTION"}
+          peaks={peaks}
+          enabled={engineReady && duration > 0 && state !== "ERROR"}
+          windowSeconds={phone && !sideways ? WINDOW_PHONE_S : WINDOW_WIDE_S}
+          onStart={onScrubStart}
+          onEnd={onScrubEnd}
+          onGate={onGate}
+        />
         {!phone && <div className="volume" ref={volumeBox} role="group" aria-label={en.game.volume}>
           <button
             type="button"
@@ -148,20 +125,3 @@ export function Transport({ engineReady, state, time, duration, onStart, onPlay,
     </div>
   );
 }
-
-/** The question dots on the progress track. Memoised: up to a hundred buttons that do not need redrawing while the song merely moves on. */
-const SeekTicks = memo(function SeekTicks({ ticks, focusedId, onFocus }: { ticks: readonly RunwayTick[]; focusedId: number | null; onFocus: (questionId: number) => void }) {
-  return (
-    <>
-      {ticks.map((t, i) => {
-        const label = `Line ${i + 1}, ${t.count} ${t.count === 1 ? "question" : "questions"}${t.answered ? ", answered" : ", open"}`;
-        return (
-          <button
-            key={t.id} type="button" className="seek-tick" data-qid={t.id} data-answered={t.answered} data-focus={t.id === focusedId}
-            style={{ "--t": t.pct / 100 } as CSSProperties} aria-label={label} title={label} onClick={() => onFocus(t.id)}
-          />
-        );
-      })}
-    </>
-  );
-});

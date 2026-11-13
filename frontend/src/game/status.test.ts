@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { describeStatus } from "./status";
+import { describeError } from "./status";
 
-const err = (error: string) => describeStatus({ state: "ERROR", error, runway: null, freePlay: false });
+const err = (error: string) => ({ text: describeError(error) });
 
 describe("playback errors are explained by their cause", () => {
   it("autoplay policy → press play again", () => {

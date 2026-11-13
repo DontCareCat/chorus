@@ -16,8 +16,11 @@ import { buildWindowLines, currentLineIndex, focusLine, reuseLines } from "../ga
 import type { WindowLine } from "../game/lyric-window";
 import { resultWord } from "../game/results";
 import type { QuestionResult } from "../game/results";
-import { computeRunway } from "../game/runway";
-import { describeStatus } from "../game/status";
+import { describeError } from "../game/status";
+import { buildStripLines, scrubLimit } from "../game/strip";
+import { loadPeaks } from "../lib/peaks";
+import type { Peaks } from "../game/strip";
+import type { StripHandle } from "../components/ProgressStrip";
 import { useAsync } from "../hooks/useAsync";
 import { useGame } from "../hooks/useGame";
 import { useLyricFocus } from "../hooks/useLyricFocus";
@@ -36,6 +39,19 @@ import type { GameDto } from "../types/game";
 import type { QuizQuestion as QuizQuestionT } from "../types/question";
 
 const LAST_ANSWER_MS = 4000; // how long the result line of the previous answer stays visible
+
+/** The song's loudness for the player's strip: decoded once, kept; a YouTube song has none (the strip then shows even lines). */
+function usePeaks(songId: number, duration: number, youtube: boolean): Peaks | null {
+  const [peaks, setPeaks] = useState<Peaks | null>(null);
+  useEffect(() => {
+    if (youtube) return;
+    let gone = false;
+    void loadPeaks(songId, api.audioUrl(songId), duration).then((p) => { if (!gone) setPeaks(p); });
+    return () => { gone = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songId, youtube]);
+  return peaks;
+}
 
 export function GamePage({ publicId }: { publicId: string }) {
   const game = useAsync(() => api.getGame(publicId), [publicId]);
@@ -93,19 +109,14 @@ function GameScreen({ game }: { game: GameDto }) {
     clearTimeout(hintTimer.current);
     hintTimer.current = setTimeout(() => setHint(null), 3500);
   }, [setHintToast]);
-  /** A seek asked for by the player. Resolves when done. An open question cannot be skipped: if the request went
-   *  past it, it was limited and the player is told why. */
-  const seekTo = useCallback(
-    async (t: number) => {
-      const end = engine?.getDuration();
-      const outcome = await playback.seek(Math.max(0, Number.isFinite(end) && end ? Math.min(t, end) : t));
-      if (outcome.clamped) {
-        showHint(en.game.cannotSkip);
-      }
-      return outcome;
-    },
-    [engine, playback, showHint],
-  );
+  const stripRef = useRef<StripHandle>(null);
+  /** The strip let go on `t`: seek (never past an open question) and play again if it was playing. */
+  const scrubEnd = useCallback(async (t: number, wasPlaying: boolean) => {
+    const end = engine?.getDuration();
+    const outcome = await playback.scrubEnd(Math.max(0, Number.isFinite(end) && end ? Math.min(t, end) : t), wasPlaying);
+    if (outcome.clamped) showHint(en.game.cannotSkip);
+    return outcome;
+  }, [engine, playback.scrubEnd, showHint]);
 
   // Start playing once the engine exists AND its controller is ready (first click is the user gesture).
   useEffect(() => {
@@ -179,6 +190,10 @@ function GameScreen({ game }: { game: GameDto }) {
   const siblings = useMemo(() => (focusedQ ? g.quiz.filter((x) => x.lineId === focusedQ.lineId) : []), [g.quiz, focusedQ]);
 
   const time = engine?.getCurrentTime() ?? 0;
+  const engineRef = useRef(engine);
+  engineRef.current = engine;
+  const getTime = useCallback(() => engineRef.current?.getCurrentTime() ?? 0, []);
+  const onGate = useCallback(() => showHint(en.game.cannotSkip), [showHint]);
   // Until the audio element knows its length, the API's duration keeps the runway meaningful.
   const engineDuration = engine?.getDuration() ?? NaN;
   const duration = Number.isFinite(engineDuration) && engineDuration > 0 ? engineDuration : game.song_duration;
@@ -188,7 +203,6 @@ function GameScreen({ game }: { game: GameDto }) {
     lengthSaved.current = true;
     api.patchSong(game.song_id, { duration: Math.round(engineDuration) }).catch(() => { lengthSaved.current = false; });
   }, [youtubeId, game.song_duration, game.song_id, engineDuration]);
-  const runway = computeRunway({ duration, currentTime: time, questions: g.syncQs, answered: g.answeredSet });
   // the same line objects as before for every line an answer did not touch, so the lyric window redraws only what changed
   const lastLines = useRef<WindowLine[] | null>(null);
   const windowLines = useMemo(() => {
@@ -196,8 +210,10 @@ function GameScreen({ game }: { game: GameDto }) {
     lastLines.current = next;
     return next;
   }, [game.lines, game.lyrics_offset, g.quiz, g.results, focusedQ?.id]);
-  // the question dots only change with the answers, not with the playhead: computed apart so the progress bar can skip redrawing them ten times a second
-  const ticks = useMemo(() => computeRunway({ duration, currentTime: 0, questions: g.syncQs, answered: g.answeredSet }).ticks, [duration, g.syncQs, g.answeredSet]);
+  // the strip's question lines only change with the answers, not with the playhead
+  const stripLines = useMemo(() => (g.synced ? buildStripLines(g.syncQs, g.answeredSet, g.results) : []), [g.synced, g.syncQs, g.answeredSet, g.results]);
+  const limit = g.synced ? scrubLimit(g.syncQs, g.answeredSet, duration) : duration;
+  const peaks = usePeaks(game.song_id, duration, !!youtubeId);
   // The lyrics follow the song. Answering AHEAD of it (a line it has not reached) moves them on to the next question, until the song catches up.
   const [ahead, setAhead] = useState(false);
   const aheadRef = useRef(ahead);
@@ -206,7 +222,6 @@ function GameScreen({ game }: { game: GameDto }) {
   const focusedLine = focusedQ ? windowLines.findIndex((l) => l.lineId === focusedQ.lineId) : -1;
   const currentLine = currentLineIndex(windowLines, time, g.synced, focusedLine);
   useEffect(() => { if (aheadRef.current && focusedLine <= currentLine) setAhead(false); }, [focusedLine, currentLine]); // caught up (only when set: see the note on nested updates)
-  const status = describeStatus({ short: layout === "phone", state: playback.state.name, error: playback.state.error, runway: g.synced ? runway : null, freePlay: !g.synced });
 
   /** Choosing a line from the lyric sheet (far below the question) also brings its question into view. */
   const focusFromSheet = useCallback((id: number) => {
@@ -250,7 +265,7 @@ function GameScreen({ game }: { game: GameDto }) {
       }
       if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && engine) {
         e.preventDefault();
-        void seekTo(engine.getCurrentTime() + (e.key === "ArrowRight" ? 5 : -5));
+        stripRef.current?.nudge(e.key === "ArrowRight" ? 5 : -5); // the same fade-out / fade-in as a drag
         return;
       }
       if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -268,7 +283,7 @@ function GameScreen({ game }: { game: GameDto }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusedQ, g.answeredSet, answer, engine, seekTo, vol.step, vol.toggleMute, game.mode]);
+  }, [focusedQ, g.answeredSet, answer, engine, vol.step, vol.toggleMute, game.mode]);
 
   const start = () => {
     if (engine || started.current) return;
@@ -361,7 +376,6 @@ function GameScreen({ game }: { game: GameDto }) {
   const wordOpen = useRef(false);
   const playbackRef = useRef(playback);
   playbackRef.current = playback;
-  const back5 = () => playback.rewind(5);
   useEffect(() => {
     if (engine) (window as unknown as { __chorus: unknown }).__chorus = { engine, controller: playback.controller };
   }, [engine, playback.controller]);
@@ -381,8 +395,10 @@ function GameScreen({ game }: { game: GameDto }) {
   const centerOn = focusLine(lyricFocus, currentLine, focusedLine, asked >= 0, ahead); // nothing left to answer: the song's line again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   // no running commentary on the audio ("closes in 4 s"): the line only carries the phone's answer feedback and real audio errors
-  const stateText = playback.state.name === "ERROR" ? status.text : "";
+  const stateText = playback.state.name === "ERROR" ? describeError(playback.state.error) : "";
 
+  const [errorSeen, setErrorSeen] = useState("");
+  const errorToast = phone && stateText && errorSeen !== stateText ? { kind: "error" as const, text: stateText } : null; // a playback error stays until dismissed
   const questionBlock = focusedQ ? (
     <Question
       key={focusedQ.id}
@@ -457,7 +473,7 @@ function GameScreen({ game }: { game: GameDto }) {
       {stage}
       <div className="game-timeline wrap">
         {audioFailed && <p className="notice error" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
-        {stateText && <p className="state-line" data-tone={status.tone} role="status">{stateText}</p>}
+        {stateText && !phone && <p className="notice error" role="alert">{stateText}</p>}
       </div>
       <div className="game-body wrap">
         {phone ? (
@@ -487,24 +503,23 @@ function GameScreen({ game }: { game: GameDto }) {
       <Transport
         engineReady={!!engine}
         state={playback.state.name}
-        time={time}
+        getTime={getTime}
         duration={duration}
         onStart={start}
         onPlay={playback.play}
         onPause={playback.pause}
-        onBack={back5}
         phone={phone}
-        onNext={skipToNext}
-        onSeek={seekTo}
-        runway={runway}
-        ticks={ticks}
-        gated={g.synced}
-        focusedId={focusedQ?.id ?? null}
-        onFocus={setManualFocus}
+        lines={stripLines}
+        peaks={peaks}
+        limit={limit}
+        onScrubStart={playback.scrubStart}
+        onScrubEnd={scrubEnd}
+        onGate={onGate}
+        strip={stripRef}
         queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
-      {phone && <div className="toast-lane"><Toast toast={hintToast} /></div>}
+      {phone && <div className="toast-lane"><Toast toast={errorToast ?? hintToast} onDismiss={errorToast ? () => setErrorSeen(stateText) : undefined} /></div>}
       {wordHit && <WordCard hit={wordHit} language={game.language} songId={game.song_id} onClose={closeWord} />}
       {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} onSkip={() => { setQueueOpen(false); skipToNext(); }} />}
     </div>
