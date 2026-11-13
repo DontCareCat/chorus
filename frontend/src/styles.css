@@ -1409,11 +1409,10 @@ button.queue-bar-face { cursor: pointer; }
 .main-nav .tab-icon { position: relative; width: 56px; height: 32px; display: grid; place-items: center; font-size: 24px; transition: color var(--dur-base) var(--ease-standard); }
 .main-nav .nav-badge { position: absolute; top: -2px; left: calc(50% + 2px); margin: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 11px; background: var(--accent); color: var(--bg); }
 .main-nav::before { width: 56px; height: 32px; border-radius: var(--r-pill); transform: translate(calc(var(--thumb-x, 0px) + (var(--thumb-w, 0px) - 56px) / 2), var(--thumb-y, 0px)); }
-.main-nav[data-variant="tabs"] { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: var(--bg); }
+.main-nav[data-variant="tabs"] { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: transparent; }
 .main-nav[data-variant="tabs"] a { min-width: 0; }
 /* the fade above the tab bar is its own element so the stacking is: page < fade (19) < queue bar (20) < tab bar (25). Without the queue bar it is a 48px gradient above the tabs; with it the gradient starts 48px above the bar's top edge and is solid --bg from the bar's vertical middle down. */
-.nav-fade { position: fixed; left: 0; right: 0; bottom: var(--fade-bottom, var(--nav-h)); height: 48px; z-index: 19; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--bg)); }
-.shell:has(.queue-bar) .nav-fade { height: var(--fade-h, calc(8px + var(--queue-h, 60px) + 48px)); background: linear-gradient(to bottom, transparent 0, var(--bg) var(--fade-solid, calc(48px + var(--queue-h, 60px) / 2)), var(--bg) 100%); }
+.nav-fade { position: fixed; left: 0; right: 0; bottom: 0; height: var(--fade-h, calc(var(--nav-h, 64px) + 48px)); z-index: 19; pointer-events: none; background: linear-gradient(to bottom, transparent 0, var(--bg) var(--fade-solid, 48px), var(--bg) 100%); }
 .main-nav[data-variant="rail"] { position: fixed; left: 0; top: 0; bottom: 0; z-index: 25; width: 96px; box-sizing: border-box; padding: 24px 0; display: flex; flex-direction: column; align-items: center; gap: 20px; background: var(--bg); border-right: 1px solid var(--line); }
 .main-nav[data-variant="rail"] a { width: 72px; }
 .main-nav[data-variant="rail"] a[data-tab="settings"] { margin-top: auto; }

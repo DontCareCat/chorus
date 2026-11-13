@@ -21,8 +21,11 @@ describe("the fade above the tab bar", () => {
   it("never takes a tap", () => {
     expect(css).toMatch(/\.nav-fade \{[^}]*pointer-events: none/);
   });
-  it("is 48px high without the queue bar and starts 48px above the queue bar's top edge with it, solid from the bar's middle", () => {
-    expect(css).toMatch(/\.nav-fade \{[^}]*height: 48px/);
-    expect(css).toMatch(/\.shell:has\(\.queue-bar\) \.nav-fade \{[^}]*height: var\(--fade-h[^}]*var\(--bg\) var\(--fade-solid/);
+  it("starts at the bottom of the screen and is the tab bar's background", () => {
+    expect(css).toMatch(/\.nav-fade \{[^}]*bottom: 0/);
+    expect(css).toMatch(/\.main-nav\[data-variant="tabs"\] \{[^}]*background: transparent/);
+  });
+  it("is solid from --fade-solid down (48px above the tab bar's top, or the queue bar's middle)", () => {
+    expect(css).toMatch(/\.nav-fade \{[^}]*height: var\(--fade-h[^}]*var\(--bg\) var\(--fade-solid, 48px\)/);
   });
 });
