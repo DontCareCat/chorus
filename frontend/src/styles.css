@@ -1562,3 +1562,28 @@ button.queue-bar-face { cursor: pointer; }
 [data-layout="phone"] .top-back { flex: none; width: 44px; height: 44px; display: grid; place-items: center; margin-left: -8px; color: var(--text); border-radius: 50%; font-size: 24px; }
 [data-layout="phone"] .topbar:has(.top-back) { justify-content: flex-start; gap: 0; }
 .wm-section { white-space: nowrap; }
+
+/* ---------- the lyrics-source window (guide section 12): a dialog on a PC, the whole screen on a phone ---------- */
+.ls-scrim { z-index: 60; }
+.ls-window { width: 520px; max-width: 100%; max-height: 100%; overflow-y: auto; box-sizing: border-box; display: flex; flex-direction: column; gap: 18px; padding: 32px 32px 12px; background: var(--surface); color: var(--text); border: 1px solid var(--line-strong); border-radius: 20px; box-shadow: 0 24px 64px color-mix(in oklch, var(--text) 24%, transparent); }
+.ls-tile { width: 56px; height: 56px; border-radius: 16px; background: color-mix(in oklch, var(--warn) 18%, var(--surface)); color: var(--warn); display: grid; place-items: center; flex: none; }
+.ls-window h2 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.ls-lead { margin: 0; font-size: 16px; line-height: 1.5; color: var(--text-2); }
+.ls-field { display: grid; gap: 8px; }
+.ls-field > label { font-weight: 700; font-size: 16px; }
+.ls-field input { width: 100%; height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--text); font: 500 16px var(--font, inherit); outline: none; }
+.ls-field input:focus { border-color: var(--accent); }
+.ls-field input::placeholder { color: var(--text-4); opacity: 1; }
+.ls-field small { font-size: 14px; color: var(--text-3); }
+.ls-result { display: grid; gap: 10px; padding: 12px 14px; border-radius: 14px; background: color-mix(in oklch, var(--wrong) 16%, var(--surface)); font-size: 15px; line-height: 1.4; }
+.ls-big { width: 100%; height: 52px; border: 0; border-radius: 999px; background: var(--fill); color: var(--on-fill); font: 700 17px var(--font, inherit); display: flex; align-items: center; justify-content: center; gap: 10px; }
+.ls-big:hover:not(:disabled) { background: var(--fill-hover); }
+.ls-big:disabled { background: var(--disabled-bg); color: var(--disabled-fg); }
+.ls-spin { width: 18px; height: 18px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: ls-spin 0.8s linear infinite; }
+@keyframes ls-spin { to { transform: rotate(360deg); } }
+.ls-disc { margin: 0; font-size: 13px; line-height: 1.45; color: var(--text-4); text-align: center; }
+.ls-skip { align-self: center; height: 44px; padding: 0 16px; border: 0; background: transparent; color: var(--text-4); font: 500 15px var(--font, inherit); }
+.ls-skip:hover { color: var(--text-2); }
+[data-layout="phone"] .ls-scrim { padding: 0; }
+[data-layout="phone"] .ls-window { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; padding: 56px 20px 24px; }
+@media (prefers-reduced-motion: reduce) { .ls-spin { animation: none; } }
