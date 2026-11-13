@@ -72,7 +72,17 @@ export function SettingsPage() {
   const [current, jump] = useSectionSpy(sections.map((s) => s.id));
 
   if (loaded.error) return <p className="notice error">{loaded.error.message}</p>;
-  if (!form) return <p className="muted">…</p>;
+  if (!form) { // the page's frame is already in place: the heading, the section list and an empty card, so nothing moves when the settings arrive
+    return (
+      <>
+        <div className="page-head"><h1>{en.settings.title}</h1></div>
+        <div className="settings-layout" data-phone={phone || undefined}>
+          <SectionNav sections={sections} current={current} onJump={jump} phone={phone} />
+          <div className="settings-body" aria-busy="true"><section className="scard"><h2 className="scard-label">{sections[0]!.title}</h2><div className="scard-body sk-card" /></section></div>
+        </div>
+      </>
+    );
+  }
 
   /** Change settings: shown now, saved in the background, the floating "Saved" says when it is done. */
   const apply = (patch: Partial<SettingsDto>, done: string = en.settings.saved): Promise<void> => {

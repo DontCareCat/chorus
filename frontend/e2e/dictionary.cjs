@@ -181,7 +181,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   let uk;
   for (let i = 0; i < 60; i++) { uk = await api("GET", "dictionary"); if (uk.items.every((e) => e.enrich_status === "done")) break; await page.waitForTimeout(1000); }
   ok(uk.items.every((e) => /^uk\(/.test(e.translation)), "changing the language translates every word again: " + uk.items[0].translation);
-  await pick(page, sel, "English (Uen)"); await page.waitForTimeout(500);
+  await pick(page, sel, "English (EN)"); await page.waitForTimeout(500);
 
   console.log("[phone]");
   await page.setViewportSize({ width: 390, height: 844 });

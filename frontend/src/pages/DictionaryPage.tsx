@@ -15,7 +15,7 @@ import { languageName } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
-import { isOneOf, isString, usePref } from "../lib/prefs";
+import { isOneOf, isString, usePref, useRemembered } from "../lib/prefs";
 import { noAutofill } from "../lib/noAutofill";
 import { api, ApiError } from "../services/api";
 import type { BulkAction, BulkTarget, DictEntryDto, DictListDto, DictStatus } from "../services/api";
@@ -169,6 +169,7 @@ export function DictionaryPage() {
     await act(() => api.refreshWord(e.id, replace));
   };
 
+  const showLanguages = useRemembered("dict_language_row", data !== null, (data?.languages.length ?? 0) > 0);
   const total = summary.data?.total ?? data?.total ?? 0;
   const available = (scoped.data?.due ?? 0) + (scoped.data?.new ?? 0);
   const everything = Math.max(summary.data?.total ?? 0, (data?.languages ?? []).reduce((n, l) => n + l.count, 0)); // the whole dictionary, not what the filters leave
@@ -186,7 +187,7 @@ export function DictionaryPage() {
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("export")} disabled={everything === 0}>{en.dictionary.exchange.export}</button>
           <button type="button" className="btn quiet bordered small" onClick={() => setExchange("import")}>{en.dictionary.exchange.import}</button>
         </div>
-        <a className="btn inverse large" href={paths.review()} aria-disabled={(scoped.data?.available ?? 0) === 0}>
+        <a className="btn inverse large review-btn" href={paths.review()} aria-disabled={(scoped.data?.available ?? 0) === 0}>
           {available > 0 ? en.dictionary.reviewDue(available) : en.dictionary.review}
         </a>
       </div>
@@ -195,14 +196,14 @@ export function DictionaryPage() {
       <div className="toast-lane"><Toast toast={notice} onDismiss={() => setNotice(null)} /></div>
       {snippets.blocked && <p className="notice error" role="status">{en.errors.playBlocked}</p>}
 
-      {everything > 0 && (
+      {(!data || everything > 0) && (
         <>
           <div className="toolbar">
             <div className="chips thumbs" role="group" aria-label="Filter" ref={statusThumb}>
               {STATUSES.map((s) => (
                 <button key={s} type="button" className="chip" aria-pressed={status === s} onClick={() => setStatus(s)}>
                   {en.dictionary.filters[s]}
-                  {data ? <small key={data.status_counts[s] ?? 0}>{data.status_counts[s] ?? 0}</small> : null}
+                  {data ? <small key={data.status_counts[s] ?? 0}>{data.status_counts[s] ?? 0}</small> : <small className="pending" aria-hidden="true">0</small>}
                 </button>
               ))}
             </div>
@@ -210,10 +211,10 @@ export function DictionaryPage() {
               <input className="pill" type="search" {...noAutofill("dictionary-search")} value={query} onChange={(e) => setQuery(e.target.value)} placeholder={en.dictionary.search} aria-label={en.dictionary.search} />
             </div>
           </div>
-          {(data?.languages.length ?? 0) > 0 && (
+          {showLanguages && (
             <div className="chips lang-chips thumbs" role="group" aria-label={en.dictionary.languageFilter} ref={langThumb}>
               <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.dictionary.allLanguages}</button>
-              {data!.languages.map((l) => (
+              {(data?.languages ?? []).map((l) => (
                 <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)} title={languageName(l.code)}>
                   {l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
                 </button>

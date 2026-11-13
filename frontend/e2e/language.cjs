@@ -3,7 +3,7 @@
 //   CHORUS_URL=http://localhost:18201/ node frontend/e2e/language.cjs
 const { chromium } = require("playwright");
 const B = process.env.CHORUS_URL ?? "http://localhost:18201/";
-const pick = async (page, trigger, text) => { await page.locator(trigger).first().click(); await page.locator(".select-list [role=option]", { hasText: text }).first().click(); }; // our dropdown (components/Select.tsx)
+const pick = async (page, trigger, text) => { await page.locator(trigger).first().evaluate((el) => el.click()); const o = page.locator(".select-list [role=option]", { hasText: text }).first(); await o.waitFor(); await o.evaluate((el) => el.click()); }; // our dropdown (components/Select.tsx)
 const sw = (page, name) => page.locator(`[role=switch][aria-label="${name}"]`); // Settings switches apply at once
 const setSwitch = async (page, name, on) => { const el = sw(page, name); if ((await el.getAttribute("aria-checked")) !== String(on)) { await el.click(); await page.waitForSelector("text=Saved"); await page.waitForTimeout(150); } };
 const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) process.exitCode = 1; };
@@ -47,7 +47,7 @@ const TEXT = {
   ok(chips[0] === "All languages" && chips[1].startsWith("DE") && chips[1].endsWith("4") && chips[2].startsWith("FR") && chips[2].endsWith("2"), "chips list the languages in the library with their counts, biggest first: " + chips.join(" | "));
   ok(chips.some((c) => c.startsWith("DE")) && chips.some((c) => c.startsWith("ES")) && chips.some((c) => c.startsWith("EN")), "German (the default of the two songs without detection), Spanish and English are there too");
   const total = (await page.$$(".song")).length;
-  await page.click('.lang-chips .chip:has-text("FR")');
+  await page.click('.lang-chips .chip:text-matches("^FR")');
   ok(JSON.stringify(await langs()) === '["fr","fr"]', "French shows only the two French songs: " + (await langs()).join(","));
   await page.click('.chips:not(.lang-chips) .chip:has-text("Needs lyrics")');
   ok((await page.$$(".song")).length === 0 && /No songs match/.test(await page.textContent("main")), "it combines with the status filter");
@@ -59,7 +59,7 @@ const TEXT = {
   ok((await page.$$(".song")).length === total, "All languages shows everything again");
 
   console.log("[the filter follows the library]");
-  await page.click('.lang-chips .chip:has-text("ES")');
+  await page.click('.lang-chips .chip:text-matches("^ES")');
   ok((await page.$$(".song")).length === 1, "Spanish: one song");
   await page.request.patch(B + `api/songs/${s1.id}`, { data: { language: "en" } }); // the only Spanish song becomes English
   await page.reload(); await page.waitForSelector(".song");

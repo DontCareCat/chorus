@@ -674,17 +674,17 @@ button.fs-name:hover { background: var(--surface-2); }
 
 
 /* ---- dictionary and review (design guide section 13) ---- */
-.nav-badge { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--fill); color: var(--on-fill); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; vertical-align: 1px; }
+.nav-badge { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--r-pill); background: var(--fill); color: var(--on-fill); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; vertical-align: 1px; line-height: 1; text-box: trim-both cap alphabetic; } /* the digits (not the font's line box) are centred in the pill, on every WebView */
 .words { border-bottom: 1px solid var(--line); }
 .word { border-top: 1px solid var(--line); }
 .word[data-suspended="true"] .word-head, .word[data-suspended="true"] .word-tr { opacity: 0.55; }
 .word-main { width: calc(100% + 2 * var(--row-pad)); margin: 0 calc(-1 * var(--row-pad)); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px var(--row-pad); background: transparent; border: none; border-radius: 14px; color: inherit; text-align: left; }
 .word-main:hover, .word[data-open="true"] .word-main { background: var(--surface-2); }
 .word-text { min-width: 0; display: grid; gap: 2px; }
-/* select mode: a tick box at the start of every row, the words move right to make room; a ticked row keeps the hover colour */
+/* select mode: the tick box takes the place of the row's tag and count at the right end (they stay in the layout, hidden), so no row moves; a ticked row keeps the hover colour */
 .word { position: relative; }
-.word > .pick { position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 1; }
-.words[data-selecting="true"] .word-main { padding-left: calc(var(--row-pad) + 34px); }
+.word > .pick { position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 1; }
+.words[data-selecting="true"] .word-meta { visibility: hidden; }
 .word[data-picked="true"] .word-main { background: var(--surface-2); }
 .list-end { min-height: 44px; display: flex; align-items: center; justify-content: center; margin: 12px 0; font-size: 14px; }
 .word-head { font-weight: 700; font-size: 21px; letter-spacing: -0.02em; line-height: 1.2; overflow-wrap: anywhere; }
@@ -873,10 +873,10 @@ html.dialog-open { overflow: hidden; }
 [data-layout="compact"] { --cover-row: 80px; }
 [data-layout="phone"] { --cover-row: 56px; --row-gap: 12px; }
 [data-layout="phone"] .song-main { grid-template-columns: var(--cover-row) minmax(0, 1fr) auto 44px; column-gap: 10px; padding: 12px var(--row-pad); }
-[data-layout="phone"] .song-main[data-selecting="true"] { grid-template-columns: 24px var(--cover-row) minmax(0, 1fr) auto 44px; }
 [data-layout="phone"] .song-length { min-width: 36px; }
 [data-layout="phone"] .songs .song-main > .pick { display: none; opacity: 1; }
-[data-layout="phone"] .song-main[data-selecting="true"] > .pick { display: grid; }
+/* selecting: the tick box sits over the cover, so no row moves when selecting starts or ends */
+[data-layout="phone"] .song-main[data-selecting="true"] > .pick { display: grid; position: absolute; left: calc(var(--row-pad) + (var(--cover-row) - 22px) / 2); top: 50%; transform: translateY(-50%); z-index: 1; }
 [data-layout="phone"] .song-title { font-size: 17px; }
 [data-layout="phone"] .start-panel { padding: 0 0 16px; }
 [data-layout="phone"] .select-bar { top: 0; padding-left: var(--row-pad); gap: var(--gap-actions); }
@@ -1509,3 +1509,8 @@ button.queue-bar-face { cursor: pointer; }
 
 .settings-layout[data-phone] .queue-levels button { padding: 8px 6px; font-size: 15px; }
 .settings-layout[data-phone] .queue-levels { padding: 6px; }
+
+/* loading shells: the frame of a page is drawn at once and the data fills it in, so nothing moves when it arrives */
+.sk-card { min-height: 280px; background: var(--surface); }
+.chip small.pending { visibility: hidden; }
+.review-btn { min-width: calc(11ch + 54px); justify-content: center; } /* "Review" and "Review 2673" are the same width: the button does not grow when the count arrives */

@@ -13,7 +13,7 @@ import { useQueueActions } from "../hooks/useQueueActions";
 import { SortControl } from "../components/SortControl";
 import { FolderBrowser } from "../components/FolderBrowser";
 import { languageName } from "../components/LanguageSelect";
-import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
+import { isBool, isOneOf, isString, usePref, useRemembered } from "../lib/prefs";
 import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
 import { keepUnchanged } from "../lib/keep-unchanged";
@@ -229,6 +229,7 @@ export function LibraryPage() {
   const languages = useMemo(() => languageCounts(all).map((l) => ({ code: l.code, count: facets.languages.find((x) => x.code === l.code)?.count ?? 0 })), [all, facets]);
   // a language that no song has any more (the last one was removed or changed) must not keep an empty list on screen
   // (only once the songs have loaded: before that the list is empty and would wipe the remembered filter)
+  const showLanguages = useRemembered("lib_language_row", songs.data !== null, languages.length > 1);
   useEffect(() => { if (songs.data && language !== "all" && !languages.some((l) => l.code === language)) setLanguage("all"); }, [songs.data, languages, language]);
 
   const unfinished = (games.data ?? []).find((g) => !g.finished_at);
@@ -347,7 +348,7 @@ export function LibraryPage() {
         </div>
       </div>
 
-      {languages.length > 1 && (
+      {showLanguages && (
         <div className="chips lang-chips thumbs" role="group" aria-label={en.library.languageFilter} ref={langThumb}>
           <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.library.allLanguages}</button>
           {languages.map((l) => (

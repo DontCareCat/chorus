@@ -38,9 +38,9 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   const other = (await api("GET", "songs")).find((x) => x.title !== song.title);
   await api("PATCH", `songs/${other.id}`, { language: "fr" });
   await page.goto(B); await page.waitForSelector(".lang-chips");
-  await page.click('.lang-chips .chip:has-text("FR")');
+  await page.click('.lang-chips .chip:text-matches("^FR")');
   await page.reload(); await page.waitForSelector(".song");
-  ok((await page.getAttribute('.lang-chips .chip:has-text("FR")', "aria-pressed")) === "true", "the library language filter is still French after a reload");
+  ok((await page.getAttribute('.lang-chips .chip:text-matches("^FR")', "aria-pressed")) === "true", "the library language filter is still French after a reload");
   await page.click('.lang-chips .chip:has-text("All")');
 
   console.log("[dictionary]");
@@ -51,9 +51,9 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 5).padStart(2, "0")}.00] ${t}`
   await page.reload(); await page.waitForSelector(".word");
   ok((await page.$$eval(".toolbar .chip[aria-pressed=true]", (c) => c.map((x) => x.textContent.trim()))).some((t) => t.startsWith("New")), "the status chip is remembered");
   ok((await page.inputValue('input[type="search"]')) === "ich", "the search is remembered and applied");
-  await page.click('.lang-chips .chip:has-text("DE")');
+  await page.click('.lang-chips .chip:text-matches("^DE")');
   await page.reload(); await page.waitForSelector(".word");
-  ok((await page.getAttribute('.lang-chips .chip:has-text("DE")', "aria-pressed")) === "true", "the language filter is remembered");
+  ok((await page.getAttribute('.lang-chips .chip:text-matches("^DE")', "aria-pressed")) === "true", "the language filter is remembered");
 
   console.log("[the review uses only the filtered words]");
   const matching = (await api("GET", "dictionary?status=new&language=de&q=ich&limit=500")).items.map((e) => e.surface);

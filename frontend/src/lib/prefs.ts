@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const PREFIX = "chorus_";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
@@ -27,6 +27,16 @@ export const isOneOf = <T extends string | number>(...allowed: readonly T[]) => 
 export const isString = (v: unknown): v is string => typeof v === "string" && v.length <= 200;
 export const isBool = (v: unknown): v is boolean => typeof v === "boolean";
 export const isId = (v: unknown): v is number | null => v === null || (typeof v === "number" && Number.isInteger(v) && v > 0);
+
+/**
+ * Whether a block that depends on loaded data (a row of chips that only exists when there is something to choose from) is there. Until the
+ * data has loaded this is what it was the last time, so the block is already in place (as an empty shell) and nothing moves when the data arrives.
+ */
+export function useRemembered(name: string, loaded: boolean, actual: boolean): boolean {
+  const [was] = useState(() => readPref(name, false, isBool));
+  useEffect(() => { if (loaded && actual !== was) writePref(name, actual); }, [name, loaded, actual, was]);
+  return loaded ? actual : was;
+}
 
 /** useState whose value is remembered in a cookie `chorus_<name>` and restored on the next visit. */
 export function usePref<T>(name: string, fallback: T, valid: (v: unknown) => v is T): [T, (v: T) => void] {

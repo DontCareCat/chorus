@@ -88,7 +88,7 @@ async function answerAllOpen(page, limit = null) {
   const paused = l.filter((x) => x.state === "PAUSED_FOR_QUESTION");
   assert(paused.every((x) => x.paused && x.gain === 0), "paused with gain 0 while waiting");
   assert(Math.max(...paused.map((x) => x.time)) - Math.min(...paused.map((x) => x.time)) < 0.05, "position does not move while waiting");
-  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says the audio is waiting for you");
+  assert((await page.locator(".state-line").count()) === 0, "no status line: the game does not narrate what the audio is doing");
   const blockingId = paused[0].blocking;
   const m1 = await mark(page);
   await answerQ(page, blockingId);
@@ -142,7 +142,6 @@ async function answerAllOpen(page, limit = null) {
   await page.waitForTimeout(14000);
   l = await slice(page, m4);
   assert(l.every((x) => x.state === "PLAYING" || x.state === "IDLE"), "stayed PLAYING for 14 s with everything answered");
-  assert(/answered|Enjoy/.test(await page.textContent(".state-line")), "status line: " + (await page.textContent(".state-line")));
   await page.close();
 
   console.log("\n[6] recovery position of a later question = start of the PREVIOUS lyric line");
@@ -338,7 +337,7 @@ async function answerAllOpen(page, limit = null) {
   assert(w14.state === "PAUSED_FOR_QUESTION" && w14.paused, "the audio ended with the question open: the game waits instead of just stopping");
   assert(Math.abs(w14.time - last14.recovery_start) < 0.2, `…at the previous line (${w14.time.toFixed(2)} s, expected ${last14.recovery_start} s)`);
   assert(!l.some((x) => x.state === "FADING_OUT"), "no fade-out: there was nothing playing to fade");
-  assert(/Waiting for you/.test(await page.textContent(".state-line")), "the status line says it is waiting");
+  assert((await page.locator(".state-line").count()) === 0, "no status line while it waits");
   await answerQ(page, last14.id);
   await page.waitForFunction(() => window.__chorus.controller.state.name === "IDLE", null, { timeout: 30000 });
   assert(true, "after the answer it plays on and ends cleanly (nothing left to answer)");
