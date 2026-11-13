@@ -110,7 +110,7 @@ export function SettingsPage() {
   };
   const forever = form.lyrics_cache_ttl_days === 0;
   const dailyOptions = [0, 10, 20, 40, 60, 100, 200, 500].concat(user && ![0, 10, 20, 40, 60, 100, 200, 500].includes(user.daily_card_limit) ? [user.daily_card_limit] : []).sort((a, b) => (a === 0 ? -1 : b === 0 ? 1 : a - b)).map((n) => ({ value: n, label: n === 0 ? en.settings.unlimited : String(n) }));
-  const languageOptions = (value: string) => [...(LANGUAGES.some((l) => l.code === value) || !value ? [] : [{ value, label: value }]), ...LANGUAGES.map((l) => ({ value: l.code, label: `${l.name} (${l.code})` }))];
+  const languageOptions = (value: string) => [...(LANGUAGES.some((l) => l.code === value) || !value ? [] : [{ value, label: value.toUpperCase() }]), ...LANGUAGES.map((l) => ({ value: l.code, label: `${l.name} (${l.code.toUpperCase()})` }))];
 
   const body = (
     <div className="settings-body">
@@ -191,13 +191,13 @@ export function SettingsPage() {
             ))}
           </div>
         </ChoiceRow>
-        <ChoiceRow title={en.settings.lyricFocus} tag help={en.settings.lyricFocusHelp}>
+        <ChoiceRow title={en.settings.lyricFocus} help={lyric.focus === "question" ? en.settings.lyricFocusQuestionHelp : en.settings.lyricFocusLineHelp}>
           <div className="segmented thumbs" role="group" aria-label={en.settings.lyricFocus} ref={focusThumb}>
             <button type="button" aria-pressed={lyric.focus === "question"} onClick={() => { lyric.setFocus("question"); setNotice({ kind: "ok", text: en.settings.saved }); }}>{en.settings.lyricFocusQuestion}</button>
             <button type="button" aria-pressed={lyric.focus === "line"} onClick={() => { lyric.setFocus("line"); setNotice({ kind: "ok", text: en.settings.saved }); }}>{en.settings.lyricFocusLine}</button>
           </div>
         </ChoiceRow>
-        <ChoiceRow title={en.settings.audioPanel} tag help={en.settings.audioHelp}>
+        <ChoiceRow title={en.settings.audioPanel} help={en.settings.audioHelp}>
           <div className="segmented thumbs" role="group" aria-label={en.settings.audioPanel} ref={audioThumb}>
             {(["webaudio", "direct"] as const).map((k) => (
               <button key={k} type="button" aria-pressed={kind === k} title={en.settings.audio[k].help} onClick={() => { setEngineKind(k); setKind(k); setNotice({ kind: "ok", text: en.settings.saved }); }}>{en.settings.audio[k].name}</button>

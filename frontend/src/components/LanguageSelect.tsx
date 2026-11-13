@@ -12,7 +12,7 @@ export const LANGUAGES: readonly { code: string; name: string }[] = [
 ].sort((a, b) => a.name.localeCompare(b.name));
 
 /** "German" for "de"; the code itself for one that is not in the list. */
-export const languageName = (code: string): string => LANGUAGES.find((l) => l.code === code)?.name ?? code;
+export const languageName = (code: string): string => LANGUAGES.find((l) => l.code === code)?.name ?? code.toUpperCase();
 
 interface Props {
   value: string;
@@ -22,6 +22,6 @@ interface Props {
 
 /** Language names for people, two-letter codes for the database. A code that is not in the list stays selectable. */
 export function LanguageSelect({ value, onChange, id }: Props) {
-  const options = [...(LANGUAGES.some((l) => l.code === value) || !value ? [] : [{ value, label: value }]), ...LANGUAGES.map((l) => ({ value: l.code, label: `${l.name} (${l.code})` }))];
+  const options = [...(LANGUAGES.some((l) => l.code === value) || !value ? [] : [{ value, label: value.toUpperCase() }]), ...LANGUAGES.map((l) => ({ value: l.code, label: `${l.name} (${l.code.toUpperCase()})` }))];
   return <Select id={id} value={value} onChange={onChange} options={options} />;
 }

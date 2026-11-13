@@ -51,3 +51,21 @@ describe("followStep / followSmoothly", () => {
     expect(el.scrollTop).toBe(345);
   });
 });
+
+describe("followInSync", () => {
+  it("runs the CSS curve and lands exactly", async () => {
+    const { cubicBezier, easeStandard } = await import("./smooth-scroll");
+    expect(easeStandard(0)).toBe(0);
+    expect(easeStandard(1)).toBe(1);
+    expect(cubicBezier(0, 0, 1, 1, 0.37)).toBeCloseTo(0.37, 3);
+    expect(easeStandard(0.5)).toBeGreaterThan(0.5);
+    let last = 0;
+    for (let t = 0; t <= 1; t += 0.05) { const v = easeStandard(t); expect(v).toBeGreaterThanOrEqual(last); last = v; }
+  });
+  it("places at once when instant", async () => {
+    const { followInSync } = await import("./smooth-scroll");
+    const el = { scrollTop: 0, scrollHeight: 1000, clientHeight: 200 } as HTMLElement;
+    followInSync(el, () => 345.4, 320, true);
+    expect(el.scrollTop).toBe(345);
+  });
+});

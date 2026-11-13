@@ -373,7 +373,8 @@ function GameScreen({ game }: { game: GameDto }) {
   const asked = focusedQ && !g.answeredSet.has(focusedQ.id) ? focusedLine : -1; // nothing left to answer: no question line
   const centerOn = focusLine(lyricFocus, currentLine, focusedLine, asked >= 0, ahead); // nothing left to answer: the song's line again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
-  const stateText = phone ? (hint ?? last.text) || status.text : status.text;
+  // no running commentary on the audio ("closes in 4 s"): the line only carries the phone's answer feedback and real audio errors
+  const stateText = playback.state.name === "ERROR" ? status.text : phone ? hint ?? last.text : "";
 
   const questionBlock = focusedQ ? (
     <Question
@@ -441,7 +442,7 @@ function GameScreen({ game }: { game: GameDto }) {
         {!phone && !youtubeId && <Vinyl songId={game.song_id} title={game.song_title} hasCover={null} spinning={spinning} />}
         <div className="game-title">
           <h1>{game.song_title}</h1>
-          <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language].filter(Boolean).join(" · ")}</p>
+          <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language.toUpperCase()].filter(Boolean).join(" · ")}</p>
         </div>
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />
       </div>
@@ -449,7 +450,7 @@ function GameScreen({ game }: { game: GameDto }) {
       {stage}
       <div className="game-timeline wrap">
         {audioFailed && <p className="notice error" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
-        <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>
+        {(phone || stateText) && <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>}
       </div>
       <div className="game-body wrap">
         {phone ? (

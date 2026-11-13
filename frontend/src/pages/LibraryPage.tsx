@@ -12,7 +12,7 @@ import { SongList } from "../components/SongList";
 import { useQueueActions } from "../hooks/useQueueActions";
 import { SortControl } from "../components/SortControl";
 import { FolderBrowser } from "../components/FolderBrowser";
-import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { languageName } from "../components/LanguageSelect";
 import { isBool, isOneOf, isString, usePref } from "../lib/prefs";
 import { extraCopies, findDuplicates } from "../lib/duplicates";
 import { languageCounts } from "../lib/languages";
@@ -352,7 +352,7 @@ export function LibraryPage() {
           <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.library.allLanguages}</button>
           {languages.map((l) => (
             <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)} title={languageName(l.code)}>
-              {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
+              {l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
             </button>
           ))}
         </div>

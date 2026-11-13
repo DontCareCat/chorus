@@ -14,32 +14,30 @@ export function SettingsCard({ id, title, children }: { id: string; title: strin
   );
 }
 
-export const DeviceTag = () => <span className="tag">{en.settings.thisDevice}</span>;
-
-function Text({ title, help, tag }: { title: string; help?: string; tag?: boolean }) {
+function Text({ title, help }: { title: string; help?: string }) {
   return (
     <div className="srow-text">
-      <strong>{title}{tag && <DeviceTag />}</strong>
+      <strong>{title}</strong>
       {help && <small>{help}</small>}
     </div>
   );
 }
 
 /** Title and help on the left, a switch on the right; it applies at once. */
-export function SwitchRow({ title, help, checked, onChange, disabled, tag }: { title: string; help?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; tag?: boolean }) {
+export function SwitchRow({ title, help, checked, onChange, disabled }: { title: string; help?: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <div className="srow" data-kind="switch" data-disabled={disabled || undefined}>
-      <Text title={title} help={help} tag={tag} />
+      <Text title={title} help={help} />
       <button type="button" role="switch" className="sw" aria-checked={checked} aria-label={title} disabled={disabled} onClick={() => onChange(!checked)}><i /></button>
     </div>
   );
 }
 
 /** Title (and help) over a segmented control or other wide control. */
-export function ChoiceRow({ title, help, tag, dim, children }: { title: string; help?: string; tag?: boolean; dim?: boolean; children: ReactNode }) {
+export function ChoiceRow({ title, help, dim, children }: { title: string; help?: string; dim?: boolean; children: ReactNode }) {
   return (
     <div className="srow" data-kind="choice" data-dim={dim || undefined}>
-      <Text title={title} tag={tag} />
+      <Text title={title} />
       <div className="srow-control">{children}</div>
       {help && <small className="srow-help">{help}</small>}
     </div>

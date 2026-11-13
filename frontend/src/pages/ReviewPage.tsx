@@ -30,7 +30,7 @@ const dictionaryScope = (): ReviewScope => ({
 const describeScope = (scope: ReviewScope): string | null => {
   const parts = [
     scope.status && scope.status !== "all" ? en.dictionary.filters[scope.status] : null,
-    scope.language && scope.language !== "all" ? (LANGUAGES.some((l) => l.code === scope.language) ? languageName(scope.language) : scope.language) : null,
+    scope.language && scope.language !== "all" ? (LANGUAGES.some((l) => l.code === scope.language) ? languageName(scope.language) : scope.language.toUpperCase()) : null,
     scope.q ? `“${scope.q}”` : null,
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;

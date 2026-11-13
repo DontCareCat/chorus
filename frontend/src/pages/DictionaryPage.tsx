@@ -11,7 +11,7 @@ import { useLongPress } from "../hooks/useLongPress";
 import { useNearEnd, usePagedList } from "../hooks/usePagedList";
 import { useSelection } from "../hooks/useSelection";
 import { Example } from "../components/Example";
-import { LANGUAGES, languageName } from "../components/LanguageSelect";
+import { languageName } from "../components/LanguageSelect";
 import { useAsync } from "../hooks/useAsync";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
@@ -214,8 +214,8 @@ export function DictionaryPage() {
             <div className="chips lang-chips thumbs" role="group" aria-label={en.dictionary.languageFilter} ref={langThumb}>
               <button type="button" className="chip" aria-pressed={language === "all"} onClick={() => setLanguage("all")}>{en.dictionary.allLanguages}</button>
               {data!.languages.map((l) => (
-                <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)}>
-                  {LANGUAGES.some((x) => x.code === l.code) ? languageName(l.code) : l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
+                <button key={l.code} type="button" className="chip" aria-pressed={language === l.code} onClick={() => setLanguage(l.code)} title={languageName(l.code)}>
+                  {l.code.toUpperCase()}<small key={l.count}>{l.count}</small>
                 </button>
               ))}
             </div>

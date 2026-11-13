@@ -58,3 +58,39 @@ export function followSmoothly(el: HTMLElement, target: () => number, ms: number
   id = requestAnimationFrame(step);
   return () => cancelAnimationFrame(id);
 }
+
+/** The progress (0..1) of a CSS cubic-bezier(x1, y1, x2, y2) transition `t` (0..1) of the way through its time: the same curve the browser runs. */
+export function cubicBezier(x1: number, y1: number, x2: number, y2: number, t: number): number {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  const at = (a: number, b: number, s: number) => 3 * a * (1 - s) ** 2 * s + 3 * b * (1 - s) * s * s + s ** 3;
+  let lo = 0, hi = 1, s = t;
+  for (let i = 0; i < 24; i++) { s = (lo + hi) / 2; if (at(x1, x2, s) < t) lo = s; else hi = s; }
+  return at(y1, y2, s);
+}
+
+/** The curve of `--ease-standard`, the one the lines' size transition uses. */
+export const easeStandard = (t: number): number => cubicBezier(0.4, 0, 0.2, 1, t);
+
+/**
+ * Scroll `el` towards a target that is itself moving, on the SAME clock and curve as the CSS transition that moves it (the lines change size
+ * over `ms` with --ease-standard): the scroll position is `from` blended with the target as it is right now, so the pan and the size change
+ * start together, run together and end together (no pan first and resize after, or the other way round). Lands exactly on the target.
+ * Returns a function that stops it. `instant` just places the scroll.
+ */
+export function followInSync(el: HTMLElement, target: () => number, ms: number, instant: boolean): () => void {
+  const clamp = (v: number) => Math.min(Math.max(0, el.scrollHeight - el.clientHeight), Math.max(0, Math.round(v)));
+  if (instant) { el.scrollTop = clamp(target()); return () => undefined; }
+  const from = el.scrollTop;
+  const start = performance.now();
+  let id = 0;
+  const step = (now: number) => {
+    const t = (now - start) / ms;
+    const to = clamp(target());
+    if (t >= 1) { el.scrollTop = to; return; }
+    el.scrollTop = from + (to - from) * easeStandard(t);
+    id = requestAnimationFrame(step);
+  };
+  id = requestAnimationFrame(step);
+  return () => cancelAnimationFrame(id);
+}

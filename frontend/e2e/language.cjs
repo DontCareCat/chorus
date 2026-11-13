@@ -44,10 +44,10 @@ const TEXT = {
   console.log("[the language filter]");
   await page.goto(B); await page.waitForSelector(".song");
   const chips = await page.$$eval(".lang-chips .chip", (e) => e.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
-  ok(chips[0] === "All languages" && chips[1].startsWith("German") && chips[1].endsWith("4") && chips[2].startsWith("French") && chips[2].endsWith("2"), "chips list the languages in the library with their counts, biggest first: " + chips.join(" | "));
-  ok(chips.some((c) => c.startsWith("German")) && chips.some((c) => c.startsWith("Spanish")) && chips.some((c) => c.startsWith("English")), "German (the default of the two songs without detection), Spanish and English are there too");
+  ok(chips[0] === "All languages" && chips[1].startsWith("DE") && chips[1].endsWith("4") && chips[2].startsWith("FR") && chips[2].endsWith("2"), "chips list the languages in the library with their counts, biggest first: " + chips.join(" | "));
+  ok(chips.some((c) => c.startsWith("DE")) && chips.some((c) => c.startsWith("ES")) && chips.some((c) => c.startsWith("EN")), "German (the default of the two songs without detection), Spanish and English are there too");
   const total = (await page.$$(".song")).length;
-  await page.click('.lang-chips .chip:has-text("French")');
+  await page.click('.lang-chips .chip:has-text("FR")');
   ok(JSON.stringify(await langs()) === '["fr","fr"]', "French shows only the two French songs: " + (await langs()).join(","));
   await page.click('.chips:not(.lang-chips) .chip:has-text("Needs lyrics")');
   ok((await page.$$(".song")).length === 0 && /No songs match/.test(await page.textContent("main")), "it combines with the status filter");
@@ -59,17 +59,17 @@ const TEXT = {
   ok((await page.$$(".song")).length === total, "All languages shows everything again");
 
   console.log("[the filter follows the library]");
-  await page.click('.lang-chips .chip:has-text("Spanish")');
+  await page.click('.lang-chips .chip:has-text("ES")');
   ok((await page.$$(".song")).length === 1, "Spanish: one song");
   await page.request.patch(B + `api/songs/${s1.id}`, { data: { language: "en" } }); // the only Spanish song becomes English
   await page.reload(); await page.waitForSelector(".song");
-  ok(!(await page.$$eval(".lang-chips .chip", (e) => e.some((x) => x.textContent.includes("Spanish")))), "a language nobody has any more disappears from the chips");
+  ok(!(await page.$$eval(".lang-chips .chip", (e) => e.some((x) => x.textContent.includes("ES")))), "a language nobody has any more disappears from the chips");
   ok((await page.$$(".song")).length === total, "…and the list shows all songs, not an empty page");
 
   console.log("[song page: detect on request, choices are respected]");
   await page.goto(B + `#/songs/${f1.id}`); await page.waitForSelector(".panel");
   ok(/Detected from the lyrics/.test(await page.textContent(".panel:has(h2:has-text('Song details'))")), "the song page says where the language came from");
-  await pick(page, '.panel:has(h2:has-text("Song details")) .select-btn', "Spanish (es)");
+  await pick(page, '.panel:has(h2:has-text("Song details")) .select-btn', "Spanish (ES)");
   await page.click('button:has-text("Save details")'); await page.waitForSelector("text=Saved");
   await page.reload(); await page.waitForSelector(".panel");
   ok(/Chosen by you/.test(await page.textContent(".panel:has(h2:has-text('Song details'))")), "after saving a language it says 'Chosen by you'");

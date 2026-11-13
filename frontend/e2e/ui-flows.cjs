@@ -17,16 +17,16 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   const saved = async () => { await page.waitForSelector(".float-toast"); await page.waitForTimeout(300); }; // settings apply at once
   await swt("Allow lyrics without timing").click(); await saved();
   await page.getByRole("checkbox", { name: "Keep forever" }).check(); await saved();
-  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "French (fr)"); await saved();
+  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "French (Ufr)"); await saved();
   for (const dir of ["/tmp/music-a", "/tmp/music-b"]) { await page.fill('input[aria-label="Add folder"]', dir); await page.click('button:has-text("Add folder")'); await saved(); }
   await page.reload(); await page.waitForSelector(".scard");
   ok((await swt("Allow lyrics without timing").getAttribute("aria-checked")) === "true", "unsynchronized toggle persisted");
   ok(await page.getByRole("checkbox", { name: "Keep forever" }).isChecked(), "cache TTL 'keep forever' persisted (0)");
-  ok((await page.$$(".folder-list li")).length === 2 && (await page.textContent("[data-kind=picker]:has-text('Language for new songs') .select-btn")).includes("(fr)"), "library folders and language persisted");
+  ok((await page.$$(".folder-list li")).length === 2 && (await page.textContent("[data-kind=picker]:has-text('Language for new songs') .select-btn")).includes("(Ufr)"), "library folders and language persisted");
   // restore defaults
   await swt("Allow lyrics without timing").click(); await saved();
   await page.getByRole("checkbox", { name: "Keep forever" }).uncheck(); await saved();
-  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "German (de)"); await saved();
+  await pick(page, "[data-kind=picker]:has-text('Language for new songs') .select-btn", "German (Ude)"); await saved();
   for (const b of await page.$$('.folder-list button')) { await b.click(); await saved(); }
 
   console.log("[song page: upload lyrics, timing]");
