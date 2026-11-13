@@ -1,6 +1,7 @@
 import { decay, DECAY_SECONDS, MAX_MULTIPLIER, multiplierFor, STREAK_STEP, secondsToDecay, untilNextLevel } from "../game/scoring";
 import type { Gain, Standing } from "../hooks/useGame";
 import { en } from "../i18n/en";
+import { Mark } from "./LyricWindow";
 
 interface Props {
   standing: Standing;
@@ -36,7 +37,7 @@ export function ScorePanel({ standing, waited, waiting, gain }: Props) {
       </span>
       {gain && (
         <span className="gain" key={gain.id} data-ok={gain.correct} role="status">
-          {gain.correct ? en.game.gain(gain.points, gain.multiplier) : "✗"}
+          {gain.correct ? en.game.gain(gain.points, gain.multiplier) : <Mark state="wrong" />}
           {gain.correct && gain.ahead && <small> {en.game.ahead}</small>}
         </span>
       )}

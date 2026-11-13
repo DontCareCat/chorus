@@ -1496,3 +1496,4 @@ button.queue-bar-face { cursor: pointer; }
 .review-btn { min-width: calc(11ch + 54px); justify-content: center; } /* "Review" and "Review 2673" are the same width: the button does not grow when the count arrives */
 
 .rec-stars { display: inline-flex; margin-left: 5px; vertical-align: -2px; color: var(--accent); }
+.gain .lw-mark { width: 0.9em; height: 0.9em; margin-left: 0; vertical-align: -0.05em; } /* the same cross as in the lyric window, in --wrong */

@@ -38,7 +38,7 @@ const MARKS: Record<string, { d: string; label: string }> = {
 };
 
 /** The plain tick, cross or wave after an answered word (design guide section 16): no background, the word's own colour, scaled with the line. */
-function Mark({ state }: { state: string }) {
+export function Mark({ state }: { state: string }) {
   const m = MARKS[state];
   if (!m) return null;
   return (
