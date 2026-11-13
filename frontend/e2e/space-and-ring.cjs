@@ -23,11 +23,11 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
   ok(true, "and starts it again");
   ok((await page.evaluate(() => scrollY)) === scroll, "the page does not scroll");
   // with a button focused Space must not click it a second time (the song would toggle twice)
-  await page.focus('button[aria-label="Stop"]');
+  await page.focus(".transport .pbtn");
   const before = await state();
   await page.keyboard.press("Space"); await page.waitForTimeout(300);
   ok((await state()) !== before || true, "Space with a button focused still only toggles playback once: " + before + " -> " + (await state()));
-  await page.focus('button[aria-label="Back 5 seconds"]');
+  await page.focus(".strip");
   // typing in a field must keep its spaces
   await page.evaluate(() => { const i = document.createElement("input"); i.id = "probe"; document.body.append(i); i.focus(); });
   const s1 = await state();

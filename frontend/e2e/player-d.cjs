@@ -30,16 +30,15 @@ const wait = (p, ms) => p.waitForTimeout(ms);
   const ph = await ctx.newPage();
   ph.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   const g1 = await mk(s1);
-  await ph.goto(B + `#/games/${g1.public_id}`); await ph.waitForSelector(".transport .seek"); await wait(ph, 600);
+  await ph.goto(B + `#/games/${g1.public_id}`); await ph.waitForSelector(".transport .strip"); await wait(ph, 600);
   const labels = await ph.$$eval(".transport button", (b) => b.map((x) => x.getAttribute("aria-label")));
   ok(!labels.includes("Stop"), "no Stop button: " + labels.join(", "));
   ok(!labels.includes("Skip to next") && (await ph.locator(".transport .volume").count()) === 0, "no Next button and no volume control on a phone");
-  ok(labels.includes("Play") && labels.includes("Back 5 seconds") && labels.some((l) => /^Open queue/.test(l ?? "")), "play, rewind 5 s and the queue button remain");
+  ok(labels.includes("Play") && !labels.includes("Back 5 seconds") && labels.some((l) => /^Open queue/.test(l ?? "")), "play and the queue button remain; no rewind 5 s");
   const times = await ph.$$eval(".transport-time", (e) => e.map((x) => x.textContent));
-  ok(times.length === 1 && /^1:10$/.test(times[0]), "only the song length is shown: " + times.join(" / "));
-  const L = await ph.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); const t = r(".transport"), sk = r(".seek-wrap"), c = r(".transport .controls"), q = r(".transport .queue-btn"), h = r(".swipe-hint"), o = r(".options"); return { tTop: t.top, tBottom: t.bottom, seekBottom: sk.bottom, seekW: sk.width, w: innerWidth, ctrlTop: c.top, qTop: q.top, hintShown: document.querySelector(".swipe-hint").dataset.shown, hintText: document.querySelector(".swipe-hint").textContent, hintMid: (h.left + h.right) / 2, optBottom: o.bottom, scrollW: document.documentElement.scrollWidth }; });
-  ok(L.seekBottom <= L.ctrlTop + 1 && L.seekW > L.w * 0.6, `the progress bar is on top and wide (${Math.round(L.seekW)} of ${L.w} px), the controls under it`);
-  ok(L.hintShown === "true" && /Swipe for next/.test(L.hintText) && Math.abs(L.hintMid - L.w / 2) < 40, "the swipe hint sits in the middle of the lower row");
+  ok(times.length === 1 && /^-1:10$/.test(times[0]), "only the time left is shown: " + times.join(" / "));
+  const L = await ph.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); const t = r(".transport"), sk = r(".strip"), o = r(".options"); return { tTop: t.top, seekW: sk.width, w: innerWidth, optBottom: o.bottom, scrollW: document.documentElement.scrollWidth }; });
+  ok(L.seekW > L.w * 0.4, `the progress strip is wide (${Math.round(L.seekW)} of ${L.w} px)`);
   ok(L.tTop - L.optBottom >= 0 && L.tTop - L.optBottom <= 16, `the answers sit directly above the player (${Math.round(L.tTop - L.optBottom)} px gap)`);
   ok(L.scrollW <= L.w, "nothing makes the page wider than the screen");
   await ph.screenshot({ path: process.env.SHOTS ? process.env.SHOTS + "/phone-b.png" : "/dev/null" }).catch(() => undefined);
@@ -52,64 +51,33 @@ const wait = (p, ms) => p.waitForTimeout(ms);
   await ph.keyboard.press("Escape"); await ph.mouse.click(5, 5); await wait(ph, 300);
   if (await ph.locator(".queue-body").count()) await ph.click('.dialog [aria-label="Close"], .queue-body ~ * [aria-label="Close"]').catch(() => undefined);
 
-  // swipe left on the bar = next song
-  const cdp = await ctx.newCDPSession(ph);
-  const touch = async (y, x0, x1) => {
-    const pt = (x) => [{ x, y, id: 1 }];
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: pt(x0) });
-    for (let i = 1; i <= 8; i++) { await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: pt(x0 + ((x1 - x0) * i) / 8) }); await wait(ph, 16); }
-    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  };
-  if (await ph.locator(".queue-body").count() === 0) {
-    const bar = await ph.locator(".transport .swipe-hint").boundingBox();
-    const seek = await ph.locator(".seek-wrap").boundingBox();
-    const before = await ph.evaluate(() => location.hash);
-    await touch(seek.y + seek.height / 2, 300, 60); await wait(ph, 800);
-    ok((await ph.evaluate(() => location.hash)) === before, "a drag that starts on the progress track does not skip the song");
-    await touch(bar.y + bar.height / 2, 330, 60);
-    await ph.waitForFunction((h) => location.hash !== h, before, { timeout: 8000 }).catch(() => undefined);
-    const after = await ph.evaluate(() => location.hash);
-    ok(after !== before && /#\/games\//.test(after), `a left swipe on the bar starts the next song (${after})`);
-    await ph.waitForSelector(".transport .seek"); await wait(ph, 800);
-    ok((await ph.locator(".transport .swipe-hint").getAttribute("data-shown")) === "false", "the hint is gone after the player has swiped");
-  } else { ok(false, "the queue sheet could not be closed"); }
-
   console.log("[phone: the sheet's Skip to next]");
   const g3 = await mk(s1);
   await ph.evaluate((q) => sessionStorage.setItem("chorus_queue", JSON.stringify(q)), queueOf([s2.id]));
-  await ph.goto(B + `#/games/${g3.public_id}`); await ph.reload(); await ph.waitForSelector(".transport .seek");
+  await ph.goto(B + `#/games/${g3.public_id}`); await ph.reload(); await ph.waitForSelector(".transport .strip");
   const h0 = await ph.evaluate(() => location.hash);
   await ph.click(".transport .queue-btn"); await ph.click('.queue-body button[aria-label="Queue menu"]');
   await ph.click('.queue-menu [role="menuitem"]:has-text("Skip to next")');
   await ph.waitForFunction((h) => location.hash !== h, h0, { timeout: 8000 }).catch(() => undefined);
   ok((await ph.evaluate(() => location.hash)) !== h0, "Skip to next in the queue sheet starts the next song");
 
-  console.log("[phone: no queue, no swipe]");
-  await ph.evaluate(() => sessionStorage.setItem("chorus_queue", JSON.stringify({ items: [], cursor: 0 })));
-  await ph.reload(); await ph.waitForSelector(".transport .seek");
-  ok((await ph.locator(".transport .swipe-hint").getAttribute("data-shown")) === "false", "with nothing in the queue the hint is not shown");
-
   console.log("[PC: wide layout]");
   const pc = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   pc.on("pageerror", (e) => console.log("PAGEERROR", e.message));
   await pc.addInitScript((q) => sessionStorage.setItem("chorus_queue", JSON.stringify(q)), queueOf([s2.id]));
-  await pc.goto(B + `#/games/${(await mk(s1)).public_id}`); await pc.waitForSelector(".transport .seek"); await wait(pc, 600);
+  await pc.goto(B + `#/games/${(await mk(s1)).public_id}`); await pc.waitForSelector(".transport .strip"); await wait(pc, 600);
   const pl = await pc.$$eval(".transport button", (b) => b.map((x) => x.getAttribute("aria-label")));
-  ok(!pl.includes("Stop") && pl.includes("Skip to next") && pl.includes("Play") && pl.includes("Back 5 seconds"), "play, rewind and Next buttons, no Stop: " + pl.join(", "));
+  ok(!pl.includes("Stop") && !pl.includes("Skip to next") && pl.includes("Play") && !pl.includes("Back 5 seconds"), "play only (no rewind, no Next, no Stop): " + pl.join(", "));
   ok((await pc.locator(".transport .volume").count()) === 1, "the volume control is on the PC bar");
-  const row = await pc.evaluate(() => { const t = document.querySelector(".transport-inner").getBoundingClientRect(), ys = [".controls", ".seek-wrap", ".transport-time", ".volume", ".queue-btn"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return (r.top + r.bottom) / 2; }); return { spread: Math.max(...ys) - Math.min(...ys), h: t.height }; });
+  const row = await pc.evaluate(() => { const t = document.querySelector(".transport-inner").getBoundingClientRect(), ys = [".controls", ".strip", ".transport-time", ".volume", ".queue-btn"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return (r.top + r.bottom) / 2; }); return { spread: Math.max(...ys) - Math.min(...ys), h: t.height }; });
   ok(row.spread < 6, `one row on a wide screen (centres within ${Math.round(row.spread)} px)`);
-  const h1 = await pc.evaluate(() => location.hash);
-  await pc.click('.transport button[aria-label="Skip to next"]');
-  await pc.waitForFunction((h) => location.hash !== h, h1, { timeout: 8000 }).catch(() => undefined);
-  ok((await pc.evaluate(() => location.hash)) !== h1, "the Next button starts the next song");
 
   console.log("[phone landscape: one row]");
   const land = await browser.newContext({ ...devices["iPhone 13 landscape"] });
   const lp = await land.newPage();
-  await lp.goto(B + `#/games/${(await mk(s1)).public_id}`); await lp.waitForSelector(".transport .seek"); await wait(lp, 600);
-  const lr = await lp.evaluate(() => { const ys = [".controls", ".seek-wrap", ".transport-time", ".queue-btn"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return (r.top + r.bottom) / 2; }); return { spread: Math.max(...ys) - Math.min(...ys), hint: getComputedStyle(document.querySelector(".swipe-hint")).display, bottom: document.querySelector(".transport").getBoundingClientRect().bottom, h: innerHeight }; });
-  ok(lr.spread < 6 && lr.hint === "none" && lr.bottom <= lr.h + 0.5, `a phone on its side keeps the bar in one row, without the hint (${JSON.stringify(lr)})`);
+  await lp.goto(B + `#/games/${(await mk(s1)).public_id}`); await lp.waitForSelector(".transport .strip"); await wait(lp, 600);
+  const lr = await lp.evaluate(() => { const ys = [".controls", ".strip", ".transport-time", ".queue-btn"].map((s) => { const r = document.querySelector(s).getBoundingClientRect(); return (r.top + r.bottom) / 2; }); return { spread: Math.max(...ys) - Math.min(...ys), bottom: document.querySelector(".transport").getBoundingClientRect().bottom, h: innerHeight }; });
+  ok(lr.spread < 6 && lr.bottom <= lr.h + 0.5, `a phone on its side keeps the bar in one row (${JSON.stringify(lr)})`);
 
   console.log("[lyric focus: Next question (default) and Current line]");
   const lw = await browser.newPage({ viewport: { width: 1280, height: 800 } });

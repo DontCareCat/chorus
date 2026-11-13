@@ -209,7 +209,7 @@ async function answerAllOpen(page, limit = null) {
   assert(l.some((x) => x.state === "FADING_OUT"), "with the usual fade-out");
   // Back 5 seconds
   const m9b = await mark(page);
-  await page.click('button[aria-label="Back 5 seconds"]');
+  await page.evaluate(() => window.__chorus.controller.rewind(5)); // no rewind button any more (0.2.1): the controller still does it
   await page.waitForTimeout(600);
   s9 = await st();
   assert(s9.st === "PLAYING" && !s9.paused, "Back 5 seconds starts playing");
@@ -220,7 +220,7 @@ async function answerAllOpen(page, limit = null) {
   await waitState(page, "PAUSED_FOR_QUESTION", 25000);
   assert(true, "and the game waits for the answer again afterwards");
   // answering resumes as before
-  await page.click('button[aria-label="Back 5 seconds"]');
+  await page.evaluate(() => window.__chorus.controller.rewind(5)); // no rewind button any more (0.2.1): the controller still does it
   await page.waitForTimeout(500);
   const m9c = await mark(page);
   await answerQ(page, b9.id);
@@ -235,15 +235,15 @@ async function answerAllOpen(page, limit = null) {
   await answerAllOpen(page, 3); // so the open question is a later one and there is something behind it to click back to
   await startAudio(page);
   await page.waitForTimeout(1200);
-  const info = () => page.evaluate(() => { const a = document.querySelector("audio"); const sk = document.querySelector("input.seek"); const g = window.__chorus; return { st: g.controller.state.name, t: a.currentTime, paused: a.paused, gain: g.engine.getVolume(), ph: parseFloat(sk.style.getPropertyValue("--p")), dur: a.duration }; });
+  const info = () => page.evaluate(() => { const a = document.querySelector("audio"); const sk = document.querySelector(".strip"); const g = window.__chorus; return { st: g.controller.state.name, t: a.currentTime, paused: a.paused, gain: g.engine.getVolume(), ph: (Number(sk.getAttribute("aria-valuenow")) / Number(sk.getAttribute("aria-valuemax"))) * 100, dur: a.duration }; });
   const dto10 = await gameDto(page);
   const open10 = dto10.questions.find((q) => !q.answer);
   const deadline10 = open10.audio_end + 3;
   const m10 = await mark(page);
-  const sb = await page.locator("input.seek").boundingBox();
+  const seekFrac = (frac) => page.evaluate((f) => window.__chorus.controller.userSeek(f * window.__chorus.engine.getDuration()), frac); // the player's strip is dragged, not clicked: the same seek as a release
   let worst = 0;
   for (const frac of [0.5, 0.7, 0.9, 0.97, 0.5, 0.99, 0.8]) {
-    await page.mouse.click(sb.x + 8 + (sb.width - 16) * frac, sb.y + sb.height / 2);
+    await seekFrac(frac);
     await page.waitForTimeout(90);
     worst = Math.max(worst, (await info()).t);
   }
@@ -254,12 +254,12 @@ async function answerAllOpen(page, limit = null) {
   assert(!l.some((x) => x.state === "FADING_OUT" || x.state === "SEEKING" || x.state === "ERROR"), "no fade-out, rewind or error was triggered by the clicks");
   assert(worst <= deadline10 + 0.4, "the audio never ran past the open question's deadline");
   assert(Math.abs(i10.ph - (i10.t / i10.dur) * 100) < 1.5, `the playhead matches the audio position (${i10.ph.toFixed(1)}% vs ${(i10.t / i10.dur * 100).toFixed(1)}%)`);
-  assert(/Answer the open question first/.test(await page.textContent(".last-answer")) || i10.t < deadline10, "the player is told why the click was limited: " + (await page.textContent(".last-answer")));
+  assert(/Answer this one first/.test(await page.textContent(".last-answer")) || i10.t < deadline10, "the player is told why the click was limited: " + (await page.textContent(".last-answer")));
   assert(i10.st === "PLAYING" && !i10.paused && i10.gain === 1, "the game is still playing normally");
   // let it run into the deadline, then click on both bars WHILE it fades / waits
   await waitState(page, "FADING_OUT", 20000);
   const mfade = await mark(page);
-  for (let i = 0; i < 4; i++) { await page.mouse.click(rb.x + rb.width * 0.9, rb.y + rb.height * 0.55); await page.mouse.click(sb.x + sb.width * 0.95, sb.y + sb.height / 2); await page.waitForTimeout(60); }
+  for (let i = 0; i < 4; i++) { await seekFrac(0.95); await page.waitForTimeout(60); }
   await waitState(page, "PAUSED_FOR_QUESTION", 5000);
   await page.waitForTimeout(500);
   l = await slice(page, mfade);
@@ -268,12 +268,12 @@ async function answerAllOpen(page, limit = null) {
   assert(l.at(-1).paused && l.at(-1).gain === 0, "and waits, silent");
   // clicks while waiting: far ahead is limited, backwards allowed; position stays near the question
   const ws = [];
-  for (const frac of [0.95, 0.6, 0.99, 0.2, 0.9]) {
-    await page.mouse.click(sb.x + sb.width * frac, sb.y + sb.height / 2);
+  for (const frac of [0.95, 0.6, 0.99, 0.02, 0.9]) {
+    await seekFrac(frac);
     await page.waitForTimeout(250);
     ws.push((await info()).t);
   }
-  console.log("  positions while waiting after clicks at 95/60/99/20/90 %: " + ws.map((v) => v.toFixed(1)).join(", ") + " s");
+  console.log("  positions while waiting after clicks at 95/60/99/2/90 %: " + ws.map((v) => v.toFixed(1)).join(", ") + " s");
   assert(ws.every((v) => v <= deadline10 + 0.2), "while waiting, the position never goes past the open question's deadline");
   assert(ws[3] < ws[2], "clicking backwards moves back");
   assert((await info()).st === "PAUSED_FOR_QUESTION", "the game is still waiting for the answer");

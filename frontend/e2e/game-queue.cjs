@@ -35,8 +35,8 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 4).padStart(2, "0")}.00] ${t}`
   await page.goto(B + `#/games/${g.public_id}`); await page.reload(); await page.waitForSelector(".transport");
   ok((await page.locator(".transport .queue-btn").count()) === 1, "the player has a queue button");
   ok((await page.locator(".queue-count").innerText()) === "1", "with the number of waiting songs");
-  const fills = await page.$$eval(".seek, .volume-slider", (e) => e.map((x) => getComputedStyle(x).appearance === "none" && x.style.getPropertyValue("--p").endsWith("%")));
-  ok(fills.length === 2 && fills.every(Boolean), "the progress and volume sliders are custom-drawn with a fill position");
+  const fills = await page.$$eval(".volume-slider", (e) => e.map((x) => getComputedStyle(x).appearance === "none" && x.style.getPropertyValue("--p").endsWith("%")));
+  ok(fills.length === 1 && fills.every(Boolean) && (await page.locator(".strip canvas").count()) === 1, "the volume slider is custom-drawn with a fill position; the progress strip is a canvas");
   await page.click(".transport .queue-btn");
   await page.waitForSelector(".queue-row");
   ok((await page.locator(".queue-row").count()) === 1, "it opens the queue list");
@@ -44,7 +44,7 @@ const lrc = LINES.map((t, i) => `[00:${String(i * 4).padStart(2, "0")}.00] ${t}`
 
   console.log("[play again after the song ran out]");
   await page.click('.transport button[aria-label="Play"]'); await page.waitForTimeout(800);
-  await page.focus("input.seek"); await page.keyboard.press("End"); await page.keyboard.press("Tab");
+  await page.focus(".strip"); await page.keyboard.press("End");
   await page.waitForTimeout(1200);
   ok((await st()).ended, "the song ran out");
   await page.click(".transport .pbtn"); await page.waitForTimeout(1200);

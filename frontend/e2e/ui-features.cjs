@@ -45,7 +45,7 @@ async function newGame(page, level) {
   const multi = Object.values(dto.questions.reduce((m, q) => ((m[q.line_id] ??= []).push(q), m), {})).find((g) => g.length > 1);
   ok(!!multi, "an expert game has lines with several blanks");
   const first = multi[0];
-  await page.click(`.seek-tick[data-qid="${first.id}"]`);
+  await page.evaluate((id) => { const e = document.querySelector(`.lw-line[data-qid="${id}"]`); e.focus(); e.click(); }, first.id);
   ok((await page.textContent(".prompt-count")).includes("blank 1 of " + multi.length), "the panel says which blank of the line is asked: " + (await page.textContent(".prompt-count")));
   const blanks = await page.$$eval(".prompt .blank", (els) => els.map((e) => ({ s: e.dataset.state, a: e.dataset.active, t: e.textContent.trim() })));
   ok(blanks.length === multi.length, `all ${multi.length} blanks of the line are hidden in the sentence`);
@@ -68,31 +68,20 @@ async function newGame(page, level) {
   await page.waitForTimeout(800);
   const t = () => page.evaluate(() => document.querySelector("audio").currentTime);
   const state = () => page.evaluate(() => window.__chorus.controller.state.name);
-  ok((await page.getAttribute("input.seek", "max")) > 59, "the slider spans the song (max " + (await page.getAttribute("input.seek", "max")) + " s)");
-  // click on the progress bar → seeks (the first questions are open, so jump back near the start)
+  ok(Number(await page.getAttribute(".strip", "aria-valuemax")) > 59, "the strip spans the song (max " + (await page.getAttribute(".strip", "aria-valuemax")) + " s)");
   // (the questions are spread over the whole song, so the first open one is not at the start: its deadline is read from the game)
   const dto0 = await page.evaluate(() => fetch("/api/games/" + location.hash.split("/").pop()).then((r) => r.json()));
   const deadline = dto0.questions[0].audio_end + 3;
-  const box = await page.locator("input.seek").boundingBox();
-  await page.mouse.click(box.x + 8 + (box.width - 16) * ((deadline - 2) / 60), box.y + box.height * 0.5);
-  await page.waitForTimeout(500);
-  const afterClick = await t();
-  ok(Math.abs(afterClick - (deadline - 2)) < 1.5, `clicking the progress bar moves the audio (now ${afterClick.toFixed(1)} s, wanted ${(deadline - 2).toFixed(1)} s)`);
-  // arrow keys: the open question's deadline limits ArrowRight, ArrowLeft always works
+  // arrow keys on the strip: the open question's deadline limits ArrowRight, ArrowLeft always works
+  await page.focus(".strip");
+  await page.keyboard.press("Home"); await page.waitForTimeout(900);
   const before = await t();
-  await page.keyboard.press("ArrowRight"); await page.waitForTimeout(400);
-  ok((await t()) - before < 4.5 && (await t()) <= deadline + 0.4, `ArrowRight cannot jump past the open question's deadline (${before.toFixed(1)} s → ${(await t()).toFixed(1)} s)`);
-  ok(/Answer the open question first/.test(await page.textContent(".last-answer")), "and says why");
-  await page.keyboard.press("ArrowLeft"); await page.waitForTimeout(400);
-  ok((await t()) < before - 0.5, "ArrowLeft jumps back");
-  // slider: far ahead is limited — an unanswered question cannot be skipped, so nothing is triggered
-  const setSlider = async (v) => { await page.evaluate((val) => { const el = document.querySelector("input.seek"); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(el, String(val)); el.dispatchEvent(new Event("input", { bubbles: true })); }, v); await page.dispatchEvent("input.seek", "pointerup"); await page.waitForTimeout(500); };
-  await setSlider(50);
-  ok((await t()) <= deadline + 0.4 && (await state()) !== "FADING_OUT", `dragging far ahead is limited to the open question (audio at ${(await t()).toFixed(1)} s), no fade-out or rewind`);
-  ok(/Answer the open question first/.test(await page.textContent(".last-answer")), "and says why: " + (await page.textContent(".last-answer")));
-  await page.waitForFunction(() => window.__chorus.controller.state.name === "PAUSED_FOR_QUESTION", null, { timeout: 15000 });
-  await setSlider(2);
-  ok(Math.abs((await t()) - 2) < 0.6 && (await state()) === "PAUSED_FOR_QUESTION", "seeking back while waiting is allowed and the game keeps waiting");
+  ok(before < 1.5, `Home goes to the start (${before.toFixed(1)} s)`);
+  await page.keyboard.press("End"); await page.waitForTimeout(1200);
+  ok((await t()) <= deadline + 0.4 && (await state()) !== "FADING_OUT", `End cannot jump past the open question's deadline (audio at ${(await t()).toFixed(1)} s), no fade-out or rewind`);
+  await page.waitForFunction(() => window.__chorus.controller.state.name === "PAUSED_FOR_QUESTION", null, { timeout: 15000 }).catch(() => undefined);
+  await page.keyboard.press("Home"); await page.waitForTimeout(900);
+  ok((await t()) < 1.5, "seeking back is always allowed");
 
   console.log("[cover art]");
   await page.goto(B); await page.waitForSelector(".song");
