@@ -119,3 +119,65 @@ def test_song_list_carries_my_own_score_plays_and_last_played(api, song):
     bob = other_browser(api)  # another account sees none of mine
     bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
     assert bob.get("/api/songs").json()[0]["plays"] == 0
+
+
+def test_limit_gives_the_top_my_own_row_below_it_and_the_player_count(api, song):
+    sign_up(api, "anna")
+    play(api, song, right=100)
+    others = []
+    for i, right in enumerate([60, 40, 20]):
+        c = other_browser(api)
+        c.post("/api/auth/register", json={"username": f"user{i}", "password": "another pass"})
+        play(c, song, right=right)
+        others.append(c)
+    last = other_browser(api)
+    play(last, song, right=0)
+    board = last.get(f"/api/songs/{song['id']}/scores?limit=2").json()
+    assert board["players"] == 5 and [r["rank"] for r in board["rows"]] == [1, 2]
+    assert board["me"]["rank"] == 5 and board["me"]["me"] is True  # outside the top: the caller's own row with the real rank
+    inside = others[0].get(f"/api/songs/{song['id']}/scores?limit=3").json()
+    assert inside["me"] is None and inside["players"] == 5  # inside the top: no extra row
+    assert last.get(f"/api/songs/{song['id']}/scores").json()  # without limit: still the plain list
+    assert isinstance(last.get(f"/api/songs/{song['id']}/scores").json(), list)
+
+
+def test_global_board_limit_and_mine(api, song):
+    sign_up(api, "anna")
+    play(api, song, right=100)
+    bob = other_browser(api)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
+    play(bob, song, right=3)
+    g = bob.get("/api/scores?limit=1").json()
+    assert g["players"] == 2 and len(g["rows"]) == 1 and g["me"]["rank"] == 2
+
+
+def test_mine_lists_the_songs_i_finished_with_my_place_and_my_total(api, song, tmp_path):
+    sign_up(api, "anna")
+    other = upload(api, make_wav(tmp_path / "Band - Zwei.wav", seconds=42)).json()
+    api.post(f"/api/songs/{other['id']}/lyrics/upload", files={"file": ("l.lrc", LRC.encode(), "text/plain")})
+    play(api, song, right=100)
+    unfinished = api.post("/api/games", json={"song_id": other["id"], "difficulty": "easy"}).json()
+    answer(api, unfinished, unfinished["questions"][0])  # not finished: not listed
+    bob = other_browser(api)
+    bob.post("/api/auth/register", json={"username": "bob", "password": "another pass"})
+    play(bob, song, right=200)
+    mine = api.get("/api/scores/mine").json()
+    assert [r["song_id"] for r in mine["songs"]] == [song["id"]]
+    row = mine["songs"][0]
+    assert row["title"] and row["players"] == 2 and row["rank"] in (1, 2) and row["removed"] is False and row["points"] > 0
+    assert mine["overall"]["songs"] == 1 and mine["overall"]["players"] == 2 and mine["overall"]["points"] == row["points"]
+    assert api.get("/api/scores/mine?mode=typing").json() == {"songs": [], "overall": None}
+    play(api, other_song := other, right=1)
+    again = api.get("/api/scores/mine").json()
+    assert [r["song_id"] for r in again["songs"]] == [other_song["id"], song["id"]]  # newest finished game first
+    assert again["overall"]["songs"] == 2
+
+
+def test_a_hidden_library_song_stays_in_mine_with_the_removed_flag(api, song, session):
+    sign_up(api, "anna")
+    play(api, song, right=100)
+    from app.db.models import Song as SongRow
+    session.get(SongRow, song["id"]).removed = True
+    session.commit()
+    row = api.get("/api/scores/mine").json()["songs"][0]
+    assert row["removed"] is True

@@ -14,10 +14,16 @@ def test_normalize_service_url():
     assert normalize_service_url("https://x.test/v1/lrclib") == "https://x.test/v1/lrclib"
 
 
-def test_the_environment_value_is_the_default_and_the_admin_can_change_it(api):
+def test_no_lyrics_service_by_default(api):
+    sign_up(api, "anna")
+    assert api.get("/api/settings").json()["lyrics_service_url"] == ""  # the startup window asks the administrator to choose one
+
+
+def test_the_environment_value_is_the_default_and_the_admin_can_change_it(api, monkeypatch):
+    monkeypatch.setattr("app.services.settings.env.lrclib_base_url", "https://lyrics.example.org/api")
     sign_up(api, "anna")  # the first account is the administrator
     s = api.get("/api/settings").json()
-    assert s["lyrics_service_url"].startswith("https://")
+    assert s["lyrics_service_url"] == "https://lyrics.example.org/api"
     r = api.put("/api/settings", json={**s, "lyrics_service_url": "my.server.test"})
     assert r.status_code == 200 and r.json()["lyrics_service_url"] == "https://my.server.test/api"
     assert api.get("/api/settings").json()["lyrics_service_url"] == "https://my.server.test/api"

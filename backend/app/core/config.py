@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     library_dirs: str = ""  # comma-separated; default for the library_dirs runtime setting
     max_upload_mb: int = 500
     frontend_dist: str = ""  # path of the built frontend (frontend/dist); empty = API only (development uses Vite)
-    lrclib_base_url: str = "https://lrclib.net/api"
+    lrclib_base_url: str = ""  # no lyrics service until the administrator picks one (the startup window offers https://lrclib.net); LRCLIB_BASE_URL in the environment sets it for a server or a test
     musicbrainz_base_url: str = "https://musicbrainz.org/ws/2"
     coverart_base_url: str = "https://coverartarchive.org"
     translate_base_url: str = "https://api.mymemory.translated.net"  # word and sentence translations in the dictionary
