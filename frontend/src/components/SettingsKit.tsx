@@ -14,11 +14,11 @@ export function SettingsCard({ id, title, children }: { id: string; title: strin
   );
 }
 
-function Text({ title, help }: { title: string; help?: string }) {
+function Text({ title, help, helpClass }: { title: string; help?: string; helpClass?: string }) {
   return (
     <div className="srow-text">
       <strong>{title}</strong>
-      {help && <small>{help}</small>}
+      {help && <small className={helpClass}>{help}</small>}
     </div>
   );
 }
@@ -37,9 +37,8 @@ export function SwitchRow({ title, help, checked, onChange, disabled }: { title:
 export function ChoiceRow({ title, help, dim, children }: { title: string; help?: string; dim?: boolean; children: ReactNode }) {
   return (
     <div className="srow" data-kind="choice" data-dim={dim || undefined}>
-      <Text title={title} />
+      <Text title={title} help={help} />
       <div className="srow-control">{children}</div>
-      {help && <small className="srow-help">{help}</small>}
     </div>
   );
 }
@@ -92,10 +91,10 @@ export function TextField({ title, help, value, saved, onSave, placeholder, read
 }
 
 /** A plain row with a title, help and buttons or links on the right. */
-export function ActionRow({ title, help, children }: { title: string; help?: string; children: ReactNode }) {
+export function ActionRow({ title, help, helpClass, children }: { title: string; help?: string; helpClass?: string; children: ReactNode }) {
   return (
     <div className="srow" data-kind="action">
-      <Text title={title} help={help} />
+      <Text title={title} help={help} helpClass={helpClass} />
       <div className="srow-actions">{children}</div>
     </div>
   );

@@ -737,7 +737,6 @@ button.fs-name:hover { background: var(--surface-2); }
 .review-start .hint { max-width: 46ch; margin: 0; }
 .review-start .field { margin: 0; }
 .review-start .chips { justify-content: center; }
-.about { margin: 40px 0 8px; text-align: center; }
 
 
 /* ---------- library list (design guide section 15) ---------- */
@@ -1499,7 +1498,11 @@ button.queue-bar-face { cursor: pointer; }
 .srow[data-kind="folders"] .folder-list li { padding: 8px 0; }
 .srow[data-kind="folders"] .srow-field { margin-top: 0; }
 .settings-body .segmented { background: var(--surface-2); }
-.settings-layout[data-phone] .srow[data-kind="stepper"] .stepper { justify-self: end; }
+.settings-layout[data-phone] .srow:not([data-kind="switch"], [data-kind="account"], [data-kind="users"], [data-kind="folders"]) > :not(.srow-text) { grid-column: 1 / -1; justify-self: start; }
+.settings-layout[data-phone] .srow[data-kind="choice"] > .srow-control, .settings-layout[data-phone] .srow[data-kind="text"] > .srow-field { justify-self: stretch; }
+.settings-layout[data-phone] .srow-actions { justify-content: flex-start; }
+.settings-layout[data-phone] .srow[data-kind="switch"] { align-items: start; }
+.settings-layout[data-phone] .row-select { justify-content: flex-start; text-align: left; margin-right: 0; padding-left: 0; max-width: 100%; background-position: right 8px center; }
 .settings-layout[data-phone] .queue-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .settings-layout[data-phone] .queue-levels button:first-child { grid-column: 1 / -1; }
 .settings-layout[data-phone] .queue-levels button { min-width: 0; padding: 8px 4px; flex-direction: column; }

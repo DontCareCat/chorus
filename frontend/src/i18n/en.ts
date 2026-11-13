@@ -594,6 +594,7 @@ export const en = {
     licences: "Third-party material: Material Symbols (Apache-2.0), Inconsolata (SIL OFL 1.1). Lyrics come from the LRCLIB-compatible service you set; covers from MusicBrainz and the Cover Art Archive; translations from MyMemory and Wiktionary.",
     done: "Done",
     version: (v: string) => `Chorus ${v}`,
+    versionLine: (v: string) => `Version ${v}`,
     retryLyrics: "Look up missing lyrics",
     retryLyricsHelp: "Looks again for every song that has no lyrics yet, in the background.",
     allowUnsynced: "Allow unsynchronized lyrics",
