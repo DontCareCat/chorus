@@ -1494,3 +1494,5 @@ button.queue-bar-face { cursor: pointer; }
 .sk-card { min-height: 280px; background: var(--surface); }
 .chip small.pending { visibility: hidden; }
 .review-btn { min-width: calc(11ch + 54px); justify-content: center; } /* "Review" and "Review 2673" are the same width: the button does not grow when the count arrives */
+
+.rec-stars { display: inline-flex; margin-left: 5px; vertical-align: -2px; color: var(--accent); }

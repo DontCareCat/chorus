@@ -30,9 +30,13 @@ export function isOverdue(currentTime: number, q: SyncQuestion, grace: number = 
   return currentTime > q.endTime + grace;
 }
 
-/** Previous lyric line's start (supplied by the backend), or the question's own start for the first line. */
+/** The audio never goes back further than this from the open question's line (a long gap between two lines would rewind far too much). */
+export const MAX_RECOVERY_REWIND = 5;
+
+/** Where the game goes back to when the player fails to answer in time: the previous lyric line's start (supplied by the backend), but not more than 5 s before the question's line; the question's own start for the first line. */
 export function getRecoveryPosition(q: SyncQuestion): number {
-  return Number.isFinite(q.recoveryTime) ? q.recoveryTime : q.startTime;
+  if (!Number.isFinite(q.recoveryTime)) return q.startTime;
+  return Math.max(q.recoveryTime, q.startTime - MAX_RECOVERY_REWIND);
 }
 
 export interface SeekLimit {

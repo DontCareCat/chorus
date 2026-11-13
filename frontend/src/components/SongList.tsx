@@ -3,6 +3,8 @@ import { Cover } from "./Cover";
 import { CoverPicker } from "./CoverPicker";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
+import { ProgressiveStars } from "./LevelIcon";
+import { progressiveLevel } from "../lib/progressive";
 import { SongMenu } from "./SongMenu";
 import type { MenuExtra, SongAction } from "./SongMenu";
 import { clock, Details, Finder } from "./SongTools";
@@ -21,7 +23,7 @@ import { sortValue } from "../lib/library-sort";
 import type { SortChoice } from "../lib/library-sort";
 import { animateScrollBy, scrollTarget } from "../lib/scroll-into-view";
 import { en } from "../i18n/en";
-import { isTopicChannel, youtubeWatchUrl } from "../lib/youtube-add";
+import { isTopicChannel } from "../lib/youtube-add";
 import { paths } from "../router";
 import { api, ApiError } from "../services/api";
 import type { GameSummaryDto, SongDto, SongScoreDto } from "../services/api";
@@ -57,6 +59,16 @@ interface SongListProps {
   reorder?: { onReorder: (ids: number[]) => void };
 }
 
+/** A song that cannot be played: start the queue with the playable songs that follow it in the list (then the ones before it) and play the first. */
+async function playNextAfter(songs: readonly SongDto[], from: SongDto, queue: ReturnType<typeof useQueueActions>) {
+  const at = songs.findIndex((x) => x.id === from.id);
+  const usable = (x: SongDto) => x.id !== from.id && x.available && x.lyrics_status === "found";
+  const rest = [...songs.slice(at + 1), ...songs.slice(0, Math.max(0, at))].filter(usable);
+  if (rest.length === 0) return;
+  await queue.play(rest, false);
+  await queue.playNext();
+}
+
 /** The rows of the library or of a playlist, with the ⋮ menu, the tool dialogs and the play options of one open song. */
 export function SongList({ songs, games, phone, sortKey, listKey, selection, duplicate, reload, onRemove, extras, onExtra, removed, reorder }: SongListProps) {
   const ul = useRef<HTMLUListElement>(null);
@@ -90,15 +102,15 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
 
   // The rows are memoised, so what they are given must not change from one render to the next unless the row itself changed:
   // the handlers go through a ref, and every song's games come from one map.
-  const act = useRef({ queue, setOpen, setMenu, setTool, onRemove, selection });
-  act.current = { queue, setOpen, setMenu, setTool, onRemove, selection };
+  const act = useRef({ queue, setOpen, setMenu, setTool, onRemove, selection, songs });
+  act.current = { queue, setOpen, setMenu, setTool, onRemove, selection, songs };
   const handlers = useMemo<RowHandlers>(() => ({
     queue: (s) => void act.current.queue.add([s.id]),
     pick: (s) => act.current.selection?.toggle(s.id),
     longPress: (s) => act.current.selection?.add(s.id),
     toggle: (s) => act.current.setOpen((o) => (o === s.id ? null : s.id)),
     menu: (s, anchor) => act.current.setMenu((m) => (m?.id === s.id ? null : { id: s.id, anchor })),
-    fix: (s) => { const st = songStatus(s); if (st.fix === "lyrics") act.current.setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") act.current.onRemove(s); else if (st.fix === "youtube" && s.youtube_id) window.open(youtubeWatchUrl(s.youtube_id), "_blank", "noopener"); },
+    fix: (s) => { const st = songStatus(s); if (st.fix === "lyrics") act.current.setTool({ kind: "lyrics", id: s.id }); else if (st.fix === "file") act.current.onRemove(s); else if (st.fix === "next") void playNextAfter(act.current.songs, s, act.current.queue); },
   }), []);
   const gamesBySong = useMemo(() => {
     const m = new Map<number, GameSummaryDto[]>();
@@ -295,10 +307,13 @@ export const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selec
 });
 
 function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] }) {
-  const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>("medium");
+  const [picked, setPicked] = useState<(typeof DIFFICULTIES)[number] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<GameMode>("choice");
+  const recommended = progressiveLevel(games, song.id, mode); // the level that follows the player's results (stars beside it); chosen when they have not picked one
+  const difficulty = picked ?? recommended;
+  const setDifficulty = setPicked;
   const modeThumb = useThumb();
   const levelThumb = useThumb();
   const board = useAsync(() => api.songScores(song.id, mode), [song.id, mode]);
@@ -333,7 +348,7 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
         <div className="segmented thumbs" role="group" aria-label={en.library.difficultyLabel} ref={levelThumb}>
           {DIFFICULTIES.map((d) => (
             <button key={d} type="button" aria-pressed={difficulty === d} onClick={() => setDifficulty(d)}>
-              <b>{en.library.difficulty[d]}</b>
+              <b>{en.library.difficulty[d]}{d === recommended && <span className="rec-stars" title={en.library.recommended}><ProgressiveStars size={14} /></span>}</b>
               <small>{PERCENT[mode][d]}% of words</small>
             </button>
           ))}

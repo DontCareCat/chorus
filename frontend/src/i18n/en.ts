@@ -149,7 +149,7 @@ export const en = {
   queue: {
     title: "Queue",
     progressive: "Progressive",
-    progressiveHelp: "Starts at Medium. A song goes one level up after a game with at least 85% right answers; a level you set yourself never changes.",
+    progressiveHelp: "Starts at Medium. The level goes one up after a game with over 90% right answers and one down below 40%, track by track; a level you set yourself never changes.",
     settingsTitle: "Play queue",
     settingsLabel: "Difficulty in the queue",
     autoplay: "Autoplay",
@@ -329,6 +329,7 @@ export const en = {
     copyFiles: "Copy files into the app's storage",
     copyFilesHelp: "Off: files are used where they are.",
     copyFilesOn: "On: a copy is kept in the app's storage.",
+    recommended: "Recommended: follows your results",
     difficultyLabel: "Difficulty",
     modeLabel: "Game",
     modes: {
@@ -444,7 +445,7 @@ export const en = {
     stalled: { short: "Lyrics are taking too long", tag: "Pick lyrics", full: "The lyrics search has not finished in the time set in Settings. Check the connection, or find the lyrics yourself.", fix: "Find lyrics" },
     needsChoice: { short: "Choose the right lyrics", tag: "Pick lyrics", full: "Several lyrics matched this song. Pick the right ones so the game uses the correct words.", fix: "Choose lyrics" },
     notFound: { short: "No lyrics found", tag: "No lyrics", full: "LRCLIB has no synchronized lyrics for this title and artist. Try another spelling in the search, or upload an .lrc file.", fix: "Find lyrics" },
-    cantPlay: { short: "Can't be played outside YouTube", tag: "Can't play", full: "The owner of this video does not let other sites play it, so Chorus cannot play it here. You can still watch it on YouTube.", fix: "Open on YouTube" },
+    cantPlay: { short: "Can't be played outside YouTube", tag: "Can't play", full: "The owner of this video does not let other sites play it, so Chorus cannot play it here. Play the next song instead.", fix: "Play the next song" },
     fileMissing: { short: "File missing", tag: "File missing", full: "The audio file is not at its saved place (a disconnected drive or a moved file). Reconnect it and scan the library, or remove the song.", fix: "Remove song" },
   },
   lyricsStatus: {
@@ -719,6 +720,8 @@ export const en = {
     translated: "Translated",
     sheet: "Lyrics",
     openOnYouTube: "Open on YouTube",
+    playNext: "Play the next song",
+    cannotPlayHere: "This video cannot be played outside YouTube.",
     rotateToType: "Rotate to portrait to type",
     backToLibrary: "Library",
     finishedTitle: "Song finished",

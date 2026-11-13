@@ -56,6 +56,15 @@ describe("recovery position", () => {
   it("uses the previous lyric line's start", () => {
     expect(getRecoveryPosition(q(2, 49, 52, 45.3))).toBe(45.3);
   });
+  it("never goes back more than 5 s before the question, however far the previous line is", () => {
+    expect(getRecoveryPosition(q(2, 80, 83, 60))).toBe(75);
+    expect(getRecoveryPosition(q(2, 80, 83, 75))).toBe(75); // exactly 5 s: the previous line's start
+    expect(getRecoveryPosition(q(2, 80, 83, 76.5))).toBe(76.5);
+  });
+  it("the recovery of an overdue question lands 5 s before it when the previous line is far", () => {
+    const d = updateSynchronization({ currentTime: 90, questions: [q(2, 80, 83, 60)], answered: none });
+    expect(d).toMatchObject({ kind: "recover", target: 75 });
+  });
   it("first question: its own start", () => {
     expect(getRecoveryPosition(q(1, 12, 15, 12))).toBe(12);
     expect(getRecoveryPosition({ ...q(1, 12, 15), recoveryTime: NaN })).toBe(12);

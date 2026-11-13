@@ -416,6 +416,7 @@ function GameScreen({ game }: { game: GameDto }) {
     <p className="notice">{en.game.notFound}</p>
   );
   // a game the queue started offers Next, and (Autoplay) carries on by itself; see FinishCard
+  const hasNextInQueue = Q.upcoming(queueStore.queue).length > 0;
   const musicOver = !spinning && (!engine || (duration > 0 && time >= duration - 0.6)); // never started counts as over: a reloaded finished game carries on
   const queueSettings = settings.data
     ? { autoplay: settings.data.queue_autoplay, fade: settings.data.queue_fade, fadeSeconds: settings.data.queue_fade_seconds }
@@ -472,7 +473,7 @@ function GameScreen({ game }: { game: GameDto }) {
 
       {stage}
       <div className="game-timeline wrap">
-        {audioFailed && <p className="notice error" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
+        {audioFailed && <p className="notice error" role="alert">{youtubeId ? (audioError ?? en.game.cannotPlayHere) : (audioError ?? en.audio.cannotLoad)}{youtubeId && (hasNextInQueue ? <> <button type="button" className="link-btn" onClick={skipToNext}>{en.game.playNext}</button></> : <> <a href={paths.library()}>{en.game.backToLibrary}</a></>)}</p>}
         {stateText && !phone && <p className="notice error" role="alert">{stateText}</p>}
       </div>
       <div className="game-body wrap">

@@ -34,9 +34,9 @@ describe("StatusBadge", () => {
     expect(fix).toHaveBeenCalledTimes(1);
     expect(document.querySelector(".status-bubble")).toBeNull();
   });
-  it("a YouTube song that cannot be played says so, and the bubble's action opens YouTube", () => {
+  it("a YouTube song that cannot be played says so, and the bubble's action plays the next song", () => {
     const st = songStatus({ lyrics_status: "found", available: false, source: "youtube" });
-    expect([st.tag, st.fix, st.fixLabel]).toEqual(["Can't play", "youtube", "Open on YouTube"]);
+    expect([st.tag, st.fix, st.fixLabel]).toEqual(["Can't play", "next", "Play the next song"]);
   });
   it("on a phone a tap opens a bubble above the tag with a fix button; a tap outside closes it", () => {
     const fix = vi.fn();
