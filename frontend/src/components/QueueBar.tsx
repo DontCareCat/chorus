@@ -55,7 +55,7 @@ export function QueueBar({ phone }: { phone: boolean }) {
       <>
         {song ? <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" /> : <span className="cover-ph" aria-hidden="true" />}
         <span className="queue-bar-text">
-          <strong><Marquee>{over ? en.queue.finishedTitle : song ? en.queue.nextUp(song.title) : "…"}</Marquee></strong>
+          <strong><Marquee>{over ? en.queue.finishedTitle : song ? en.queue.nextUp(song.title) : songs.data ? en.queue.unavailable : "…"}</Marquee></strong>
           <small><Marquee>{(live && store.message) || (over ? en.queue.finishedSub(q.items.length) : `${en.queue.position(c + 1, q.items.length)}${song ? ` · ${song.artist}` : ""}`)}</Marquee></small>
           {live && error && <small className="queue-error" role="alert">{error}</small>}
         </span>

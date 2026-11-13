@@ -27,6 +27,7 @@ function keep(songId: number, p: Peaks) {
 
 /** The loudness of a song, 10 values a second, decoded once and kept (memory, then this browser's storage). Null when it cannot be decoded. */
 export function loadPeaks(songId: number, url: string, duration: number): Promise<Peaks | null> {
+  if (!url) return Promise.resolve(null); // the file is not known yet (Android lists it first)
   const known = memory.get(songId) ?? stored(songId, duration);
   if (known) { memory.set(songId, known); return Promise.resolve(known); }
   const running = pending.get(songId);

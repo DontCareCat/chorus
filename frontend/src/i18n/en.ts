@@ -176,6 +176,7 @@ export const en = {
     stop: "Stop queue",
     openList: "Open queue",
     finishedTitle: "Queue finished",
+    unavailable: "Song no longer in the library",
     finishedSub: (n: number) => `${n} ${n === 1 ? "song" : "songs"} played`,
     again: "Shuffle again",
     close: "Close",
@@ -652,7 +653,7 @@ export const en = {
     clearAction: "Clear cache",
     languages: "Language",
     audioPanel: "Audio on this device",
-    audioHelp: "How the game plays the song here. Applies to the next game you start. Other devices keep their own choice.",
+    audioHelp: "How the game plays the song here. Applies to the next game you start.",
     audio: {
       webaudio: { name: "Smooth fades", help: "The audio fades out and in smoothly when the game waits for you. The default." },
       direct: { name: "Direct audio", help: "Plays the song like the preview on a song page, with stepped fades. Choose this if the music sounds distorted or compressed during games on this device." },

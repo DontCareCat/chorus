@@ -1125,7 +1125,7 @@ button.queue-bar-face { cursor: pointer; }
 .queue-bar[data-state="closing"] { animation-name: queueOutDown; }
 @keyframes queueOutDown { to { opacity: 0; transform: translateY(12px); } }
 .shell:has(.queue-bar) main { padding-bottom: 104px; }
-[data-layout="phone"] .queue-bar { width: auto; left: 12px; right: 12px; bottom: calc(8px + env(safe-area-inset-bottom)); margin: 0; }
+[data-layout="phone"] .queue-bar { width: auto; left: 12px; right: 12px; bottom: calc(8px + env(safe-area-inset-bottom)); margin: 0 auto; } /* auto margins centre it when max-width stops it short of the screen (a tablet) */
 .queue-bar .cover, .queue-bar .cover-ph { display: block; font-size: 20px; line-height: 1; }
 .queue-bar .cover { display: grid; }
 .queue-bar .cover-ph { background: var(--surface-2); }
@@ -1247,7 +1247,8 @@ button.queue-bar-face { cursor: pointer; }
 .game[data-game="two"][data-yt] .game-body { display: contents; }
 .game[data-game="two"][data-yt] .game-main { grid-column: 1; grid-row: 4; justify-content: flex-start; min-height: 0; padding-bottom: 8px; }
 .game[data-game="two"][data-yt] .game-side { grid-column: 2; grid-row: 2 / 5; min-height: 0; overflow: hidden; }
-.game[data-game="two"][data-yt] .transport { grid-column: 1 / -1; grid-row: 5; margin: 0 calc(-1 * max(40px, env(safe-area-inset-left))); }
+.game[data-game="two"][data-yt] .transport { grid-column: 1 / -1; grid-row: 5; margin: 0 calc(-1 * max(40px, env(safe-area-inset-left))); box-shadow: 0 0 0 100vmax var(--surface-2); clip-path: inset(0 -100vmax); border-top: none; } /* the grid is centred and max 1120 wide: the bar's background still runs to both screen edges */
+.game[data-game="two"][data-yt] .transport::before { content: ""; position: absolute; top: 0; left: -100vmax; right: -100vmax; border-top: 1px solid var(--line); }
 
 /* typing with the keyboard open: the layout follows the visible viewport; the keyboard takes space from the lyrics only */
 .game[data-yt][data-kb] .transport { display: none; }
@@ -1397,7 +1398,7 @@ button.queue-bar-face { cursor: pointer; }
 .shell[data-nav="rail"] { padding-left: calc(96px + env(safe-area-inset-left, 0px)); }
 .shell[data-nav="tabs"] main { padding-bottom: calc(var(--nav-h) + 24px); }
 [data-layout="phone"] .shell[data-nav="tabs"]:has(.queue-bar) main { padding-bottom: calc(var(--nav-h) + 96px); }
-.shell[data-nav="tabs"] .queue-bar { bottom: calc(var(--nav-h) + 8px); margin: 0; }
+.shell[data-nav="tabs"] .queue-bar { bottom: calc(var(--nav-h) + 8px); margin: 0 auto; }
 .shell[data-nav="rail"] .queue-bar { left: 96px; right: 0; width: min(1040px, calc(100% - 96px - 48px)); }
 @media (prefers-reduced-motion: reduce) { .main-nav a, .main-nav .tab-icon { transition: none; } }
 

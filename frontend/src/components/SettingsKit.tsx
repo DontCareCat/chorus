@@ -113,13 +113,15 @@ export function useSectionSpy(ids: string[]): [string, (id: string) => void] {
         const el = document.getElementById(`settings-${id}`);
         if (el && el.getBoundingClientRect().top <= 140) found = id;
       }
-      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) found = ids[ids.length - 1] ?? found;
+      if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) found = ids[ids.length - 1] ?? found; // (not on a page that is not scrolled: its first section is the current one)
       setCurrent(found);
     };
     on();
     window.addEventListener("scroll", on, { passive: true });
     window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); };
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(on); // the cards arrive after the first run: look again when the page grows
+    ro?.observe(document.body);
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); ro?.disconnect(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   const jump = (id: string) => {
