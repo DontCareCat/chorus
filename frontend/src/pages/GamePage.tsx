@@ -28,6 +28,7 @@ import { en } from "../i18n/en";
 import { paths } from "../router";
 import { api } from "../services/api";
 import type { Answer } from "../services/api";
+import { Toast, useToast } from "../components/Toast";
 import { createEngine, getEngineKind } from "../services/audio/create-engine";
 import { createYouTubeEngine } from "../services/audio/youtube-player";
 import type { GameEngine, PlaybackEngine } from "../services/audio/engine";
@@ -84,6 +85,14 @@ function GameScreen({ game }: { game: GameDto }) {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [hintToast, setHintToast] = useToast(3500);
+  /** A short remark to the player: a floating toast on a phone, the answer line / keyboard line elsewhere. */
+  const showHint = useCallback((text: string) => {
+    setHint(text);
+    setHintToast({ kind: "ok", text });
+    clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(null), 3500);
+  }, [setHintToast]);
   /** A seek asked for by the player. Resolves when done. An open question cannot be skipped: if the request went
    *  past it, it was limited and the player is told why. */
   const seekTo = useCallback(
@@ -91,13 +100,11 @@ function GameScreen({ game }: { game: GameDto }) {
       const end = engine?.getDuration();
       const outcome = await playback.seek(Math.max(0, Number.isFinite(end) && end ? Math.min(t, end) : t));
       if (outcome.clamped) {
-        setHint(en.game.cannotSkip);
-        clearTimeout(hintTimer.current);
-        hintTimer.current = setTimeout(() => setHint(null), 3500);
+        showHint(en.game.cannotSkip);
       }
       return outcome;
     },
-    [engine, playback],
+    [engine, playback, showHint],
   );
 
   // Start playing once the engine exists AND its controller is ready (first click is the user gesture).
@@ -374,7 +381,7 @@ function GameScreen({ game }: { game: GameDto }) {
   const centerOn = focusLine(lyricFocus, currentLine, focusedLine, asked >= 0, ahead); // nothing left to answer: the song's line again
   const last = lastAnswerText(g.quiz, g.results, lastAnswered);
   // no running commentary on the audio ("closes in 4 s"): the line only carries the phone's answer feedback and real audio errors
-  const stateText = playback.state.name === "ERROR" ? status.text : phone ? hint ?? last.text : "";
+  const stateText = playback.state.name === "ERROR" ? status.text : "";
 
   const questionBlock = focusedQ ? (
     <Question
@@ -408,7 +415,7 @@ function GameScreen({ game }: { game: GameDto }) {
   /** Next song now, from the player: a swipe, the Next button or the queue sheet. The fade is the queue's, as long as one can be heard. */
   const skipToNext = useCallback(() => {
     const fadeMs = queueSettings.fade && spinning ? Math.round(Math.min(queueSettings.fadeSeconds * 1000, Math.max(300, Math.max(0, duration - time) * 1000))) : 0;
-    void goNext(fadeMs).then((e) => { if (e) { setHint(e); clearTimeout(hintTimer.current); hintTimer.current = setTimeout(() => setHint(null), 3500); } });
+    void goNext(fadeMs).then((e) => { if (e) showHint(e); });
   }, [goNext, queueSettings.fade, queueSettings.fadeSeconds, spinning, duration, time]);
   const finished = g.finished && (
     <FinishCard
@@ -450,7 +457,7 @@ function GameScreen({ game }: { game: GameDto }) {
       {stage}
       <div className="game-timeline wrap">
         {audioFailed && <p className="notice error" role="alert">{audioError ?? en.audio.cannotLoad}{youtubeId && <> <a href={`https://www.youtube.com/watch?v=${youtubeId}`} target="_blank" rel="noreferrer">{en.game.openOnYouTube}</a></>}</p>}
-        {(phone || stateText) && <p className="state-line" data-tone={status.tone} data-ok={phone && !hint ? last.ok : undefined} role="status">{stateText}</p>}
+        {stateText && <p className="state-line" data-tone={status.tone} role="status">{stateText}</p>}
       </div>
       <div className="game-body wrap">
         {phone ? (
@@ -497,6 +504,7 @@ function GameScreen({ game }: { game: GameDto }) {
         queue={{ count: Q.upcoming(queueStore.queue).length, onOpen: () => setQueueOpen(true) }}
         volume={{ level: vol.volume, muted: vol.muted, set: vol.setVolume, toggleMute: vol.toggleMute, step: vol.step }}
       />
+      {phone && <div className="toast-lane"><Toast toast={hintToast} /></div>}
       {wordHit && <WordCard hit={wordHit} language={game.language} songId={game.song_id} onClose={closeWord} />}
       {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} onSkip={() => { setQueueOpen(false); skipToNext(); }} />}
     </div>
