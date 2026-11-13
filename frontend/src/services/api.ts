@@ -253,6 +253,15 @@ export interface SongScoreDto {
   me: boolean;
 }
 
+export interface SongBoardDto { rows: SongScoreDto[]; me: SongScoreDto | null; players: number }
+export interface GlobalBoardDto { rows: GlobalScoreDto[]; me: GlobalScoreDto | null; players: number }
+/** One song the player finished: their best points and place among that song's players. */
+export interface MyScoreDto {
+  song_id: number; title: string; artist: string; has_cover: boolean | null; youtube_id: string | null; removed: boolean;
+  points: number; rank: number; players: number; last_finished_at: string;
+}
+export interface MyScoresDto { songs: MyScoreDto[]; overall: { points: number; rank: number; players: number; songs: number } | null }
+
 export interface GlobalScoreDto {
   rank: number;
   display_name: string;
@@ -484,6 +493,11 @@ export const api = {
   getGame: (publicId: string) => request<GameDto>(`/api/games/${publicId}`),
   scores: (mode: GameMode = "choice") => request<GlobalScoreDto[]>(`/api/scores?mode=${mode}`),
   songScores: (songId: number, mode: GameMode = "choice") => request<SongScoreDto[]>(`/api/songs/${songId}/scores?mode=${mode}`),
+  /** The top 10 of the overall board, the player's own row below it, and the number of players. */
+  scoreBoard: (mode: GameMode = "choice", limit = 10) => request<GlobalBoardDto>(`/api/scores?mode=${mode}&limit=${limit}`),
+  songBoard: (songId: number, mode: GameMode = "choice", limit = 10) => request<SongBoardDto>(`/api/songs/${songId}/scores?mode=${mode}&limit=${limit}`),
+  /** The songs the player finished (newest first) with their best points and place, and their overall total and place. */
+  myScores: (mode: GameMode = "choice") => request<MyScoresDto>(`/api/scores/mine?mode=${mode}`),
   myGames: () => request<GameSummaryDto[]>("/api/games"),
   answer: (publicId: string, questionId: number, answer: Answer, position: number | null, waited: number) =>
     request<AnswerResultDto>(`/api/games/${publicId}/answers`, json("POST", { question_id: questionId, ...("optionId" in answer ? { option_id: answer.optionId } : { text: answer.text }), position, waited })),

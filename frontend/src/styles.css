@@ -1497,3 +1497,68 @@ button.queue-bar-face { cursor: pointer; }
 
 .rec-stars { display: inline-flex; margin-left: 5px; vertical-align: -2px; color: var(--accent); }
 .gain .lw-mark { width: 0.9em; height: 0.9em; margin-left: 0; vertical-align: -0.05em; } /* the same cross as in the lyric window, in --wrong */
+
+/* ---------- Scores (guide section 21, 0.2.2): the songs you finished, a board per song ---------- */
+.scores-page[data-split="true"] { display: grid; grid-template-columns: minmax(300px, 420px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.scores-left { min-width: 0; }
+.scores-head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.scores-head .page-head { margin: 0; }
+.scores-right { position: sticky; top: 16px; min-width: 0; }
+.board-pane { display: grid; gap: 14px; align-content: start; }
+.scores-page[data-split="true"] .board-pane { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px; min-height: 240px; display: grid; gap: 14px; align-content: start; }
+.scores-list { display: grid; gap: 4px; align-content: start; }
+.scores-search { position: relative; display: flex; align-items: center; margin-bottom: 8px; }
+.scores-search > .icon, .scores-search > svg { position: absolute; left: 14px; color: var(--text-3); pointer-events: none; width: 20px; height: 20px; }
+.scores-search input { width: 100%; height: 44px; padding: 0 44px 0 44px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: 500 16px var(--font, inherit); outline: none; }
+.scores-search input:focus { border-color: var(--accent); }
+.scores-search .clear-x { position: absolute; right: 4px; }
+[data-layout="phone"] .scores-list .tabs { width: 100%; margin: 4px 0 10px; }
+[data-layout="phone"] .scores-list .tabs button { flex: 1; min-width: 0; }
+.scores-eyebrow { margin: 14px 8px 4px; color: var(--text-3); }
+.board-heading .eyebrow { color: var(--text-3); }
+.scrow { width: 100%; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; column-gap: 12px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--line); border-radius: 14px; color: var(--text); text-decoration: none; text-align: left; }
+.scrow:hover { background: var(--surface-2); color: var(--text); }
+.scrow[aria-current="true"] { background: var(--fill-soft); }
+.scrow .cover { width: 48px; height: 48px; border-radius: 10px; font-size: 20px; }
+.scrow .cov { width: 48px; height: 48px; border-radius: 10px; background: var(--raised); display: grid; place-items: center; color: var(--text-3); }
+.scrow .all-tile { color: var(--accent); background: var(--surface-2); }
+.scrow-text { min-width: 0; display: grid; gap: 2px; justify-items: start; }
+.scrow .st { font-size: 17px; font-weight: 700; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.scrow .sa, .pane-title .sa { font-size: 15px; color: var(--text-2); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mine { display: grid; justify-items: end; gap: 4px; }
+.mine b { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.mine b small { font-size: 12px; font-weight: 600; color: var(--text-3); letter-spacing: 0; margin-left: 4px; }
+.place { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pb { min-width: 22px; height: 22px; padding: 0 5px; border-radius: 999px; display: grid; place-items: center; font: 800 12px/1 inherit; background: var(--surface-2); color: var(--text-2); box-sizing: border-box; }
+.pb[data-place="1"] { background: var(--fill); color: var(--on-fill); }
+.pb[data-place="2"], .pb[data-place="3"] { background: transparent; color: var(--text); box-shadow: inset 0 0 0 2px var(--line-strong); }
+.scores-skeleton .sk { pointer-events: none; }
+.scores-skeleton .sk .cov { background: var(--surface-2); }
+.scores-skeleton .sk .scrow-text i { display: block; height: 14px; width: 60%; border-radius: 6px; background: var(--surface-2); }
+.scores-skeleton .sk .scrow-text i + i { width: 35%; }
+.pane-head { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pane-head .cover[data-size="large"], .pane-head .cov { width: 64px; height: 64px; flex: none; }
+.pane-head .cov { border-radius: 12px; background: var(--raised); display: grid; place-items: center; color: var(--accent); }
+.scores-page[data-split="true"] .pane-head .cover[data-size="large"], .scores-page[data-split="true"] .pane-head .cov { width: 72px; height: 72px; }
+.pane-title { flex: 1; min-width: 0; }
+.pane-title h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.15; margin: 0; overflow: hidden; }
+.board-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.you-line { font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.board li.gap { display: flex; justify-content: center; gap: 6px; padding: 2px 0; border: 0; background: transparent; }
+.board li.gap i { width: 4px; height: 4px; border-radius: 999px; background: var(--text-4); }
+.board .tag.you { height: 18px; display: inline-flex; align-items: center; letter-spacing: 0; text-transform: none; }
+.board .rank[data-place="2"], .board .rank[data-place="3"] { background: var(--surface-2); }
+@media (orientation: landscape) and (max-height: 500px) {
+  .scores-page[data-split="true"] { grid-template-columns: minmax(250px, 330px) minmax(0, 1fr); gap: 16px; }
+  .scores-page[data-split="true"] .board-pane { padding: 14px; border: 0; background: transparent; }
+  .scores-page[data-split="true"] .pane-head .cover[data-size="large"], .scores-page[data-split="true"] .pane-head .cov { width: 48px; height: 48px; }
+  .scores-eyebrow { display: none; }
+  .scores-search input { height: 40px; }
+}
+
+/* the section name next to the logo on a phone is the page's heading; the page's own h1 stays for screen readers */
+[data-layout="phone"] .page-head h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[data-layout="phone"] .shell:not([data-route="game"]) .wordmark { font-size: 26px; }
+[data-layout="phone"] .top-back { flex: none; width: 44px; height: 44px; display: grid; place-items: center; margin-left: -8px; color: var(--text); border-radius: 50%; font-size: 24px; }
+[data-layout="phone"] .topbar:has(.top-back) { justify-content: flex-start; gap: 0; }
+.wm-section { white-space: nowrap; }

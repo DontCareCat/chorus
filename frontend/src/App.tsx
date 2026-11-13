@@ -17,6 +17,20 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { SongPage } from "./pages/SongPage";
 import { api } from "./services/api";
 import { paths, useRoute } from "./router";
+import { Icon } from "./components/Icon";
+import type { Route } from "./router";
+
+/** The section a page belongs to (the name next to the logo on a phone): sub-pages keep their section's name. */
+export function sectionName(route: Route): string | null {
+  switch (route.name) {
+    case "library": case "song": return en.nav.library;
+    case "playlists": case "playlist": return en.nav.playlists;
+    case "dictionary": case "review": return en.nav.dictionary;
+    case "scores": return en.nav.scores;
+    case "settings": return en.nav.settings;
+    default: return null;
+  }
+}
 
 export function App() {
   const route = useRoute();
@@ -65,14 +79,18 @@ export function App() {
   );
 
   const showNav = !isGame && !needsSignIn && route.name !== "login";
+  const section = sectionName(route);
+  useEffect(() => { document.title = section ? `${section} \u00b7 ${en.appName}` : en.appName; }, [section]);
+  const scoresPage = phone && route.name === "scores" && route.song !== null; // a board is a page of its own on a phone: the back arrow goes before the logo
 
   return (
     <div className="shell" data-route={route.name} data-layout={layout} data-nav={showNav ? (phone ? "tabs" : "rail") : undefined}>
       {!(isGame && phone) && (
         <header className="topbar">
-          <a className="wordmark" href={paths.library()} onClick={() => setWave((n) => n + 1)}>
+          {scoresPage && <a className="top-back" href={paths.scores()} aria-label={en.scores.back} title={en.scores.back}><Icon name="arrowBack" /></a>}
+          <a className="wordmark" href={paths.library()} onClick={() => setWave((n) => n + 1)} aria-label={phone && section ? en.appName : undefined}>
             <span className="bars" key={wave} data-wave={wave > 0 || undefined} aria-hidden="true"><i /><i /><i /></span>
-            {en.appName}
+            {phone && section ? <span className="wm-section" aria-hidden="true">{section}</span> : en.appName}
           </a>
           {!phone && <div className="top-right">{account}</div>} {/* on a phone the account lives in Settings > Account: Guest + Sign in + Create account pushed the page wider than the screen */}
         </header>
@@ -92,7 +110,7 @@ export function App() {
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "song" && <SongPage songId={route.songId} key={route.songId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "game" && <GamePage publicId={route.publicId} key={route.publicId} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "settings" && <SettingsPage />}
-        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "scores" && <ScoresPage />}
+        {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "scores" && <ScoresPage song={route.song} />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "dictionary" && <DictionaryPage />}
         {!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "review" && <ReviewPage />}
         {!auth.loading && route.name === "notfound" && <p className="empty">Page not found. <a href={paths.library()}>{en.nav.library}</a></p>}
