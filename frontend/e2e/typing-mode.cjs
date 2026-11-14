@@ -79,8 +79,9 @@ const typo = (w) => w.slice(0, -1) + (w.endsWith("x") ? "y" : "x");
   await page.waitForSelector(".notice.ok");
   ok(/Finished: \d+ points/.test(await page.textContent(".notice.ok")), "finished: " + (await page.textContent(".notice.ok")).slice(0, 90));
   await page.goto(B + "#/scores"); await page.waitForSelector(".tabs");
-  ok(!(await page.$(".board li")), "the choice scoreboard does not show the typing game");
-  await page.click('.tabs[aria-label="Game"] button:has-text("Type")'); await page.waitForSelector(".board li");
+  ok(!(await page.$(".scrow:not(.all)")), "the choice scoreboard does not show the typing game");
+  await page.click('.tabs[aria-label="Game"] button:has-text("Type")'); await page.waitForSelector(".scrow:not(.all)");
+  await page.click(".scrow:not(.all)"); await page.waitForSelector(".board li");
   ok((await page.textContent(".board li .who strong")) === "Guest" && Number(await page.textContent(".board li .pts")) > 0, "the typing scoreboard does");
 
   console.log("[phone]");

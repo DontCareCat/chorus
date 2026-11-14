@@ -45,18 +45,18 @@ async function finishGame(req, difficulty, right) {
   await finishGame(guest.request, "easy", 0);
   const ap = await anna.newPage();
   ap.on("pageerror", (e) => console.log("PAGEERROR", e.message));
-  await ap.goto(B + "#/scores"); await ap.waitForSelector(".board li");
+  await ap.goto(B + "#/scores/all"); await ap.waitForSelector(".board li");
   let names = await ap.$$eval(".board li .who strong", (e) => e.map((x) => x.textContent));
   ok(names.join(",") === "anna,bob,Guest", "all songs: ranked by points: " + names.join(", "));
   ok((await ap.$$eval(".board li[data-me='true'] .who strong", (e) => e.map((x) => x.textContent))).join() === "anna", "the signed-in account's row is marked");
-  await ap.click('.tabs button:has-text("This song")'); await ap.waitForSelector(".board li");
+  await ap.goto(B + "#/scores"); await ap.waitForSelector(".scrow:not(.all)"); await ap.click(".scrow:not(.all)"); await ap.waitForSelector(".board li");
   const detail = await ap.textContent(".board li .who small");
   ok(/Easy · \d+ of \d+ · best x\d/.test(detail), "this song: shows difficulty, right answers and best multiplier: " + detail);
   await ap.goto(B); await ap.waitForSelector(".song"); await ap.click(".song >> nth=0 >> .play-btn");
   await ap.waitForSelector(".mini-board");
   ok(/Rank 1 of 3/.test(await ap.textContent(".history")), "the start panel says where you rank: " + (await ap.textContent(".history")).replace(/\s+/g, " ").slice(0, 120));
   const bp = await bob.newPage();
-  await bp.goto(B + "#/scores"); await bp.waitForSelector(".board li");
+  await bp.goto(B + "#/scores/all"); await bp.waitForSelector(".board li");
   ok(await bp.isVisible(".board") && !(await bp.evaluate(() => document.documentElement.scrollWidth > innerWidth)), "the scoreboard works on a phone without sideways scrolling");
 
   console.log("[the game screen fits every screen]");
