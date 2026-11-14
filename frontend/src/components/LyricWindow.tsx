@@ -3,6 +3,7 @@ import { centerOffset, timecode, wordSpans } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
 import { followInSync } from "../lib/smooth-scroll";
+import { Slot } from "./Slot";
 
 /** How long a line takes to change size (styles.css, .lw-line transition): the window follows it for this long. */
 export const LINE_SIZE_MS = 320;
@@ -37,7 +38,7 @@ const MARKS: Record<string, { d: string; label: string }> = {
   partial: { d: "M2 8c1.6-3 3.2-3 5 0s3.4 3 5 0", label: "almost right" },
 };
 
-/** The plain tick, cross or wave after an answered word (design guide section 16): no background, the word's own colour, scaled with the line. */
+/** The plain tick, cross or wave (design guide section 16): the Scores page's cross. The lyric window shows none after a word (it would change the line's length); the word's colour and a hidden label say how it went. */
 export function Mark({ state }: { state: string }) {
   const m = MARKS[state];
   if (!m) return null;
@@ -68,12 +69,12 @@ const LyricLine = memo(function LyricLine({ line: l, d, synced, playing, follow,
           p.kind === "text" ? (
             <span key={k}>{words(p.text)}</span>
           ) : p.kind === "blank" ? (
-            <span key={k} className="lw-blank" data-focus={p.focused} aria-label="blank" />
+            <Slot key={k} className="lw-blank" sizes={p.sizes} data-focus={p.focused} aria-label="blank" />
           ) : (
-            <span key={k} className="lw-word" data-state={p.state} data-focus={p.focused}>
+            <Slot key={k} className="lw-word" sizes={p.sizes} data-state={p.state} data-focus={p.focused}>
               {words(p.word)}
-              <Mark state={p.state} />
-            </span>
+              <span className="sr-only"> ({MARKS[p.state]?.label})</span>
+            </Slot>
           ),
         )}
       </span>

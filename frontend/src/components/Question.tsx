@@ -4,6 +4,8 @@ import type { FormEvent } from "react";
 import { buildPrompt } from "../game/prompt";
 import { useFitText } from "../hooks/useFitText";
 import { resultWord, rightWord } from "../game/results";
+import { slotTexts } from "../game/slot";
+import { Slot } from "./Slot";
 import type { QuestionResult } from "../game/results";
 import { en } from "../i18n/en";
 import type { QuizQuestion } from "../types/question";
@@ -57,17 +59,19 @@ export const Question = memo(function Question({ question: q, siblings, results,
           <h2 className="prompt" id="prompt" ref={promptRef}>
             {parts.map((p, i) => {
               if (p.kind === "text") return <span key={i}>{p.text}</span>;
+              const owner = siblings.find((s) => s.blankIndex === p.index) ?? q;
               if (p.state === "active") {
+                const word = state === "wrong" && !typing ? wrongWord : shown?.word;
                 return (
-                  <span key={i} className="blank" data-state={state} data-active="true">
-                    {state === "wrong" && !typing ? wrongWord : (shown?.word ?? " ")}
-                  </span>
+                  <Slot key={i} className="blank" sizes={slotTexts(q.options, word)} data-state={state} data-active="true">
+                    {word ?? " "}
+                  </Slot>
                 );
               }
               return (
-                <span key={i} className="blank" data-state={p.state === "filled" ? "filled" : "sibling"}>
+                <Slot key={i} className="blank" sizes={slotTexts(owner.options, p.state === "filled" ? p.word : undefined)} data-state={p.state === "filled" ? "filled" : "sibling"}>
                   {p.state === "filled" ? p.word : " "}
-                </span>
+                </Slot>
               );
             })}
           </h2>

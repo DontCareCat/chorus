@@ -71,13 +71,13 @@ describe("typing question", () => {
     expect(field.value).toBe("hous");
     expect(screen.getAllByText("Almost: Haus").length).toBeGreaterThan(0);
     expect(document.querySelector(".typing")?.getAttribute("data-state")).toBe("partial");
-    expect(document.querySelector(".blank[data-active]")?.textContent).toBe("Haus"); // the asked word fills the blank
+    expect(document.querySelector(".blank[data-active] .slot-fill")?.textContent).toBe("Haus"); // the asked word fills the blank
   });
 
   it("a wrong typed answer still reveals the right word", () => {
     const results = new Map<number, QuestionResult>([[1, { selectedOptionId: 0, typed: "baum", correct: false, match: "none", word: "Haus" }]]);
     render(<Question {...base} results={results} onSubmit={vi.fn()} />);
-    expect(document.querySelector(".blank[data-active]")?.textContent).toBe("Haus");
+    expect(document.querySelector(".blank[data-active] .slot-fill")?.textContent).toBe("Haus");
     expect(screen.getByText("The word was Haus")).toBeTruthy();
   });
 

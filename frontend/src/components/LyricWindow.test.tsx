@@ -14,7 +14,7 @@ const lines: WindowLine[] = [
   { lineId: 1, text: "sobre el río de papel", startTime: 1, parts: [{ kind: "text", text: "sobre el río de papel" }], targetId: null, status: "plain" },
   {
     lineId: 2, text: "y tu voz se … entre el humo", startTime: 5, targetId: 10, status: "open",
-    parts: [{ kind: "text", text: "y tu voz se " }, { kind: "blank", index: 0, focused: true }, { kind: "text", text: " entre el humo" }],
+    parts: [{ kind: "text", text: "y tu voz se " }, { kind: "blank", index: 0, focused: true, sizes: ["Haus", "Baum"] }, { kind: "text", text: " entre el humo" }],
   },
 ];
 let host: HTMLElement;

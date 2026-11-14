@@ -107,7 +107,7 @@ describe("helpers", () => {
 });
 
 describe("reuseLines", () => {
-  const line = (id: number, word: string): WindowLine => ({ lineId: id, text: "", startTime: id, targetId: id, status: "open", parts: [{ kind: "text", text: "a " }, { kind: "blank", index: 0, focused: false }, { kind: "word", index: 1, word, state: "correct", focused: false }] });
+  const line = (id: number, word: string): WindowLine => ({ lineId: id, text: "", startTime: id, targetId: id, status: "open", parts: [{ kind: "text", text: "a " }, { kind: "blank", index: 0, focused: false, sizes: [] }, { kind: "word", index: 1, word, state: "correct", focused: false, sizes: [] }] });
   it("keeps the previous object for every line that did not change", () => {
     const prev = [line(1, "x"), line(2, "y"), line(3, "z")];
     const next = [line(1, "x"), line(2, "CHANGED"), line(3, "z")];
@@ -139,7 +139,7 @@ describe("tapping words", () => {
   });
 
   it("quotes a line with an open blank as dots, not as the answer", () => {
-    const parts: WindowPart[] = [{ kind: "text", text: "Ich " }, { kind: "blank", index: 0, focused: false }, { kind: "text", text: " dich " }, { kind: "word", index: 1, word: "liebe", state: "correct", focused: false }];
+    const parts: WindowPart[] = [{ kind: "text", text: "Ich " }, { kind: "blank", index: 0, focused: false, sizes: [] }, { kind: "text", text: " dich " }, { kind: "word", index: 1, word: "liebe", state: "correct", focused: false, sizes: [] }];
     expect(lineText(parts)).toBe("Ich … dich liebe");
   });
 });
@@ -157,5 +157,15 @@ describe("focusLine", () => {
     expect(focusLine("line", 2, 7, true, false)).toBe(2);
     expect(focusLine("line", 2, 7, true, true)).toBe(7);
     expect(focusLine("line", 2, 7, false, true)).toBe(2);
+  });
+});
+
+describe("slot sizes", () => {
+  it("a blank, and the word it turns into, are sized by the question's answer options", () => {
+    const opts = ["Haus", "Baum", "Auto", "Stadt"];
+    const open = buildWindowLines(lines, quiz, new Map(), 0, null)[1]!.parts.filter((p) => p.kind === "blank");
+    expect(open.map((p) => p.kind === "blank" && p.sizes)).toEqual([opts, opts]);
+    const answered = buildWindowLines(lines, quiz, new Map<number, QuestionResult>([[1, { selectedOptionId: 20, correct: false, correctOptionId: 10 }]]), 0, null)[1]!.parts.filter((p) => p.kind === "word");
+    expect(answered.map((p) => p.kind === "word" && p.sizes)).toEqual([opts]);
   });
 });
