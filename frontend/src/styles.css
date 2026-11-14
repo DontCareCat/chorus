@@ -1702,6 +1702,8 @@ button.queue-bar-face { cursor: pointer; }
 .tm-dlg p { margin: 0; font-size: 16px; line-height: 1.45; }
 .tm-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 6px; }
 .tm-actions .danger-text { color: var(--wrong); }
+[data-layout="phone"] .tm-actions { flex-direction: column-reverse; flex-wrap: nowrap; justify-content: stretch; gap: 10px; }
+[data-layout="phone"] .tm-actions .btn { width: 100%; height: 52px; } /* touch: full-width 52 px buttons, the action on top, Cancel / Keep editing last (guide section 25b) */
 .tm-stepper { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 0; }
 .tm-stepper output { min-width: 86px; text-align: center; font: 800 20px var(--font); font-variant-numeric: tabular-nums; }
 .tm-file { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; min-width: 0; }
@@ -1717,10 +1719,15 @@ button.queue-bar-face { cursor: pointer; }
 .mi-two .muted { font-size: 13px; font-weight: 500; }
 .mi[role="switch"] .sw { margin-left: auto; flex: none; }
 .tm-menu { position: fixed; z-index: 41; }
+.tm-menu .mi, .tm-card .mi, .song-sheet .mi:has(.mi-two), .tm-menu .mi:has(.mi-two) { height: auto; min-height: 44px; padding-top: 8px; padding-bottom: 8px; } /* a wrapped item grows instead of spilling over its neighbours */
+.song-sheet .mi:has(.mi-two) { min-height: 52px; }
+.tm .mi > span:not(.mi-hint):not(.mi-two):not(.sw) { flex: 1; min-width: 0; }
+.tm .mi .mi-hint { white-space: nowrap; flex: none; }
 /* tablet upright: the list and the dock keep a readable width */
 .tm[data-kind="phone"] .tm-list > * { max-width: 680px; width: 100%; margin-left: auto; margin-right: auto; }
 .tm[data-kind="phone"] .tm-rows { max-width: calc(680px + 2 * var(--row-pad)); }
 .tm[data-kind="phone"] .tm-dock-in { max-width: 680px; margin: 0 auto; }
+.tm[data-kind="phone"] .tm-head { width: 100%; max-width: 680px; align-self: center; box-sizing: border-box; }
 .tm-yt { width: 100%; }
 /* phone on its side */
 .tm[data-kind="land"] .tm-head { height: 52px; margin-top: 0; padding: 0 16px 0 calc(40px + env(safe-area-inset-left, 0px)); }
@@ -1737,7 +1744,7 @@ button.queue-bar-face { cursor: pointer; }
 .tm[data-kind="land"] .tm-now { width: 56px; }
 .tm[data-kind="land"] .tm-pair { margin-top: auto; }
 .tm[data-kind="land"] .tm-pair .tm-nud, .tm[data-kind="land"] .tm-pair .tm-set { height: 48px; min-width: 48px; }
-.tm[data-kind="land"] .tm-toast { bottom: 24px; }
+.tm[data-kind="land"] .tm-toast { left: auto; right: calc(env(safe-area-inset-right, 0px) + 16px); translate: none; bottom: 84px; max-width: 308px; white-space: normal; } /* over the dock panel, above its Set button */
 .tm[data-kind="land"] .tm-hint { font-size: 14px; padding: 8px 8px 8px 12px; }
 /* PC */
 .tm[data-kind="wide"] .tm-head { height: 84px; margin-top: 0; gap: 12px; padding: 0 40px 0 28px; }

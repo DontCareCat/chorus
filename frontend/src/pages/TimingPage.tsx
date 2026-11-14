@@ -541,7 +541,7 @@ function TimingMenu({ phone, anchor, onClose, redo, onExport, onShift, ripple, o
   useLayoutEffect(() => {
     if (phone || !anchor) return;
     const r = anchor.getBoundingClientRect();
-    setPos({ left: Math.min(Math.max(12, r.right - 340), window.innerWidth - 352), top: r.bottom + 6 });
+    setPos({ left: Math.min(Math.max(12, r.right - 380), window.innerWidth - 392), top: r.bottom + 6 });
   }, [phone, anchor]);
   useEffect(() => {
     if (phone) return;
@@ -563,5 +563,5 @@ function TimingMenu({ phone, anchor, onClose, redo, onExport, onShift, ripple, o
     </>
   );
   if (phone) return <Sheet ref={sheet} label={en.timing.menu} className="song-sheet" onClose={onClose}><div role="menu" aria-label={en.timing.menu}>{items}</div></Sheet>;
-  return <div className="song-menu tm-menu" role="menu" aria-label={en.timing.menu} ref={box} style={{ left: pos?.left ?? -9999, top: pos?.top, width: 340 }}>{items}</div>;
+  return <div className="song-menu tm-menu" role="menu" aria-label={en.timing.menu} ref={box} style={{ left: pos?.left ?? -9999, top: pos?.top, width: 380 }}>{items}</div>;
 }

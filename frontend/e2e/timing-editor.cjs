@@ -61,6 +61,28 @@ const stamp = (i) => `[00:${String(4 + i * 5).padStart(2, "0")}.00]`;
     ok(padLeft >= 12, `rows keep ${padLeft.toFixed(0)} px inside their edge (at least 12)`);
     ok(await pg.locator(".tm-text").first().evaluate((e) => !e.isContentEditable && !e.querySelector("input, textarea")), "the words are plain text, not editable");
 
+    // ---- the ⋮ menu: every item has room (a wrapped item grows, nothing overlaps its neighbours)
+    const menuOk = async (root, what) => {
+      const r = await pg.evaluate((sel) => {
+        const box = document.querySelector(sel);
+        if (!box) return null;
+        const items = [...box.querySelectorAll(".mi")];
+        const rects = items.map((e) => e.getBoundingClientRect());
+        let overlap = 0, cramped = 0;
+        rects.forEach((r, i) => { if (i && r.top < rects[i - 1].bottom - 0.5) overlap++; });
+        items.forEach((e, i) => { if (e.scrollHeight > e.clientHeight + 1 || rects[i].height < 43.5) cramped++; });
+        return { n: items.length, overlap, cramped, wrapped: items.filter((e) => e.getBoundingClientRect().height > 60).length };
+      }, root);
+      ok(r && r.n >= 3 && r.overlap === 0 && r.cramped === 0, `${what}: ${r?.n} items, none overlap or overflow (${r?.wrapped} grew to two lines)`);
+    };
+    if (kind === "wide") await menuOk(".tm-whole", "the Whole song card");
+    else {
+      await pg.getByRole("button", { name: "More" }).click();
+      await pg.waitForSelector(".tm-menu, .song-sheet");
+      await menuOk(kind === "land" ? ".tm-menu" : ".song-sheet", kind === "land" ? "the popover" : "the sheet");
+      await pg.keyboard.press("Escape"); await pg.waitForTimeout(500);
+    }
+
     // ---- tip, play and Set through three lines
     ok(await pg.locator(".tm-hint").count() === 1, "the tip shows");
     await pg.locator('.tm-play').click(); await pg.waitForTimeout(1500);
@@ -93,6 +115,14 @@ const stamp = (i) => `[00:${String(4 + i * 5).padStart(2, "0")}.00]`;
     ok(afterPush.every((x, i) => i === 0 || x == null || afterPush[i - 1] == null || x > afterPush[i - 1]), "line 1 moved past line 2: the order still holds");
     ok(afterPush[1] > beforeClick[1], "line 2 was pushed ahead of line 1");
     ok(await pg.locator(".tm-toast").count() === 1 && /Moved \d+ more lines? to keep the order/.test(await pg.locator(".tm-toast").textContent()), "a toast says how many lines moved");
+    const place = await pg.evaluate(() => {
+      const t = document.querySelector(".tm-toast").getBoundingClientRect();
+      const dock = document.querySelector(".tm-dock, .tm-bar")?.getBoundingClientRect();
+      const set = document.querySelector(".tm-set")?.getBoundingClientRect();
+      return { t: [t.left, t.right, t.top, t.bottom], dock: dock && [dock.left, dock.right, dock.top, dock.bottom], set: set && [set.left, set.right, set.top, set.bottom], w: innerWidth };
+    });
+    if (kind === "land") ok(place.t[0] >= place.dock[0] - 1 && place.t[1] <= place.dock[1] + 1 && place.t[3] <= place.set[2] + 1, "the Undo toast sits over the dock panel, above its Set button");
+    else ok(place.t[3] <= place.dock[2] + 1, `the Undo toast sits above the ${kind === "wide" ? "player bar" : "dock"}`);
     await pg.locator(".tm-toast-undo").click();
     ok(Math.abs(secs((await times())[1]) - beforeClick[1]) < 0.011 && (await pg.locator(".tm-toast").count()) === 0, "Undo in the toast takes the move back");
 
@@ -111,6 +141,14 @@ const stamp = (i) => `[00:${String(4 + i * 5).padStart(2, "0")}.00]`;
     if (!(await pg.locator(".tm-head .btn:has-text('Save')").isEnabled())) await pg.getByRole("button", { name: /0\.\d seconds later/ }).last().click();
     await pg.getByRole("button", { name: "Back", exact: true }).click();
     ok(await pg.getByText("Save your timing changes?").count() === 1, "Back with unsaved changes asks first");
+    const acts = await pg.evaluate(() => {
+      const box = document.querySelector(".tm-actions");
+      const bs = [...box.querySelectorAll(".btn")].map((b) => { const r = b.getBoundingClientRect(); return { t: r.top, l: r.left, r: r.right, w: r.width, h: r.height, text: b.textContent }; });
+      const c = box.getBoundingClientRect();
+      return { bs: bs.sort((a, b) => a.t - b.t || a.l - b.l), c: [c.left, c.right] };
+    });
+    if (kind === "wide") ok(new Set(acts.bs.map((b) => Math.round(b.t))).size === 1 && Math.abs(acts.bs[2].r - acts.c[1]) < 2 && acts.bs[2].text === "Save", "PC: the dialog buttons are one right-aligned row, the action last");
+    else ok(acts.bs.length === 3 && acts.bs[0].text === "Save" && acts.bs[0].t < acts.bs[1].t && acts.bs[1].t < acts.bs[2].t && acts.bs.every((b) => b.h >= 51.5 && b.w >= acts.c[1] - acts.c[0] - 2) && acts.bs[2].text === "Keep editing", "touch: full-width 52 px stacked buttons, Save on top, Keep editing last");
     await pg.getByRole("button", { name: "Keep editing" }).click();
     ok(await pg.locator(".tm-row").count() > 0 && (await pg.getByText("Save your timing changes?").count()) === 0, "Keep editing stays");
     await pg.goBack().catch(() => undefined);
@@ -160,6 +198,20 @@ const stamp = (i) => `[00:${String(4 + i * 5).padStart(2, "0")}.00]`;
       ok(await pg.locator(".tm-keys .kbd").count() > 8, "the Keys list shows on a PC");
     }
     await noScroll("still no sideways scroll");
+    await ctx.close();
+  }
+
+  // ---- a tablet held upright: the phone drawing, the header no wider than the list and dock
+  console.log("[tablet upright 834]");
+  {
+    const song = await mk(`Mara Vell - Tablet ${stampN}.wav`, LINES.map((t, i) => `${stamp(i)} ${t}`).join("\n"));
+    const ctx = await browser.newContext({ ...devices["iPad Pro 11"] });
+    const pg = await ctx.newPage();
+    await pg.goto(B + `#/songs/${song.id}/timing`); await pg.waitForSelector(".tm-row");
+    const g = await pg.evaluate(() => { const r = (q) => { const e = document.querySelector(q).getBoundingClientRect(); return [e.left, e.right, e.width]; }; return { kind: document.querySelector(".tm").dataset.kind, head: r(".tm-head"), rows: r(".tm-rows"), dock: r(".tm-dock-in"), save: r(".tm-head .btn"), w: innerWidth }; });
+    ok(g.kind === "phone", "a tablet held upright gets the phone drawing");
+    ok(g.head[2] <= 680.5 && Math.abs((g.head[0] + g.head[1]) / 2 - g.w / 2) < 2, `the header is capped at ${g.head[2].toFixed(0)} px and centred`);
+    ok(Math.abs(g.save[1] - (g.head[1] - 16)) < 2 && g.save[1] <= g.dock[1] + 17, "Save sits with the content, not at the screen edge");
     await ctx.close();
   }
 
