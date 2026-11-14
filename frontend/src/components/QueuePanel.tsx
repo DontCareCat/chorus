@@ -24,6 +24,8 @@ interface Props {
   onClose: () => void;
   /** in the game: start the next song now (the player has no Next button on a phone) */
   onSkip?: () => void;
+  /** in the game: a tap on a waiting song switches to it at once */
+  onPlay?: (songId: number) => void;
 }
 
 const levelOptions = (resolved: Level) => [
@@ -32,7 +34,7 @@ const levelOptions = (resolved: Level) => [
 ];
 
 /** The queue: waiting songs in order, each with its difficulty; drag to reorder, swipe left (touch) or the cross to remove; ⋮ changes every song at once. */
-export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
+export function QueuePanel({ songs, games, phone, onClose, onSkip, onPlay }: Props) {
   const store = useQueue();
   const q = store.queue;
   const byId = useMemo(() => new Map(songs.map((s) => [s.id, s])), [songs]);
@@ -103,7 +105,7 @@ export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
         <ul className="queue-list" ref={list} data-orderable={waiting.length > 1}>
           {waiting.map((item) => {
             const s = byId.get(item.songId);
-            return <QueueRow key={item.songId} item={item} song={s} phone={phone} orderable={waiting.length > 1 && !phone} resolved={resolved(item)}
+            return <QueueRow key={item.songId} item={item} song={s} phone={phone} onPlay={onPlay ? () => onPlay(item.songId) : undefined} orderable={waiting.length > 1 && !phone} resolved={resolved(item)}
               onLevel={(difficulty) => store.set(Q.setItem(q, item.songId, { difficulty }))}
               onRemove={() => { const at = q.items.findIndex((i) => i.songId === item.songId); remember(en.queue.removed(s?.title ?? ""), Q.removeAt(q, at)); }}
               onTop={() => store.set(Q.moveToTop(q, item.songId))} />;
@@ -116,7 +118,7 @@ export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
   return <Dialog title={en.queue.title} onClose={onClose}>{body}</Dialog>;
 }
 
-function QueueRow({ item, song, phone, orderable, resolved, onLevel, onRemove, onTop }: { item: QueueItem; song: SongDto | undefined; phone: boolean; orderable: boolean; resolved: Level; onLevel: (l: QueueLevel) => void; onRemove: () => void; onTop: () => void }) {
+function QueueRow({ item, song, phone, orderable, resolved, onLevel, onRemove, onTop, onPlay }: { onPlay?: () => void; item: QueueItem; song: SongDto | undefined; phone: boolean; orderable: boolean; resolved: Level; onLevel: (l: QueueLevel) => void; onRemove: () => void; onTop: () => void }) {
   const li = useRef<HTMLLIElement>(null);
   useSwipe(li, { directions: ["left"], onSwipe: onRemove, enabled: phone });
   const [open, setOpen] = useState(false);
@@ -126,11 +128,19 @@ function QueueRow({ item, song, phone, orderable, resolved, onLevel, onRemove, o
       <div className="swipe-reveal remove" aria-hidden="true">{en.queue.swipeRemove}<Icon name="trash" /></div>
       <div className="queue-face" data-swipe-face>
         {orderable && <button type="button" className="grip" data-grip aria-label={en.queue.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"><Icon name="grip" /></button>}
-        {song && <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" />}
-        <div className="queue-text">
-          <strong title={title}><Marquee>{title}</Marquee></strong>
-          <small>{song?.artist}{phone && <> · <LevelLabel level={item.difficulty === "progressive" ? resolved : item.difficulty} progressive={item.difficulty === "progressive"} size={14} /></>}</small>
-        </div>
+        {(() => {
+          const body = (
+            <>
+              {song && <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" />}
+              <div className="queue-text">
+                <strong title={title}><Marquee>{title}</Marquee></strong>
+                <small>{song?.artist}{phone && <> · <LevelLabel level={item.difficulty === "progressive" ? resolved : item.difficulty} progressive={item.difficulty === "progressive"} size={14} /></>}</small>
+              </div>
+            </>
+          );
+          // in the game a tap on the song switches to it at once
+          return onPlay ? <button type="button" className="queue-pick" aria-label={en.queue.playNow(title)} title={en.queue.playNowHint} onClick={onPlay}>{body}</button> : body;
+        })()}
         {!phone && (
           <div className="queue-level" data-pinned={item.difficulty !== "progressive"}>
             <Select<QueueLevel> chip value={item.difficulty} options={levelOptions(resolved)} ariaLabel={en.queue.difficultyFor(title)} onChange={onLevel} />

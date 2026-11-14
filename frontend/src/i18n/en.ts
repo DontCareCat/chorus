@@ -210,6 +210,8 @@ export const en = {
     openList: "Open queue",
     finishedTitle: "Queue finished",
     unavailable: "Song no longer in the library",
+    playNow: (title: string) => `Play ${title} now`,
+    playNowHint: "Play this song now",
     finishedSub: (n: number) => `${n} ${n === 1 ? "song" : "songs"} played`,
     again: "Shuffle again",
     close: "Close",

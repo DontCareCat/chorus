@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { add, advance, back, finished, moveToTop, next, removeAt, reorderUpcoming, setAllUpcoming, setItem, shared, shuffled, start, upcoming } from "./queue";
+import { add, advance, back, finished, moveToTop, next, removeAt, playNow, reorderUpcoming, setAllUpcoming, setItem, shared, shuffled, start, upcoming } from "./queue";
 
 const D = { difficulty: "progressive", mode: "choice" } as const;
 const ids = (q: { items: { songId: number }[] }) => q.items.map((i) => i.songId);
@@ -53,5 +53,21 @@ describe("queue", () => {
     expect(upcoming(q).map((i) => `${i.difficulty}/${i.mode}`)).toEqual(["easy/typing", "easy/typing"]);
     expect(q.items[0]!.difficulty).toBe("progressive"); // the one already started keeps its own
     expect(shared(q, "mode")).toBe("typing");
+  });
+});
+
+describe("playNow", () => {
+  const D2 = { difficulty: "progressive", mode: "choice" } as const;
+  it("makes the chosen waiting song the next one and keeps the order of the others", () => {
+    const q = { items: [{ songId: 1, ...D2 }, { songId: 2, ...D2 }, { songId: 3, ...D2 }, { songId: 4, ...D2 }], cursor: 1 };
+    const n = playNow(q, 4);
+    expect(next(n)?.songId).toBe(4);
+    expect(n.items.map((i) => i.songId)).toEqual([1, 4, 2, 3]);
+    expect(n.cursor).toBe(1);
+  });
+  it("does nothing for a song that is not waiting (already played or not in the queue)", () => {
+    const q = { items: [{ songId: 1, ...D2 }, { songId: 2, ...D2 }], cursor: 1 };
+    expect(playNow(q, 1)).toBe(q);
+    expect(playNow(q, 9)).toBe(q);
   });
 });

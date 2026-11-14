@@ -435,6 +435,12 @@ function GameScreen({ game }: { game: GameDto }) {
     const fadeMs = queueSettings.fade && spinning ? Math.round(Math.min(queueSettings.fadeSeconds * 1000, Math.max(300, Math.max(0, duration - time) * 1000))) : 0;
     void goNext(fadeMs).then((e) => { if (e) showHint(e); });
   }, [goNext, queueSettings.fade, queueSettings.fadeSeconds, spinning, duration, time]);
+  /** A song picked in the queue list during the game: it becomes the next one and starts now (this game is left as a skip leaves it). */
+  const playFromQueue = useCallback((songId: number) => {
+    setQueueOpen(false);
+    queueStore.set(Q.playNow(queueStore.snapshot(), songId));
+    void goNext(0).then((e) => { if (e) showHint(e); });
+  }, [queueStore, goNext, showHint]);
   const finished = g.finished && (
     <FinishCard
       standing={g.standing}
@@ -523,7 +529,7 @@ function GameScreen({ game }: { game: GameDto }) {
       />
       {phone && <div className="toast-lane"><Toast toast={errorToast ?? hintToast} onDismiss={errorToast ? () => setErrorSeen(stateText) : undefined} /></div>}
       {wordHit && <WordCard hit={wordHit} language={game.language} songId={game.song_id} onClose={closeWord} />}
-      {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} onSkip={() => { setQueueOpen(false); skipToNext(); }} />}
+      {queueOpen && <QueueDialog phone={phone} onClose={() => setQueueOpen(false)} onSkip={() => { setQueueOpen(false); skipToNext(); }} onPlay={playFromQueue} />}
     </div>
   );
 }

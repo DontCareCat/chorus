@@ -58,6 +58,9 @@ export function moveToTop(q: QueueState, songId: number): QueueState {
   return at < 0 ? q : { ...q, items: [...q.items.slice(0, q.cursor), ...moveItem(q.items.slice(q.cursor), at - q.cursor, 0)] };
 }
 
+/** "Play this one now" from the queue list: the chosen waiting song becomes the next one (the others keep their order behind it). */
+export const playNow = (q: QueueState, songId: number): QueueState => moveToTop(q, songId);
+
 export function setItem(q: QueueState, songId: number, patch: Partial<Pick<QueueItem, "difficulty" | "mode">>): QueueState {
   return { ...q, items: q.items.map((i) => (i.songId === songId ? { ...i, ...patch } : i)) };
 }

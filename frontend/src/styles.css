@@ -1603,3 +1603,5 @@ button.queue-bar-face { cursor: pointer; }
 .queue-levels button:first-child .level-stars { margin-left: 6px; }
 .playlist-text strong, .playlist-title h1, .game-title h1, .queue-text strong { min-width: 0; } .playlist-text strong .marquee, .queue-text strong .marquee { font-weight: inherit; }
 .playlist-title h1, .game-title h1 { overflow: hidden; }
+.queue-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: inherit; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
+.queue-pick:hover .queue-text strong { text-decoration: underline; text-underline-offset: 3px; }
