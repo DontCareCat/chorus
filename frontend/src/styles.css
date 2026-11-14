@@ -773,7 +773,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .lookup-label.leave .ch { animation: ch-out 220ms ease forwards; }
 .lookup-label.arrive .ch { opacity: 0; animation: ch-in 320ms ease forwards; }
 .lookup-count { position: relative; z-index: 1; flex: none; font-size: 15px; font-weight: 600; color: var(--text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.lookup-groups { position: relative; z-index: 1; flex: none; display: inline-flex; gap: 12px; }
+.lookup-groups { position: relative; z-index: 1; flex: none; display: inline-flex; gap: 12px; padding-right: 10px; } /* the results keep a gutter of 14px to the bar's edge (the bar itself has 4px on the right for the retry button) */
 .lookup-group { display: inline-flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .lookup-groups.arrive .lookup-group { opacity: 0; animation: ch-in 320ms ease forwards; }
 .lookup-retry { position: relative; z-index: 1; flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; border-radius: 50%; background: transparent; color: var(--text); }
