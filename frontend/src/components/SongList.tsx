@@ -311,7 +311,7 @@ function StartPanel({ song, games }: { song: SongDto; games: GameSummaryDto[] })
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState<GameMode>("choice");
-  const recommended = progressiveLevel(games, song.id, mode); // the level that follows the player's results (stars beside it); chosen when they have not picked one
+  const recommended = progressiveLevel(games, mode); // the level that follows the player's results (stars beside it); chosen when they have not picked one
   const difficulty = picked ?? recommended;
   const setDifficulty = setPicked;
   const modeThumb = useThumb();

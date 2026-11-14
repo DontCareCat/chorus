@@ -36,7 +36,7 @@ export function useQueueActions() {
     const next = Q.next(store.snapshot());
     if (!next) return null;
     try {
-      const lvl = next.difficulty === "progressive" ? queueLevel(await api.myGames(), store.snapshot().playing, next.songId, next.mode) : next.difficulty;
+      const lvl = next.difficulty === "progressive" ? queueLevel(await api.myGames(), store.snapshot().run, next.mode) : next.difficulty;
       const g = await api.createGame(next.songId, lvl, next.mode);
       store.set(Q.withPlaying(Q.advance(store.snapshot()), g.public_id));
       await opts.beforeNavigate?.(); // the page that is leaving lets its song fade out

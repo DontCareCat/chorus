@@ -182,7 +182,7 @@ export const en = {
   queue: {
     title: "Queue",
     progressive: "Progressive",
-    progressiveHelp: "Starts at Medium. The level goes one up after a game with over 90% right answers and one down below 40%, track by track; a level you set yourself never changes.",
+    progressiveHelp: "Starts at Medium. The level goes one up after 4 games in a row with over 90% right answers and one down after 2 in a row below 40%; a game in between starts the count again, and a level you set yourself never changes.",
     settingsTitle: "Play queue",
     settingsLabel: "Difficulty in the queue",
     autoplay: "Autoplay",

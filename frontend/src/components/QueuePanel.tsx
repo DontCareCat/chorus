@@ -51,7 +51,7 @@ export function QueuePanel({ songs, games, phone, onClose, onSkip, onPlay }: Pro
   }, [menu]);
   const [undo, setUndo] = useState<{ label: string; prev: Q.QueueState } | null>(null);
   const remember = (label: string, next: Q.QueueState) => { setUndo({ label, prev: q }); store.set(next); };
-  const resolved = (i: QueueItem): Level => queueLevel(games, q.playing, i.songId, i.mode);
+  const resolved = (i: QueueItem): Level => queueLevel(games, q.run, i.mode);
 
   const menuPanel = menu && (
     <div className="queue-menu" role="menu" aria-label={en.queue.menu}>

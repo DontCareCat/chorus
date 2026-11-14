@@ -5,7 +5,8 @@ export type QueueMode = "choice" | "typing";
 
 export interface QueueItem { songId: number; difficulty: QueueLevel; mode: QueueMode }
 /** `cursor` is the index of the song that comes next; everything before it has been started or skipped. */
-export interface QueueState { items: QueueItem[]; cursor: number; /** public id of the game the queue started last: only that game moves on to the next song by itself */ playing?: string }
+export interface QueueState { items: QueueItem[]; cursor: number; /** public id of the game the queue started last: only that game moves on to the next song by itself */ playing?: string;
+  /** public ids of the games this queue has started, oldest first: the progressive difficulty counts finished tracks in a row over these */ run?: string[] }
 
 export const EMPTY: QueueState = { items: [], cursor: 0 };
 
@@ -31,7 +32,7 @@ export function start(songIds: readonly number[], defaults: { difficulty: QueueL
 
 export const next = (q: QueueState): QueueItem | null => q.items[q.cursor] ?? null;
 export const finished = (q: QueueState): boolean => q.items.length > 0 && q.cursor >= q.items.length;
-export const withPlaying = (q: QueueState, publicId: string): QueueState => ({ ...q, playing: publicId });
+export const withPlaying = (q: QueueState, publicId: string): QueueState => ({ ...q, playing: publicId, run: [...(q.run ?? []), publicId] });
 
 /** The queue moves on: the next song was started or skipped. */
 export const advance = (q: QueueState): QueueState => (q.cursor < q.items.length ? { ...q, cursor: q.cursor + 1 } : q);
@@ -42,7 +43,7 @@ export const back = (q: QueueState): QueueState => (q.cursor > 0 ? { ...q, curso
 /** Remove the song at `index`; the cursor keeps pointing at the same upcoming song. */
 export function removeAt(q: QueueState, index: number): QueueState {
   if (index < 0 || index >= q.items.length) return q;
-  return { items: q.items.filter((_, i) => i !== index), cursor: index < q.cursor ? q.cursor - 1 : q.cursor };
+  return { ...q, items: q.items.filter((_, i) => i !== index), cursor: index < q.cursor ? q.cursor - 1 : q.cursor };
 }
 
 /** Reorder the waiting songs only (those from the cursor on); `ids` is the new order of those. */
