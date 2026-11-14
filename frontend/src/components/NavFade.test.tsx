@@ -14,12 +14,11 @@ describe("NavFade", () => {
     const { container } = render(<div className="shell"><nav className="main-nav" /><NavFade /></div>);
     const fade = container.querySelector<HTMLElement>(".nav-fade")!;
     expect(fade.style.getPropertyValue("--fade-h")).toBe(`${68 + 48}px`); // the tab bar plus 48px, solid from the tab bar's top edge
-    expect(fade.style.getPropertyValue("--fade-solid")).toBe("48px");
   });
   it("starts 48px above the queue bar and is solid from its middle", () => {
     const { container } = render(<div className="shell"><nav className="main-nav" /><div className="queue-bar" style={{ bottom: "72px" }} /><NavFade /></div>);
     const fade = container.querySelector<HTMLElement>(".nav-fade")!;
     expect(fade.style.getPropertyValue("--fade-h")).toBe(`${72 + 66 + 48}px`); // up to 48px over the bar's top edge
-    expect(fade.style.getPropertyValue("--fade-solid")).toBe(`${48 + 33}px`);
+    expect(fade.style.getPropertyValue("--fade-solid")).toBe(""); // no solid part any more
   });
 });

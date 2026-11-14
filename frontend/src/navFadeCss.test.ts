@@ -25,7 +25,23 @@ describe("the fade above the tab bar", () => {
     expect(css).toMatch(/\.nav-fade \{[^}]*bottom: 0/);
     expect(css).toMatch(/\.main-nav\[data-variant="tabs"\] \{[^}]*background: transparent/);
   });
-  it("is solid from --fade-solid down (48px above the tab bar's top, or the queue bar's middle)", () => {
-    expect(css).toMatch(/\.nav-fade \{[^}]*height: var\(--fade-h[^}]*var\(--bg\) var\(--fade-solid, 48px\)/);
+  it("is one smooth gradient: clear at the top, a little more at every stop, the page colour at the very bottom, no solid band or box", () => {
+    const rule = /\.nav-fade \{[^}]*\}/.exec(css)![0];
+    expect(rule).toMatch(/linear-gradient\(to bottom, transparent 0%/);
+    const stops = [...rule.matchAll(/(?:color-mix\(in oklch, var\(--bg\) (\d+)%, transparent\)|var\(--bg\)) (\d+)%/g)].map((m) => ({ alpha: m[1] === undefined ? 100 : Number(m[1]), at: Number(m[2]) }));
+    expect(stops.length).toBeGreaterThanOrEqual(6);
+    expect(stops[stops.length - 1]).toEqual({ alpha: 100, at: 100 });
+    for (let i = 1; i < stops.length; i++) {
+      expect(stops[i]!.alpha).toBeGreaterThan(stops[i - 1]!.alpha); // it intensifies at every stop
+      expect(stops[i]!.at).toBeGreaterThan(stops[i - 1]!.at);
+    }
+    expect(stops[0]!.alpha).toBeLessThanOrEqual(5); // the top of the scrim leaves the content as it is
+    expect(stops.filter((s) => s.alpha >= 99).length).toBe(1); // opaque only at the screen edge
+    expect(rule).not.toMatch(/--fade-solid/);
+  });
+  it("nothing else paints a box behind the tab bar: the bar itself is transparent and has no border or shadow", () => {
+    const bar = /\.main-nav\[data-variant="tabs"\] \{[^}]*\}/.exec(css)![0];
+    expect(bar).toMatch(/background: transparent/);
+    expect(bar).not.toMatch(/border|box-shadow|backdrop-filter/);
   });
 });
