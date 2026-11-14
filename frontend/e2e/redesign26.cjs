@@ -72,7 +72,7 @@ const lrc = ["[00:00.50] Eins zwei drei", "[00:20.00] Vier fünf sechs", "[00:40
       ok(f.zFade < f.zQ && f.zQ < f.zNav, `stacking fade ${f.zFade} < queue bar ${f.zQ} < tabs ${f.zNav}`);
       console.log("   ", JSON.stringify(f));
       ok(Math.abs(f.qTop - f.fadeTop - 48) <= 1, `the fade starts 48px above the queue bar: ${f.qTop - f.fadeTop}`);
-      ok(Math.abs(f.fadeBottom - f.navTop) <= 1 && f.pe === "none", "it ends at the tabs and never takes a tap");
+      ok(Math.abs(f.fadeBottom - (await page.evaluate(() => innerHeight))) <= 1 && f.pe === "none", "it runs to the bottom of the screen (behind the tabs) and never takes a tap");
       await page.screenshot({ path: process.env.SHOTS + "/fade-queue-phone.png" }).catch(() => undefined);
     }
 
