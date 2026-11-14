@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { holdDialogOpen } from "../lib/dialog-open";
 import { noAutofill } from "../lib/noAutofill";
-import { api } from "../services/api";
+import { checkService, saveService } from "../lib/lyrics-source";
 
 export const DEFAULT_SERVICE = "https://lrclib.net";
 export const SKIP_KEY = "chorus-lyrics-source-skipped";
@@ -30,8 +30,7 @@ export function LyricsSourceWindow({ onDone }: { onDone: (toast: string) => void
   }, []);
   const save = async (value: string) => {
     try {
-      const current = await api.settings();
-      await api.saveSettings({ ...current, lyrics_service_url: value });
+      await saveService(value);
       onDone(en.lyricsSource.saved);
     } catch (e) {
       setState("idle");
@@ -44,7 +43,7 @@ export function LyricsSourceWindow({ onDone }: { onDone: (toast: string) => void
     if (check) {
       setState("checking");
       try {
-        const r = await api.checkLyricsService(value);
+        const r = await checkService(value);
         if (!r.ok) { setState("failed"); return; }
       } catch { setState("failed"); return; }
     }
@@ -65,16 +64,11 @@ export function LyricsSourceWindow({ onDone }: { onDone: (toast: string) => void
             onKeyDown={(e) => { if (e.key === "Enter" && state !== "checking") void use(true); }} />
           <small id="ls-help">{en.lyricsSource.help}</small>
         </div>
-        {state === "failed" && (
-          <div className="ls-result" role="alert">
-            <div><strong>{en.lyricsSource.failedTitle}</strong><br />{en.lyricsSource.failedHelp}</div>
-            <div><button type="button" className="btn secondary small" onClick={() => void use(false)}>{en.lyricsSource.useAnyway}</button></div>
-          </div>
-        )}
-        {saveError && <div className="ls-result" role="alert">{saveError}</div>}
-        <button type="button" className="ls-big" onClick={() => void use(true)} disabled={state === "checking"} aria-busy={state === "checking"}>
+        {state === "failed" && <p className="ls-hint" role="alert">{en.lyricsSource.failedHelp}</p>}
+        {saveError && <p className="ls-hint" role="alert">{saveError}</p>}
+        <button type="button" className="ls-big" onClick={() => void use(state !== "failed")} disabled={state === "checking"} aria-busy={state === "checking"}>
           {state === "checking" && <span className="ls-spin" aria-hidden="true" />}
-          {state === "checking" ? en.lyricsSource.checking : typed ? en.lyricsSource.useSpecified : en.lyricsSource.useDefault}
+          {state === "checking" ? en.lyricsSource.checking : state === "failed" ? en.lyricsSource.useAnyway : typed ? en.lyricsSource.useSpecified : en.lyricsSource.useDefault}
         </button>
         <p className="ls-disc">{en.lyricsSource.disclaimer}</p>
         <button type="button" className="ls-skip" onClick={skip}>{en.lyricsSource.skip}</button>

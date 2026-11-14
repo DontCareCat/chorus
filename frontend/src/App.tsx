@@ -18,8 +18,9 @@ import { SongPage } from "./pages/SongPage";
 import { api } from "./services/api";
 import { paths, useRoute } from "./router";
 import { Icon } from "./components/Icon";
-import { LyricsSourceWindow, SKIP_KEY } from "./components/LyricsSourceWindow";
+import { LyricsSourceWindow } from "./components/LyricsSourceWindow";
 import { Toast, useToast } from "./components/Toast";
+import { useLyricsSourcePrompt } from "./hooks/useLyricsSourcePrompt";
 import type { Route } from "./router";
 
 /** The section a page belongs to (the name next to the logo on a phone): sub-pages keep their section's name. */
@@ -81,16 +82,9 @@ export function App() {
   );
 
   // the administrator is asked once per start to choose a lyrics service, while none is set
-  const [askSource, setAskSource] = useState(false);
   const [toast, setToast] = useToast(3500);
   const admin = !!auth.user?.is_admin && !auth.user.is_guest;
-  useEffect(() => {
-    if (!admin) return;
-    try { if (sessionStorage.getItem(SKIP_KEY)) return; } catch { /* no storage: ask */ }
-    let live = true;
-    api.settings().then((st) => live && setAskSource(!st.lyrics_service_url.trim()), () => undefined);
-    return () => { live = false; };
-  }, [admin]);
+  const [askSource, setAskSource] = useLyricsSourcePrompt(admin);
   const showNav = !isGame && !needsSignIn && route.name !== "login";
   const section = sectionName(route);
   useEffect(() => { document.title = section ? `${section} \u00b7 ${en.appName}` : en.appName; }, [section]);

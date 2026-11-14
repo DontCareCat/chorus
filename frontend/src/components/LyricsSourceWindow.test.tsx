@@ -2,17 +2,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../services/api", () => ({ api: { settings: vi.fn(), saveSettings: vi.fn(), checkLyricsService: vi.fn() } }));
-import { api } from "../services/api";
+vi.mock("../lib/lyrics-source", () => ({ checkService: vi.fn(), saveService: vi.fn(), loadService: vi.fn() }));
+import { checkService, saveService } from "../lib/lyrics-source";
 import { LyricsSourceWindow, SKIP_KEY } from "./LyricsSourceWindow";
 
-const mocked = api as unknown as { settings: ReturnType<typeof vi.fn>; saveSettings: ReturnType<typeof vi.fn>; checkLyricsService: ReturnType<typeof vi.fn> };
+const mocked = { saveService: saveService as unknown as ReturnType<typeof vi.fn>, checkService: checkService as unknown as ReturnType<typeof vi.fn> };
 
 beforeEach(() => {
   sessionStorage.clear();
-  mocked.settings.mockResolvedValue({ lyrics_service_url: "", other: 1 });
-  mocked.saveSettings.mockImplementation(async (s: unknown) => s);
-  mocked.checkLyricsService.mockResolvedValue({ ok: true, message: "" });
+  mocked.saveService.mockResolvedValue(undefined);
+  mocked.checkService.mockResolvedValue({ ok: true, message: "" });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -39,8 +38,8 @@ describe("LyricsSourceWindow", () => {
     render(<LyricsSourceWindow onDone={done} />);
     fireEvent.click(screen.getByText("Use lrclib.net"));
     await waitFor(() => expect(done).toHaveBeenCalledWith("Lyrics service saved"));
-    expect(mocked.checkLyricsService).toHaveBeenCalledWith("https://lrclib.net");
-    expect(mocked.saveSettings).toHaveBeenCalledWith({ lyrics_service_url: "https://lrclib.net", other: 1 });
+    expect(mocked.checkService).toHaveBeenCalledWith("https://lrclib.net");
+    expect(mocked.saveService).toHaveBeenCalledWith("https://lrclib.net");
   });
   it("saves the typed address", async () => {
     const done = vi.fn();
@@ -48,24 +47,39 @@ describe("LyricsSourceWindow", () => {
     fireEvent.change(screen.getByLabelText("Lyrics service"), { target: { value: " my.server.test " } });
     fireEvent.click(screen.getByText("Use specified"));
     await waitFor(() => expect(done).toHaveBeenCalled());
-    expect(mocked.saveSettings).toHaveBeenCalledWith({ lyrics_service_url: "my.server.test", other: 1 });
+    expect(mocked.saveService).toHaveBeenCalledWith("my.server.test");
   });
-  it("a failed check shows the result under the field with Use anyway, which saves without a check; typing clears it", async () => {
-    mocked.checkLyricsService.mockResolvedValue({ ok: false, message: "no" });
+  it("a failed check turns the main button into Use anyway (same button, no separate card), which saves without a check; typing resets it", async () => {
+    mocked.checkService.mockResolvedValue({ ok: false, message: "no" });
     const done = vi.fn();
-    render(<LyricsSourceWindow onDone={done} />);
-    fireEvent.change(screen.getByLabelText("Lyrics service"), { target: { value: "bad.test" } });
-    fireEvent.click(screen.getByText("Use specified"));
-    await screen.findByText(/didn’t answer like an LRCLIB service/);
-    expect(mocked.saveSettings).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText("Lyrics service"), { target: { value: "bad2.test" } });
-    expect(screen.queryByText(/didn’t answer/)).toBeNull();
-    fireEvent.click(screen.getByText("Use specified"));
-    await screen.findByText("Use anyway");
-    fireEvent.click(screen.getByText("Use anyway"));
+    const { container } = render(<LyricsSourceWindow onDone={done} />);
+    const input = screen.getByLabelText("Lyrics service");
+    fireEvent.change(input, { target: { value: "bad.test" } });
+    const main = container.querySelector(".ls-big") as HTMLButtonElement;
+    fireEvent.click(main);
+    await screen.findByRole("alert");
+    expect(main.textContent).toBe("Use anyway");
+    expect((container.querySelector(".ls-big") as HTMLButtonElement)).toBe(main); // the same button
+    expect(container.querySelectorAll("button.btn").length).toBe(0); // no second "Use anyway" pill
+    expect(container.querySelector(".ls-result")).toBeNull();
+    expect(screen.getByRole("alert").textContent).toMatch(/didn\u2019t answer like an LRCLIB service/);
+    expect(mocked.saveService).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: "bad2.test" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(main.textContent).toBe("Use specified");
+    fireEvent.click(main);
+    await screen.findByRole("alert");
+    fireEvent.click(main);
     await waitFor(() => expect(done).toHaveBeenCalledWith("Lyrics service saved"));
-    expect(mocked.saveSettings).toHaveBeenCalledWith({ lyrics_service_url: "bad2.test", other: 1 });
-    expect(mocked.checkLyricsService).toHaveBeenCalledTimes(2);
+    expect(mocked.saveService).toHaveBeenCalledWith("bad2.test");
+    expect(mocked.checkService).toHaveBeenCalledTimes(2); // Use anyway does not check again
+  });
+  it("the same for the default: Use lrclib.net becomes Use anyway when its check fails", async () => {
+    mocked.checkService.mockResolvedValue({ ok: false, message: "no" });
+    const { container } = render(<LyricsSourceWindow onDone={() => undefined} />);
+    fireEvent.click(screen.getByText("Use lrclib.net"));
+    await screen.findByRole("alert");
+    expect((container.querySelector(".ls-big") as HTMLButtonElement).textContent).toBe("Use anyway");
   });
   it("Skip this time and Esc close it for this run; a click on the scrim does nothing", () => {
     const done = vi.fn();
