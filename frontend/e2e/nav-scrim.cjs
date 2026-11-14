@@ -40,17 +40,16 @@ const wav = (secs, seed) => { const n = 8000 * secs, d = Buffer.alloc(44 + n * 2
     const png = await p.screenshot();
     const col = await column(png, 3);
     const top = Math.round(info.top), end = info.ih;
-    const above = col[top - 6], atTop = col[top + 3], mid = col[Math.round((top + end) / 2)], last = col[end - 1];
-    ok(Math.abs(above - info.stripe) < 3 && Math.abs(atTop - info.stripe) < 12, `the top of the scrim leaves the content as it is (${above.toFixed(0)}, ${atTop.toFixed(0)} against ${info.stripe})`);
+    const above = col[top - 6], atTop = col[top], mid = col[Math.round((top + end) / 2)], last = col[end - 1];
+    ok(Math.abs(above - info.stripe) < 3 && Math.abs(atTop - info.stripe) < 0.08 * Math.abs(info.bgLum - info.stripe), `the top of the scrim leaves the content as it is (${above.toFixed(0)}, ${atTop.toFixed(0)} against ${info.stripe})`);
     ok(Math.abs(last - info.bgLum) < 6, `the page colour at the screen edge (${last.toFixed(0)} against ${info.bgLum.toFixed(0)})`);
-    const ramp = col.slice(top, end);
-    const dir = info.stripe > info.bgLum ? -1 : 1; // the stripe is covered by the page colour: the sample moves toward it
-    let bad = 0, flat = 0, maxFlat = 0;
-    for (let i = 1; i < ramp.length; i++) { const d = (ramp[i] - ramp[i - 1]) * dir; if (d < -3) bad++; if (Math.abs(d) < 0.01) { flat++; maxFlat = Math.max(maxFlat, flat); } else flat = 0; }
-    ok(bad === 0, "it only ever moves toward the page colour (no band, no step back)");
-    ok(maxFlat <= Math.ceil(ramp.length * 0.07), `no solid plateau (longest flat run ${maxFlat} px of ${ramp.length})`);
-    const q = Math.abs(ramp[Math.floor(ramp.length * 0.25)] - info.stripe), m2 = Math.abs(ramp[Math.floor(ramp.length * 0.5)] - info.stripe), t3 = Math.abs(ramp[Math.floor(ramp.length * 0.75)] - info.stripe);
-    ok(q < m2 && m2 < t3, `coverage grows toward the bottom (${q.toFixed(0)} < ${m2.toFixed(0)} < ${t3.toFixed(0)})`);
+    const cover = (y) => Math.abs(col[top + y] - info.stripe) / Math.abs(info.bgLum - info.stripe); // how much of the page colour is over the stripe at y px below the scrim's top
+    const c10 = cover(10), c22 = cover(22), c36 = cover(36);
+    ok(Math.abs(c10 - 0.45) < 0.1 && Math.abs(c22 - 0.75) < 0.1 && Math.abs(c36 - 0.92) < 0.06, `the curve: ${(c10 * 100).toFixed(0)}% at 10px, ${(c22 * 100).toFixed(0)}% at 22px, ${(c36 * 100).toFixed(0)}% at 36px (45, 75, 92)`);
+    let prev = -1, steady = true;
+    for (let y = 0; y <= 48; y++) { const c = cover(y); if (c + 0.02 < prev) steady = false; prev = c; }
+    ok(steady, "it only ever grows over the first 48px (no step back)");
+    ok(Math.abs(col[top + 52] - info.bgLum) < 4 && Math.abs(col[end - 1] - info.bgLum) < 4, "the page colour from the bar's top edge (48px) down, to the screen edge");
     ok(await p.evaluate(() => { const n = document.querySelector(".main-nav"); const cs = getComputedStyle(n); return cs.backgroundColor === "rgba(0, 0, 0, 0)" && cs.boxShadow === "none"; }), "the tab bar itself paints nothing");
     ok(await p.evaluate(() => getComputedStyle(document.querySelector(".nav-fade")).pointerEvents === "none"), "taps go through the scrim");
     await ctx.close();

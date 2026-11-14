@@ -110,7 +110,7 @@ ul, ol { list-style: none; margin: 0; padding: 0; }
 :root { --dur-fast: 0.12s; --dur-base: 0.25s; --dur-sheet: 0.28s; --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1); --link-line: var(--text); --row-pad: 14px; --gap-actions: 8px; --cover-row: 88px; --row-gap: 20px; --pick-col: 28px; } /* --gap-actions: the one gap between neighbouring rounded buttons (guide section 15) */
 [data-layout="phone"] { --row-pad: 12px; }
 .topbar, main { max-width: 1120px; margin: 0 auto; padding-left: 40px; padding-right: 40px; }
-.topbar { position: relative; padding-top: 20px; padding-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.topbar { position: relative; padding-top: calc(env(safe-area-inset-top, 0px) + 20px); padding-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
 main { padding-bottom: 48px; }
 @media (max-width: 600px) { .topbar, main { padding-left: 24px; padding-right: 24px; } }
 
@@ -464,7 +464,7 @@ button.tag { cursor: pointer; font-family: inherit; }
 .shell[data-route="game"] { min-height: 0; height: 100vh; height: 100dvh; height: min(100dvh, var(--vv-fit, 100dvh)); display: flex; flex-direction: column; overflow: hidden; }
 /* Keyboard open (see useKeyboardFit): the screen is exactly the visible area, wherever the browser panned it. */
 .kb-open .shell[data-route="game"] { position: fixed; top: var(--vv-top); left: 0; right: 0; height: var(--vv-h); } /* fixed, not a transform: body's overflow:hidden would clip a moved screen at the body's own height */
-.shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: 8px; padding-bottom: 8px; }
+.shell[data-route="game"] .topbar { flex: none; width: 100%; box-sizing: border-box; padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: 8px; }
 .shell[data-route="game"] .wordmark { font-size: 20px; }
 main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding: 0; display: flex; flex-direction: column; }
 .game { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -508,7 +508,7 @@ main.game-route { flex: 1; min-height: 0; max-width: none; width: 100%; padding:
 
 /* phones, and tablets held upright: lyrics + a 2x2 answer block, nothing else */
 html[data-layout="phone"] body { font-size: 16px; }
-[data-layout="phone"] .topbar { padding: 4px 4px 4px 16px; flex-wrap: nowrap; }
+[data-layout="phone"] .topbar { padding: calc(env(safe-area-inset-top, 0px) + 12px) 4px 4px 16px; flex-wrap: nowrap; } /* 12px under the status bar (guide section 11) */
 [data-layout="phone"] main { padding-left: 16px; padding-right: 16px; padding-bottom: 32px; }
 [data-layout="phone"] main.game-route { padding: 0; }
 [data-layout="phone"] .wordmark { font-size: 22px; }
@@ -539,7 +539,7 @@ html[data-layout="phone"] body { font-size: 16px; }
 
 [data-layout="phone"] .shell[data-route="game"], .shell[data-route="game"][data-layout="phone"] { background: var(--bg); }
 [data-layout="phone"] .game .wrap { padding-left: 12px; padding-right: 12px; }
-[data-layout="phone"] .game-bar { padding-top: 6px; padding-bottom: 0; gap: 6px; }
+[data-layout="phone"] .game-bar { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: 0; gap: 6px; }
 [data-layout="phone"] .game-bar .back { margin-left: -4px; }
 [data-layout="phone"] .game-title h1 { font-size: 19px; }
 [data-layout="phone"] .game-title p { font-size: 13px; }
@@ -1384,7 +1384,7 @@ button.queue-bar-face { cursor: pointer; }
 [data-layout="phone"] .queue-levels button:first-child { grid-column: 1 / -1; }
 
 /* ---------- main navigation (design: Main, NavWide): bottom tabs on phones, a rail on the left of wide screens ---------- */
-.main-nav a { color: var(--text-3); text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; transition: color var(--dur-base) var(--ease-standard); }
+.main-nav a { color: var(--text-2); text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; transition: color var(--dur-base) var(--ease-standard); }
 .main-nav a[aria-current="page"] { color: var(--text); }
 .main-nav a[aria-current="page"] .tab-icon { color: var(--on-fill); }
 .main-nav .tab-icon { position: relative; width: 56px; height: 32px; display: grid; place-items: center; font-size: 24px; transition: color var(--dur-base) var(--ease-standard); }
@@ -1393,9 +1393,9 @@ button.queue-bar-face { cursor: pointer; }
 .main-nav[data-variant="tabs"] { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px 0 calc(8px + env(safe-area-inset-bottom, 0px)); background: transparent; }
 .main-nav[data-variant="tabs"] a { min-width: 0; }
 /* the fade above the tab bar is its own element so the stacking is: page < fade (19) < queue bar (20) < tab bar (25). Without the queue bar it is a 48px gradient above the tabs; with it the gradient starts 48px above the bar's top edge and is solid --bg from the bar's vertical middle down. */
-.nav-fade { position: fixed; left: 0; right: 0; bottom: 0; height: var(--fade-h, calc(var(--nav-h, 64px) + 48px)); z-index: 19; pointer-events: none; /* one smooth scrim and nothing else: clear at its top, a little more every pixel, the page's colour at the screen edge; no solid band, no box */
-  background: linear-gradient(to bottom, transparent 0%, color-mix(in oklch, var(--bg) 3%, transparent) 12%, color-mix(in oklch, var(--bg) 10%, transparent) 25%, color-mix(in oklch, var(--bg) 24%, transparent) 40%, color-mix(in oklch, var(--bg) 42%, transparent) 55%, color-mix(in oklch, var(--bg) 62%, transparent) 70%, color-mix(in oklch, var(--bg) 80%, transparent) 82%, color-mix(in oklch, var(--bg) 93%, transparent) 92%, var(--bg) 100%); }
-.main-nav[data-variant="rail"] { position: fixed; left: 0; top: 0; bottom: 0; z-index: 25; width: 96px; box-sizing: border-box; padding: 24px 0; display: flex; flex-direction: column; align-items: center; gap: 20px; background: var(--bg); border-right: 1px solid var(--line); }
+.nav-fade { position: fixed; left: 0; right: 0; bottom: 0; height: var(--fade-h, calc(var(--nav-h, 64px) + 48px)); z-index: 19; pointer-events: none; /* starts 48px above the bar (or the tabs); the page colour is solid from the bar's top edge down (guide section 5) */
+  background: linear-gradient(to bottom, transparent 0, color-mix(in oklch, var(--bg) 45%, transparent) 10px, color-mix(in oklch, var(--bg) 75%, transparent) 22px, color-mix(in oklch, var(--bg) 92%, transparent) 36px, var(--bg) 48px, var(--bg) 100%); }
+.main-nav[data-variant="rail"] { position: fixed; left: 0; top: 0; bottom: 0; z-index: 25; width: 96px; box-sizing: border-box; padding: calc(env(safe-area-inset-top, 0px) + 36px) 0 24px; display: flex; flex-direction: column; align-items: center; gap: 20px; background: var(--bg); border-right: 1px solid var(--line); }
 .main-nav[data-variant="rail"] a { width: 72px; }
 .main-nav[data-variant="rail"] a[data-tab="settings"] { margin-top: auto; }
 .shell[data-nav="tabs"] { --nav-h: calc(64px + env(safe-area-inset-bottom, 0px)); }
@@ -1610,3 +1610,9 @@ button.queue-bar-face { cursor: pointer; }
 .queue-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: inherit; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 12px; }
 .queue-pick:hover .queue-text strong { text-decoration: underline; text-underline-offset: 3px; }
 .review-word .rw-text { min-width: 0; overflow-wrap: anywhere; }
+
+/* tablets held upright (the phone layout, wider than a phone): the tabs form one centred group, 96px each, 480px at most; the queue bar keeps 24px sides */
+@media (min-width: 481px) {
+  .main-nav[data-variant="tabs"] { grid-template-columns: repeat(5, 96px); justify-content: center; }
+  [data-layout="phone"] .queue-bar { left: 24px; right: 24px; }
+}
