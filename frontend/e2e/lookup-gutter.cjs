@@ -14,13 +14,29 @@ const ok = (c, m) => { console.log((c ? "  ok   " : "  FAIL ") + m); if (!c) pro
     await p.goto(B); await p.waitForSelector(".page-head");
     // a replica of the bar with its results (the real one needs songs that are still being searched)
     const r = await p.evaluate(() => {
-      const clip = document.createElement("div"); clip.className = "lookup-clip"; clip.style.margin = "0";
-      const w = document.querySelector(".page-head").parentElement; w.insertBefore(clip, document.querySelector(".page-head").nextSibling);
-      clip.innerHTML = '<div class="lookup-bar" style="transform:none;opacity:1"><span class="lookup-label">Lyrics found</span><span class="lookup-groups"><span class="lookup-group">37</span><span class="lookup-group">1</span></span></div>';
-      const bar = clip.firstElementChild.getBoundingClientRect(), g = clip.querySelector(".lookup-group:last-child").getBoundingClientRect(), l = clip.querySelector(".lookup-label").getBoundingClientRect();
-      return { left: l.left - bar.left, right: bar.right - g.right, sw: document.documentElement.scrollWidth, iw: innerWidth };
+      const w = document.querySelector(".page-head").parentElement;
+      const out = {};
+      // replicas of the bar in its finished states (results at the right) and its running state (retry button at the right), at the bar's own tiers
+      const variants = {
+        "found": '<span class="lookup-groups"><span class="lookup-group">37</span><span class="lookup-group">1</span></span>',
+        "not found": '<span class="lookup-groups"><span class="lookup-group">0</span><span class="lookup-group">12</span></span>',
+        "partial": '<span class="lookup-groups"><span class="lookup-group">5</span><span class="lookup-group">3</span><span class="lookup-group">2</span></span>',
+        "running with retry": '<span class="lookup-count">3/9</span><button type="button" class="lookup-retry"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor"/></svg></button>',
+      };
+      for (const [name, html] of Object.entries(variants)) {
+        const clip = document.createElement("div"); clip.className = "lookup-clip"; clip.style.margin = "0";
+        w.insertBefore(clip, document.querySelector(".page-head").nextSibling);
+        const width = innerWidth < 340 ? "S" : innerWidth < 600 ? "M" : "L";
+        clip.innerHTML = `<div class="lookup-bar" data-tier="${width === "L" ? "M" : width}" style="transform:none;opacity:1"><span class="lookup-icon" style="display:block"></span><span class="lookup-label">Lyrics</span>${html}</div>`;
+        const bar = clip.firstElementChild.getBoundingClientRect(), icon = clip.querySelector(".lookup-icon").getBoundingClientRect();
+        const last = clip.querySelector(".lookup-retry svg") ?? clip.querySelector(".lookup-group:last-child");
+        out[name] = { left: icon.left - bar.left, right: bar.right - last.getBoundingClientRect().right };
+        clip.remove();
+      }
+      out.sw = document.documentElement.scrollWidth; out.iw = innerWidth;
+      return out;
     });
-    ok(r.right >= 12 && r.right >= r.left - 1, `${name}: gutter right ${r.right}px, left ${r.left}px`);
+    for (const k of ["found", "not found", "partial", "running with retry"]) ok(Math.abs(r[k].right - r[k].left) <= 1, `${name}, ${k}: the right inset ${r[k].right}px matches the left ${r[k].left}px`);
     ok(r.sw <= r.iw, `${name}: no sideways scroll`);
     await ctx.close();
   }
