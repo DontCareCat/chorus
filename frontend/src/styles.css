@@ -672,7 +672,7 @@ button.fs-name:hover { background: var(--surface-2); }
 .word-meta { flex: none; display: flex; align-items: center; gap: 10px; font-size: 14px; }
 .word-detail { padding: 14px 0 18px; }
 .examples { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 12px; }
-.review-back .examples { max-height: max(9rem, calc(100dvh - 26rem)); overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 4px 0; margin-bottom: 4px; } /* a long list scrolls inside its own box, the buttons below stay on screen */
+.review-back .examples { overflow-y: auto; overscroll-behavior: contain; padding: 4px 6px 4px 0; margin-bottom: 0; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 var(--fade-t, 0px), #000 calc(100% - var(--fade-b, 0px)), transparent 100%); } /* a long list scrolls inside its own box (its height is set from the buttons' position, see useBoundedScroll); a fade shows only on the side where content is cut off */
 .example { display: flex; align-items: flex-start; gap: 12px; }
 .example-text { min-width: 0; flex: 1; }
 .example .sentence { font-size: 17px; line-height: 1.35; overflow-wrap: anywhere; margin: 0; }
@@ -695,7 +695,10 @@ button.fs-name:hover { background: var(--surface-2); }
 .review-tr { margin: 0; font-size: 24px; color: var(--text-2); overflow-wrap: anywhere; }
 .review-back { text-align: left; justify-items: stretch; }
 .review-back .review-word, .review-back .review-tr, .review-back .hint { text-align: center; }
-.review-back .review-actions { display: flex; gap: var(--gap-actions); justify-content: center; margin-top: 8px; }
+.review-back { padding-bottom: 96px; }
+.review-back .review-actions { position: fixed; z-index: 21; left: 50%; transform: translateX(-50%); bottom: calc(var(--nav-h, 0px) + 20px); width: min(680px, calc(100% - 32px)); display: flex; gap: var(--gap-actions); justify-content: center; margin: 0; } /* Back and Next stay at the bottom of the screen, above the tab bar */
+.review-back .review-actions .btn { flex: 1 1 0; max-width: 260px; }
+.shell[data-nav="rail"] .review-back .review-actions { left: calc(50% + 48px); bottom: 24px; }
 .review-done { text-align: center; padding: 48px 0; }
 .review-done h1 { font-size: clamp(32px, 6vw, 48px); letter-spacing: -0.03em; margin-bottom: 8px; }
 .rate { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; margin-top: 12px; }

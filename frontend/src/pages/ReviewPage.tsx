@@ -2,6 +2,7 @@ import { useThumb } from "../hooks/useThumb";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { WordAudio } from "../components/WordAudio";
 import { Example } from "../components/Example";
+import { useBoundedScroll } from "../hooks/useBoundedScroll";
 import { useSnippets } from "../hooks/useSnippets";
 import { en } from "../i18n/en";
 import { formatInterval, nextIntervals } from "../lib/interval";
@@ -51,6 +52,9 @@ export function ReviewPage() {
   const lastRating = useRef<Rating | null>(null);
   const [next, setNext] = useState<ReviewNextDto | null>(null);
   const [back, setBack] = useState<RatedDto | null>(null);
+  const examples = useRef<HTMLUListElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
+  useBoundedScroll(examples, () => actions.current?.getBoundingClientRect().top ?? null, back?.id ?? null); // the examples scroll in their own box above the buttons
   const [rated, setRated] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -250,10 +254,10 @@ export function ReviewPage() {
           <p className="review-word" lang={back.language}><span className="rw-text">{headword(back)}</span>{back.has_audio && <WordAudio entryId={back.id} />}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
           <p className="review-tr">{translationText(back)}</p>
-          <ul className="examples">
+          <ul className="examples" ref={examples}>
             {back.examples.map((ex) => <Example key={ex.id} ex={ex} word={back.surface} snippets={snippets} />)}
           </ul>
-          <div className="review-actions">
+          <div className="review-actions" ref={actions}>
             <button type="button" className="btn secondary large" onClick={() => void goBack()} disabled={busy} title={en.dictionary.backHelp} aria-label={en.dictionary.backHelp}>{en.dictionary.back}</button>
             <button type="button" className="btn inverse large" onClick={() => void proceed()} disabled={busy} autoFocus>
               {session.shown.length >= session.target && !session.retry.length && lastRating.current !== "again" && lastRating.current !== "hard" ? en.dictionary.finish : en.dictionary.nextCard}
