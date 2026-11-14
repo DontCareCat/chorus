@@ -231,7 +231,7 @@ export function ReviewPage() {
 
       {session && card && !back && (
         <div className="review-card">
-          <p className="review-word" lang={card.language}>{card.word}{card.has_audio && <WordAudio entryId={card.id} />}</p>
+          <p className="review-word" lang={card.language}><span className="rw-text">{card.word}</span>{card.has_audio && <WordAudio entryId={card.id} />}</p>
           <p className="hint">{en.dictionary.howHard}</p>
           <div className="rate" role="group" aria-label={en.dictionary.howHard}>
             {RATINGS.map((r, i) => (
@@ -247,7 +247,7 @@ export function ReviewPage() {
 
       {session && back && (
         <div className="review-card review-back">
-          <p className="review-word" lang={back.language}>{headword(back)}{back.has_audio && <WordAudio entryId={back.id} />}</p>
+          <p className="review-word" lang={back.language}><span className="rw-text">{headword(back)}</span>{back.has_audio && <WordAudio entryId={back.id} />}</p>
           {back.lemma && <p className="hint">{en.dictionary.asSung(back.surface)}</p>}
           <p className="review-tr">{translationText(back)}</p>
           <ul className="examples">
