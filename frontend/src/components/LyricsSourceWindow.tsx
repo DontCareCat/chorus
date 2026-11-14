@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { en } from "../i18n/en";
 import { holdDialogOpen } from "../lib/dialog-open";
+import { noAutofill } from "../lib/noAutofill";
 import { api } from "../services/api";
 
 export const DEFAULT_SERVICE = "https://lrclib.net";
@@ -59,7 +60,7 @@ export function LyricsSourceWindow({ onDone }: { onDone: (toast: string) => void
         <p className="ls-lead">{en.lyricsSource.lead}</p>
         <div className="ls-field">
           <label htmlFor="ls-url">{en.lyricsSource.field}</label>
-          <input id="ls-url" ref={field} type="url" inputMode="url" autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder={DEFAULT_SERVICE} value={url} aria-describedby="ls-help"
+          <input id="ls-url" ref={field} type="url" inputMode="url" {...noAutofill("lyrics-source")} placeholder={DEFAULT_SERVICE} value={url} aria-describedby="ls-help"
             onChange={(e) => { setUrl(e.target.value); if (state === "failed") setState("idle"); setSaveError(null); }}
             onKeyDown={(e) => { if (e.key === "Enter" && state !== "checking") void use(true); }} />
           <small id="ls-help">{en.lyricsSource.help}</small>

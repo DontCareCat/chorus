@@ -1,4 +1,5 @@
 import { useConfirm } from "../components/Confirm";
+import { Marquee } from "../components/Marquee";
 import { useMemo, useState } from "react";
 import { AddSongs } from "../components/AddSongs";
 import { AddToPlaylist } from "../components/AddToPlaylist";
@@ -59,7 +60,7 @@ export function PlaylistPage({ playlistId }: { playlistId: number }) {
         <section className="playlist-head">
           <PlaylistCollage covers={songs.filter((s) => !s.removed).slice(0, 4).map((s) => ({ id: s.id, title: s.title, has_cover: s.has_cover }))} size="large" />
           <div className="playlist-title">
-            <h1>{list.data.name}</h1>
+            <h1><Marquee>{list.data.name}</Marquee></h1>
             <div className="count">{playlistMeta(list.data)}</div>
           </div>
           <div className="page-actions">

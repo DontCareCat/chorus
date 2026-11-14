@@ -234,7 +234,7 @@ export function DictionaryPage() {
       {data && everything > 0 && data.items.length === 0 && <p className="empty">{en.dictionary.emptyFilter}</p>}
 
       {selection.active && (
-        <div className="select-bar" role="toolbar" aria-label={en.dictionary.selectedCount(pickedCount)}>
+        <div className="select-anchor"><div className="select-bar" role="toolbar" aria-label={en.dictionary.selectedCount(pickedCount)}>
           <input
             type="checkbox" className="pick select-all" aria-label={en.dictionary.selectAll(shownTotal)} title={en.dictionary.selectAll(shownTotal)}
             checked={pickedCount > 0 && pickedCount === shownTotal} ref={(el) => { if (el) el.indeterminate = pickedCount > 0 && pickedCount < shownTotal; }}
@@ -244,7 +244,7 @@ export function DictionaryPage() {
           <button type="button" className="icon-btn" ref={barMenuBtn} onClick={() => setBarMenu((v) => !v)} aria-haspopup="menu" aria-expanded={barMenu} aria-label={en.dictionary.moreActions} title={en.dictionary.moreActions} disabled={busy || pickedCount === 0}><Icon name="more" /></button>
           <button type="button" className="icon-btn danger" onClick={() => void bulk("delete")} disabled={busy || pickedCount === 0} aria-label={en.dictionary.removeSelected} title={en.dictionary.removeSelected}><Icon name="trash" /></button>
           <button type="button" className="icon-btn" onClick={endSelection} aria-label={en.dictionary.cancelSelection} title={en.dictionary.cancelSelection}><Icon name="close" /></button>
-        </div>
+        </div></div>
       )}
       {barMenu && (
         <ActionMenu

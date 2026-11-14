@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Marquee } from "../components/Marquee";
 import { Vinyl } from "../components/Vinyl";
 import { LyricWindow } from "../components/LyricWindow";
 import type { WordHit } from "../components/LyricWindow";
@@ -465,7 +466,7 @@ function GameScreen({ game }: { game: GameDto }) {
         </a>
         {!phone && !youtubeId && <Vinyl songId={game.song_id} title={game.song_title} hasCover={null} spinning={spinning} />}
         <div className="game-title">
-          <h1>{game.song_title}</h1>
+          <h1><Marquee>{game.song_title}</Marquee></h1>
           <p className="muted">{[game.song_artist, en.library.difficulty[game.difficulty] ?? game.difficulty, game.language.toUpperCase()].filter(Boolean).join(" · ")}</p>
         </div>
         <ScorePanel standing={g.standing} waited={waited.current} waiting={playback.state.name === "PAUSED_FOR_QUESTION"} gain={g.gain} />

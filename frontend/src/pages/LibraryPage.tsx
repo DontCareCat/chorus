@@ -364,7 +364,7 @@ export function LibraryPage() {
       {songs.data && all.length === 0 && <p className="empty">{en.library.empty}</p>}
       {all.length > 0 && shown.length === 0 && <p className="empty">{en.library.noMatch}</p>}
       {selection.active && (
-        <div className="select-bar" role="toolbar" aria-label={en.library.selectedCount(selection.picked.size)}>
+        <div className="select-anchor"><div className="select-bar" role="toolbar" aria-label={en.library.selectedCount(selection.picked.size)}>
           <input
             type="checkbox" className="pick select-all" aria-label={en.library.selectAll(shown.length)} title={en.library.selectAll(shown.length)}
             checked={selection.picked.size > 0 && selection.picked.size === shown.length} ref={(el) => { if (el) el.indeterminate = selection.picked.size > 0 && selection.picked.size < shown.length; }}
@@ -374,7 +374,7 @@ export function LibraryPage() {
           <button type="button" className="icon-btn" ref={barMenuBtn} onClick={() => setBarMenu((v) => !v)} aria-haspopup="menu" aria-expanded={barMenu} aria-label={en.library.moreActions} title={en.library.moreActions} disabled={selection.picked.size === 0}><Icon name="more" /></button>
           <button type="button" className="icon-btn danger" onClick={() => void removePicked()} disabled={busy || selection.picked.size === 0} aria-label={en.library.removeSelected} title={en.library.removeSelected}><Icon name="trash" /></button>
           <button type="button" className="icon-btn" onClick={selection.clear} aria-label={en.library.cancelSelection} title={en.library.cancelSelection}><Icon name="close" /></button>
-        </div>
+        </div></div>
       )}
       {barMenu && (
         <ActionMenu

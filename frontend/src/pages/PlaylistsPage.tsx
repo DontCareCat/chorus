@@ -1,4 +1,5 @@
 import { useConfirm } from "../components/Confirm";
+import { Marquee } from "../components/Marquee";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "../components/Icon";
 import { PlaylistCollage } from "../components/PlaylistCollage";
@@ -46,7 +47,7 @@ export function PlaylistsPage() {
             <a className="playlist-main" href={paths.playlist(p.id)} aria-label={en.playlists.open(p.name)}>
               <PlaylistCollage covers={p.covers} />
               <span className="playlist-text">
-                <strong>{p.name}</strong>
+                <strong><Marquee>{p.name}</Marquee></strong>
                 <small>{playlistMeta(p)}</small>
               </span>
             </a>

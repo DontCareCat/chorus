@@ -858,7 +858,7 @@ html.dialog-open { overflow: hidden; }
 [data-layout="phone"] .song-main[data-selecting="true"] > .pick { display: grid; position: absolute; left: calc(var(--row-pad) + (var(--cover-row) - 22px) / 2); top: 50%; transform: translateY(-50%); z-index: 1; }
 [data-layout="phone"] .song-title { font-size: 17px; }
 [data-layout="phone"] .start-panel { padding: 0 0 16px; }
-[data-layout="phone"] .select-bar { top: 0; padding-left: var(--row-pad); gap: var(--gap-actions); }
+[data-layout="phone"] .select-bar { padding-left: var(--row-pad); gap: var(--gap-actions); }
 [data-layout="phone"] .select-bar strong { font-size: 16px; white-space: nowrap; }
 
 /* top menu bar on PCs and tablets: wordmark, links beside it, account and theme at the right edge */
@@ -1045,9 +1045,9 @@ button.queue-bar-face { cursor: pointer; }
 .marquee { display: block; overflow: hidden; min-width: 0; }
 .marquee-track { display: inline-flex; gap: 40px; width: max-content; max-width: 100%; }
 .marquee-text { flex: none; white-space: nowrap; }
-.marquee[data-run="true"] { mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); }
+.marquee[data-run="true"] { mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
 .marquee[data-run="true"] .marquee-track { max-width: none; animation: marquee var(--marquee-time, 8s) linear infinite; }
-@keyframes marquee { to { transform: translateX(calc(-1 * var(--marquee-shift, 0px))); } }
+@keyframes marquee { 0%, 9% { transform: none; } 100% { transform: translateX(calc(-1 * var(--marquee-shift, 0px))); } }
 @media (prefers-reduced-motion: reduce) { .marquee[data-run="true"] .marquee-track { animation: none; display: block; width: 100%; max-width: 100%; } .marquee[data-run="true"] .marquee-text:nth-child(2) { display: none; } .marquee[data-run="true"] { mask-image: none; } .marquee[data-run="true"] .marquee-text { display: block; text-overflow: ellipsis; overflow: hidden; } }
 [data-layout="phone"] .queue-bar { gap: 10px; z-index: 20; }
 [data-layout="phone"] .shell:has(.queue-bar) main { padding-bottom: 96px; }
@@ -1483,6 +1483,7 @@ button.queue-bar-face { cursor: pointer; }
 .settings-layout[data-phone] .queue-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .settings-layout[data-phone] .queue-levels button:first-child { grid-column: 1 / -1; }
 .settings-layout[data-phone] .queue-levels button { min-width: 0; padding: 8px 4px; flex-direction: column; }
+.settings-layout[data-phone] .queue-levels button:first-child { flex-direction: row; } /* the stars follow "Progressive" on the same line */
 .settings-layout .queue-levels button { display: flex; align-items: center; justify-content: center; gap: 6px; }
 @media (prefers-reduced-motion: reduce) { .sw, .sw i { transition: none; } }
 .srow small .link-btn { display: inline; margin: 0; padding: 0; height: auto; min-height: 0; vertical-align: baseline; }
@@ -1587,3 +1588,17 @@ button.queue-bar-face { cursor: pointer; }
 [data-layout="phone"] .ls-scrim { padding: 0; }
 [data-layout="phone"] .ls-window { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; padding: 56px 20px 24px; }
 @media (prefers-reduced-motion: reduce) { .ls-spin { animation: none; } }
+
+/* the selection bar floats over the rows (guide section 24): a zero-height sticky anchor hangs it at the top of the list, so the rows never move */
+.select-anchor { position: sticky; top: 8px; z-index: 5; height: 0; margin: 0; }
+.select-anchor .select-bar { position: absolute; left: calc(-1 * var(--row-pad)); right: calc(-1 * var(--row-pad)); top: 0; margin: 0; border: 1px solid var(--line-strong); box-shadow: 0 8px 24px oklch(0 0 0 / 0.12); animation: select-in 160ms var(--ease-out); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .select-anchor .select-bar { box-shadow: 0 8px 24px oklch(0 0 0 / 0.28); } }
+:root[data-theme="dark"] .select-anchor .select-bar { box-shadow: 0 8px 24px oklch(0 0 0 / 0.28); }
+[data-layout="phone"] .select-anchor .select-bar { top: 0; }
+@keyframes select-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .select-anchor .select-bar { animation: none; } }
+.level-stars, .rec-stars { flex: none; }
+.level-label .level-stars { margin-left: 6px; }
+.queue-levels button:first-child .level-stars { margin-left: 6px; }
+.playlist-text strong, .playlist-title h1, .game-title h1, .queue-text strong { min-width: 0; } .playlist-text strong .marquee, .queue-text strong .marquee { font-weight: inherit; }
+.playlist-title h1, .game-title h1 { overflow: hidden; }

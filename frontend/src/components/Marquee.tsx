@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 const GAP = 40; // px between the end of the text and its repeat
-const SPEED = 36; // px per second
+const SPEED = 36; // px per second (the first 9% of each loop is a pause: about 1.2 s)
 
 /**
  * One line of text that stays still when it fits and otherwise runs round as a looped strip (queue bar). The text is
@@ -27,7 +27,7 @@ export function Marquee({ children }: { children: ReactNode }) {
   }, []);
   return (
     <span className="marquee" ref={box} data-run={run ? "true" : undefined}>
-      <span className="marquee-track" style={run ? ({ "--marquee-shift": `${run.shift}px`, "--marquee-time": `${Math.max(6, run.shift / SPEED)}s` } as React.CSSProperties) : undefined}>
+      <span className="marquee-track" style={run ? ({ "--marquee-shift": `${run.shift}px`, "--marquee-time": `${Math.max(6, run.shift / SPEED / 0.91)}s` } as React.CSSProperties) : undefined}>
         <span className="marquee-text" ref={text}>{children}</span>
         {run && <span className="marquee-text" aria-hidden="true">{children}</span>}
       </span>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Marquee } from "./Marquee";
 import { Cover } from "./Cover";
 import { Dialog } from "./Dialog";
 import { Icon } from "./Icon";
@@ -68,7 +69,7 @@ export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
           {levelOptions("medium").map((o) => (
             <button key={o.value} type="button" role="menuitemradio" aria-checked={Q.shared(q, "difficulty") === o.value} className="mi"
               onClick={() => { remember(en.queue.changed, Q.setAllUpcoming(q, { difficulty: o.value })); setMenu(null); }}>
-              <span className="mi-node">{o.value === "progressive" ? <span className="level-label"><ProgressiveStars /><span>{o.label}</span></span> : o.node}</span>
+              <span className="mi-node">{o.value === "progressive" ? <span className="level-label"><span>{o.label}</span><ProgressiveStars /></span> : o.node}</span>
               {Q.shared(q, "difficulty") === o.value && <Icon name="check" />}
             </button>
           ))}
@@ -127,7 +128,7 @@ function QueueRow({ item, song, phone, orderable, resolved, onLevel, onRemove, o
         {orderable && <button type="button" className="grip" data-grip aria-label={en.queue.dragHandle} aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"><Icon name="grip" /></button>}
         {song && <Cover songId={song.id} title={song.title} hasCover={song.has_cover} youtubeId={song.youtube_id} size="row" />}
         <div className="queue-text">
-          <strong title={title}>{title}</strong>
+          <strong title={title}><Marquee>{title}</Marquee></strong>
           <small>{song?.artist}{phone && <> · <LevelLabel level={item.difficulty === "progressive" ? resolved : item.difficulty} progressive={item.difficulty === "progressive"} size={14} /></>}</small>
         </div>
         {!phone && (
