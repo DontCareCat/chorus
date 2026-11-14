@@ -36,9 +36,9 @@ interface Props {
 export const Question = memo(function Question({ question: q, siblings, results, index, total, onAnswer, answersOnly = false, typing = false, onSubmit }: Props) {
   const result = results.get(q.id);
   const shown = resultWord(q, result);
-  const state = shown
-    ? shown.ok === undefined ? "pending" : shown.match === "partial" ? "partial" : shown.ok ? "correct" : "wrong"
-    : "open";
+  // an answer the server has not judged yet looks like an open blank (no chosen word in the plain colour that would then change)
+  const judged = shown && shown.ok !== undefined ? shown : null;
+  const state = judged ? judged.match === "partial" ? "partial" : judged.ok ? "correct" : "wrong" : "open";
   // multiple choice shows the (wrong) word that was picked; typing always shows the word that was asked
   const wrongWord = !typing && result && result.correct === false ? q.options.find((o) => o.id === result.selectedOptionId)?.text : undefined;
   const parts = buildPrompt(q, siblings, (s) => rightWord(s, results.get(s.id)));
@@ -61,7 +61,7 @@ export const Question = memo(function Question({ question: q, siblings, results,
               if (p.kind === "text") return <span key={i}>{p.text}</span>;
               const owner = siblings.find((s) => s.blankIndex === p.index) ?? q;
               if (p.state === "active") {
-                const word = state === "wrong" && !typing ? wrongWord : shown?.word;
+                const word = state === "wrong" && !typing ? wrongWord : judged?.word;
                 return (
                   <Slot key={i} className="blank" sizes={slotTexts(q.options, word)} data-state={state} data-active="true">
                     {word ?? " "}

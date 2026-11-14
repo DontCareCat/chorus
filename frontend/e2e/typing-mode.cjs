@@ -61,7 +61,7 @@ const typo = (w) => w.slice(0, -1) + (w.endsWith("x") ? "y" : "x");
   await ask("qqqqqqqq");
   await page.waitForTimeout(400);
   ok((await points(page)) === p1, "a wrong answer earns nothing");
-  const states = await page.$$eval(".lw-word", (e) => e.map((x) => ({ s: x.dataset.state, t: x.querySelector(".slot-fill").textContent.replace(/ \((correct|wrong|almost right)\)$/, "") })));
+  const states = await page.$$eval(".lw-word", (e) => e.map((x) => ({ s: x.dataset.state, t: (x.querySelector(".lw-tap") ?? x.querySelector(".slot-fill")).textContent.replace(/ \((correct|wrong|almost right)\)$/, "") })));
   const byState = (s) => states.find((x) => x.s === s);
   ok(byState("correct") && byState("correct").t.toLowerCase() === w0.toLowerCase(), "the lyric window shows the asked word green for the full match: " + JSON.stringify(byState("correct")));
   ok(byState("partial") && byState("partial").t.replace("~", "").toLowerCase() === w1.toLowerCase(), "…amber for the partial match, with the right word: " + JSON.stringify(byState("partial")));

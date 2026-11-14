@@ -8,8 +8,8 @@ import type { QuizQuestion } from "../types/question";
 export type WindowPart =
   | { kind: "text"; text: string }
   | { kind: "blank"; index: number; focused: boolean; sizes: string[] }
-  /** An answered blank: the RIGHT word is always shown; `state` says how the player did (pending = not confirmed yet). */
-  | { kind: "word"; index: number; word: string; state: "correct" | "partial" | "wrong" | "pending"; focused: boolean; sizes: string[] };
+  /** An answered blank: the RIGHT word is always shown; `state` says how the player did. Until the server has judged an answer the blank stays empty. */
+  | { kind: "word"; index: number; word: string; state: "correct" | "partial" | "wrong"; focused: boolean; sizes: string[] };
 
 export interface WindowLine {
   lineId: number;
@@ -33,6 +33,9 @@ export interface LineInput {
 /** A line with blanks as the card quotes it: the answered words in place, an open blank as "…" (the answer is not given away). */
 export const lineText = (parts: readonly WindowPart[]): string =>
   parts.map((p) => (p.kind === "text" ? p.text : p.kind === "blank" ? "…" : p.word)).join("").replace(/\s+/g, " ").trim();
+
+/** Text with letters outside the bundled font's subsets (Latin, Latin Extended, Vietnamese): the system fallback font draws them, and its widths differ per weight. */
+export const needsWeightLock = (text: string): boolean => /[^\u0000-\u02AF\u1E00-\u1EFF\u2000-\u206F\u20A0-\u20C0]/.test(text);
 
 /** The words of a piece of text, with where each starts, for tapping (letters, with an apostrophe or hyphen inside: geh'n, e-mail). */
 export function wordSpans(text: string): { text: string; word: boolean }[] {
@@ -72,7 +75,7 @@ export function buildWindowLines(
       const focused = q?.id === focusedId;
       const word = q ? rightWord(q, r) : undefined;
       if (q && r && word !== undefined) parts.push({ kind: "word", index: i, word, state: r.match === "partial" ? "partial" : r.correct ? "correct" : "wrong", focused, sizes: slotTexts(q.options, word) });
-      else if (q && r) parts.push({ kind: "word", index: i, word: r.typed ?? q.options.find((o) => o.id === r.selectedOptionId)?.text ?? "", state: "pending", focused, sizes: slotTexts(q.options) });
+      // an answer the server has not judged yet stays an empty blank: showing the chosen word in the plain colour first would flash and then change to the right word and colour
       else parts.push({ kind: "blank", index: i, focused, sizes: slotTexts(q?.options ?? []) });
     });
     const open = qs.filter((q) => !results.has(q.id));

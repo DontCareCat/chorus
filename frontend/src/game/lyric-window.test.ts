@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWindowLines, centerOffset, currentLineIndex, focusLine, followLine, lineText, reuseLines, timecode, wordSpans } from "./lyric-window";
+import { buildWindowLines, centerOffset, needsWeightLock, currentLineIndex, focusLine, followLine, lineText, reuseLines, timecode, wordSpans } from "./lyric-window";
 import type { WindowLine, WindowPart } from "./lyric-window";
 import type { QuestionResult } from "./results";
 import type { QuizQuestion } from "../types/question";
@@ -43,7 +43,7 @@ describe("buildWindowLines", () => {
     expect(l.targetId).toBe(1); // all answered: the first question
   });
 
-  it("a line with only right answers is correct; an unconfirmed answer shows the chosen word as pending", () => {
+  it("a line with only right answers is correct; an unconfirmed answer stays an empty blank (no flash of the chosen word)", () => {
     const right = new Map<number, QuestionResult>([
       [1, { selectedOptionId: 10, correct: true, correctOptionId: 10 }],
       [2, { selectedOptionId: 21, correct: true, correctOptionId: 21 }],
@@ -51,7 +51,8 @@ describe("buildWindowLines", () => {
     expect(buildWindowLines(lines, quiz, right, 0, null)[1]!.status).toBe("correct");
     const pending = new Map<number, QuestionResult>([[1, { selectedOptionId: 11 }]]);
     const l = buildWindowLines(lines, quiz, pending, 0, null)[1]!;
-    expect(l.parts.find((p) => p.kind === "word")).toMatchObject({ word: "Baum", state: "pending" });
+    expect(l.parts.find((p) => p.kind === "word")).toBeUndefined();
+    expect(l.parts.filter((p) => p.kind === "blank")).toHaveLength(2);
     expect(l.status).toBe("open");
     expect(l.targetId).toBe(2); // the first still-open question
   });
@@ -66,14 +67,14 @@ describe("buildWindowLines", () => {
 
 describe("typing mode in the window", () => {
   const tq = (id: number): QuizQuestion => ({ ...q(id, 2, 0, "Das ____ ist da", 0), options: [] });
-  it("shows the asked word coloured by the match, and the typed text while unconfirmed", () => {
+  it("shows the asked word coloured by the match, and nothing while unconfirmed", () => {
     const quiz1 = [tq(1)];
     const lines1 = [{ line_id: 2, audio_start: 5, text: null }];
     const wordOf = (r: QuestionResult) => buildWindowLines(lines1, quiz1, new Map([[1, r]]), 0, null)[0]!.parts.find((p) => p.kind === "word");
     expect(wordOf({ selectedOptionId: 0, typed: "haus", correct: true, match: "full", word: "Haus" })).toMatchObject({ word: "Haus", state: "correct" });
     expect(wordOf({ selectedOptionId: 0, typed: "hous", correct: false, match: "partial", word: "Haus" })).toMatchObject({ word: "Haus", state: "partial" });
     expect(wordOf({ selectedOptionId: 0, typed: "baum", correct: false, match: "none", word: "Haus" })).toMatchObject({ word: "Haus", state: "wrong" });
-    expect(wordOf({ selectedOptionId: 0, typed: "hau" })).toMatchObject({ word: "hau", state: "pending" });
+    expect(wordOf({ selectedOptionId: 0, typed: "hau" })).toBeUndefined();
   });
 });
 
@@ -167,5 +168,12 @@ describe("slot sizes", () => {
     expect(open.map((p) => p.kind === "blank" && p.sizes)).toEqual([opts, opts]);
     const answered = buildWindowLines(lines, quiz, new Map<number, QuestionResult>([[1, { selectedOptionId: 20, correct: false, correctOptionId: 10 }]]), 0, null)[1]!.parts.filter((p) => p.kind === "word");
     expect(answered.map((p) => p.kind === "word" && p.sizes)).toEqual([opts]);
+  });
+});
+
+describe("needsWeightLock", () => {
+  it("is false for the letters of the bundled font (Latin, Latin Extended, Vietnamese, usual punctuation) and true for the rest", () => {
+    for (const t of ["wonderful", "Straße", "łódź", "naïve", "I'm", "“quoted” — …", "tiếng"]) expect(needsWeightLock(t)).toBe(false);
+    for (const t of ["привіт", "ґєї", "καλημέρα", "日本語", "I любов"]) expect(needsWeightLock(t)).toBe(true);
   });
 });

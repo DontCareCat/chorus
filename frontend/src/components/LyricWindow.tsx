@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { centerOffset, timecode, wordSpans } from "../game/lyric-window";
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { centerOffset, needsWeightLock, timecode, wordSpans } from "../game/lyric-window";
 import type { WindowLine } from "../game/lyric-window";
 import { en } from "../i18n/en";
 import { followInSync } from "../lib/smooth-scroll";
+import { preloadLyricFonts } from "../lib/fonts";
 import { Slot } from "./Slot";
 
 /** How long a line takes to change size (styles.css, .lw-line transition): the window follows it for this long. */
@@ -54,13 +55,21 @@ export function Mark({ state }: { state: string }) {
 
 /** One line of the window. Memoised: after an answer only the changed lines (and the ones whose distance from the current line changed) are redrawn. */
 const LyricLine = memo(function LyricLine({ line: l, d, synced, playing, follow, onFocus, onWord }: { line: WindowLine; d: number; synced: boolean; playing: boolean; follow: boolean; onFocus: (questionId: number) => void; onWord?: (hit: WordHit) => void }) {
-  /** The words of a piece of the line; a tap opens the word card and is not the line's own click (which would only move the question). */
-  const words = (text: string) =>
-    !onWord ? text : wordSpans(text).map((w, i) =>
-      w.word ? (
-        <span key={i} className="lw-tap" data-word onClick={(e) => { e.stopPropagation(); onWord({ word: w.text, line: l.text, rect: e.currentTarget.getBoundingClientRect() }); }}>{w.text}</span>
-      ) : w.text,
-    );
+  /** The words of a piece of the line; a tap opens the word card and is not the line's own click (which would only move the question).
+   *  A word in letters Inconsolata does not have (Cyrillic, Greek...) is drawn in a fallback font whose widths change with the weight: it
+   *  keeps the width of its bold form (an invisible copy), so the line does not reflow while the weight animates (guide section 16). */
+  const words = (text: string) => {
+    if (!onWord && !needsWeightLock(text)) return text;
+    return wordSpans(text).map((w, i) => {
+      if (!w.word) return w.text;
+      const node = onWord
+        ? <span className="lw-tap" data-word onClick={(e) => { e.stopPropagation(); onWord({ word: w.text, line: l.text, rect: e.currentTarget.getBoundingClientRect() }); }}>{w.text}</span>
+        : w.text;
+      return needsWeightLock(w.text)
+        ? <span key={i} className="wlock"><span className="wlock-size" aria-hidden="true">{w.text}</span><span>{node}</span></span>
+        : <Fragment key={i}>{node}</Fragment>;
+    });
+  };
   const body = (
     <>
       <time>{synced ? timecode(l.startTime) : ""}</time>
@@ -116,6 +125,7 @@ export const LyricWindow = memo(function LyricWindow({ lines, current, synced, o
   const frame = useRef(0);
   const stopScroll = useRef<() => void>(() => undefined);
   const [away, setAway] = useState<"up" | "down" | null>(null);
+  useEffect(() => { preloadLyricFonts(); }, []);
 
   /** Where the followed line is relative to what can be seen, only while the reader is browsing. */
   const refreshAway = useCallback(() => {

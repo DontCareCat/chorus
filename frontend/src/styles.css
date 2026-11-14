@@ -5,6 +5,11 @@
 @import "@fontsource/inconsolata/latin-600.css";
 @import "@fontsource/inconsolata/latin-700.css";
 @import "@fontsource/inconsolata/latin-800.css";
+@import "@fontsource/inconsolata/latin-ext-400.css";
+@import "@fontsource/inconsolata/latin-ext-500.css";
+@import "@fontsource/inconsolata/latin-ext-600.css";
+@import "@fontsource/inconsolata/latin-ext-700.css";
+@import "@fontsource/inconsolata/latin-ext-800.css";
 
 :root,
 [data-theme="light"] {
@@ -379,7 +384,7 @@ button.tag { cursor: pointer; font-family: inherit; }
 .lw-title { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); margin: 12px 0 8px; }
 .lyric-window { position: relative; flex: 1; min-height: 8rem; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent); }
 .lw-track { padding: 3rem 0; }
-.lw-line { display: grid; grid-template-columns: 4rem 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 15px; line-height: 1.35; color: var(--text-3); transition: color 0.32s, font-size 0.32s var(--ease-standard), padding 0.32s var(--ease-standard); }
+.lw-line { display: grid; grid-template-columns: 4rem 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 5px 8px; border: none; border-radius: 10px; background: transparent; text-align: left; font-size: 15px; line-height: 1.35; color: var(--text-3); transition: color 0.32s, font-size 0.32s var(--ease-standard), font-weight 0.32s var(--ease-standard), letter-spacing 0.32s var(--ease-standard), padding 0.32s var(--ease-standard); }
 .lw-line time { font-size: 13px; color: var(--text-4); font-variant-numeric: tabular-nums; opacity: 0.7; transition: font-size 0.32s var(--ease-standard); }
 @media (prefers-reduced-motion: reduce) { .lw-line, .lw-line time { transition: none; } }
 .lw-line[data-d="1"] { font-size: 16px; color: var(--text-2); }
@@ -393,7 +398,6 @@ button.tag { cursor: pointer; font-family: inherit; }
 .lw-word[data-state="correct"] { color: var(--correct); }
 .lw-word[data-state="wrong"] { color: var(--wrong); }
 .lw-word[data-state="partial"] { color: var(--accent); }
-.lw-word[data-state="pending"] { color: var(--text); text-decoration: underline dotted; }
 .lw-mark { display: inline-block; width: 0.62em; height: 0.62em; margin-left: 0.2em; vertical-align: 0.04em; } /* (only the Scores page uses it now) */
 .lw-mark svg { display: block; width: 100%; height: 100%; }
 
@@ -814,6 +818,9 @@ button.fs-name:hover { background: var(--surface-2); }
 .status-bubble .arrow { position: absolute; bottom: -7px; width: 14px; height: 14px; transform: rotate(45deg); background: var(--text); border-radius: 3px; }
 
 /* the word card: the lyrics-status bubble (inverse colours, radius 14) with its arrow on the tapped word */
+.wlock { display: inline-grid; } /* a word that keeps the width of its bold form while the line's weight animates */
+.wlock > * { grid-area: 1 / 1; }
+.wlock-size { font-weight: 700; visibility: hidden; }
 .lw-tap { cursor: pointer; border-radius: 4px; }
 .lw-tap:hover { background: var(--fill-soft, var(--surface-2)); }
 .word-card { position: fixed; z-index: 60; box-sizing: border-box; padding: 14px 14px 12px; border-radius: 14px; background: var(--text); color: var(--bg); font-size: 15px; line-height: 1.35; box-shadow: 0 10px 30px color-mix(in oklch, var(--text) 30%, transparent); }
