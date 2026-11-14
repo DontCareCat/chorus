@@ -1,4 +1,5 @@
 import random
+import unicodedata
 
 from app.services.game.nlp import common_words, zipf
 
@@ -12,6 +13,14 @@ def shape(word: str, like: str) -> str:
     if like[:1].isupper():
         return word[:1].upper() + word[1:]
     return word.lower()
+
+
+def script_of(word: str) -> str:
+    """The writing system of a word's first letter (LATIN, CYRILLIC, GREEK...): a Russian question never gets Latin options."""
+    for ch in word:
+        if ch.isalpha():
+            return unicodedata.name(ch, "OTHER").split(" ")[0]
+    return "OTHER"
 
 
 def _score(cand: str, correct: str, lang: str, in_song: bool) -> float:
@@ -32,13 +41,14 @@ def pick_distractors(
     length / ending / frequency similarity (a POS-free proxy for 'same grammatical category').
     """
     banned = {w.lower() for w in exclude} | {correct.lower()}
+    script = script_of(correct)
     pool: dict[str, bool] = {}
     min_len = 2 if function_word else 3
     for w in song_vocab:
-        if w.lower() not in banned and len(w) >= min_len:
+        if w.lower() not in banned and len(w) >= min_len and script_of(w) == script:
             pool[w.lower()] = True
     for w in common_words(lang, function_words=function_word):
-        if w not in banned:
+        if w not in banned and script_of(w) == script:
             pool.setdefault(w, False)
     if len(pool) < n:
         return None
