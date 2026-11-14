@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { announce, useQueue } from "./useQueue";
 import { en } from "../i18n/en";
-import { progressiveLevel } from "../lib/progressive";
+import { queueLevel } from "../lib/progressive";
 import * as Q from "../lib/queue";
 import { announceArrival } from "../lib/handoff";
 import type { Arrival } from "../lib/handoff";
@@ -36,7 +36,7 @@ export function useQueueActions() {
     const next = Q.next(store.snapshot());
     if (!next) return null;
     try {
-      const lvl = next.difficulty === "progressive" ? progressiveLevel(await api.myGames(), next.songId, next.mode) : next.difficulty;
+      const lvl = next.difficulty === "progressive" ? queueLevel(await api.myGames(), store.snapshot().playing, next.songId, next.mode) : next.difficulty;
       const g = await api.createGame(next.songId, lvl, next.mode);
       store.set(Q.withPlaying(Q.advance(store.snapshot()), g.public_id));
       await opts.beforeNavigate?.(); // the page that is leaving lets its song fade out

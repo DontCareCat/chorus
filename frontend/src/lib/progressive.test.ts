@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameSummaryDto } from "../services/api";
-import { levelAfter, progressiveLevel } from "./progressive";
+import { levelAfter, progressiveLevel, queueLevel } from "./progressive";
 
 const game = (over: Partial<GameSummaryDto>): GameSummaryDto => ({
   public_id: "x", song_id: 1, difficulty: "medium", mode: "choice", started_at: "2026-01-01T00:00:00Z", finished_at: "2026-01-01T00:05:00Z",
@@ -63,5 +63,27 @@ describe("progressiveLevel", () => {
     const games = [right(95, { difficulty: "hard", mode: "typing" })];
     expect(progressiveLevel(games, 1, "choice")).toBe("medium");
     expect(progressiveLevel(games, 1, "typing")).toBe("expert");
+  });
+});
+
+describe("queueLevel (progressive difficulty within the current queue)", () => {
+  const g = (id: string, over: Partial<GameSummaryDto>) => right(50, { public_id: id, ...over });
+  it("the first song of a queue takes the recommendation from the history", () => {
+    expect(queueLevel([], null, 1, "choice")).toBe("medium");
+    expect(queueLevel([right(95, { difficulty: "hard", song_id: 9 })], undefined, 1, "choice")).toBe("expert");
+  });
+  it("then each finished game of the queue steps the next song: up above 90% right, down below 40%", () => {
+    expect(queueLevel([g("a", { correct_count: 95, difficulty: "medium" })], "a", 2, "choice")).toBe("hard");
+    expect(queueLevel([g("a", { correct_count: 91, difficulty: "hard" })], "a", 2, "choice")).toBe("expert");
+    expect(queueLevel([g("a", { correct_count: 39, difficulty: "hard" })], "a", 2, "choice")).toBe("medium");
+    expect(queueLevel([g("a", { correct_count: 60, difficulty: "hard" })], "a", 2, "choice")).toBe("hard");
+  });
+  it("only the queue's own previous game counts, not older games of the song", () => {
+    const games = [right(100, { public_id: "old", song_id: 2, difficulty: "expert", finished_at: "2020-01-01T00:00:00Z" }), g("a", { correct_count: 50, difficulty: "easy" })];
+    expect(queueLevel(games, "a", 2, "choice")).toBe("easy");
+  });
+  it("a song skipped without finishing keeps its level; a game that is not in the list falls back to the history", () => {
+    expect(queueLevel([g("a", { finished_at: null, difficulty: "hard", correct_count: 0 })], "a", 2, "choice")).toBe("hard");
+    expect(queueLevel([], "gone", 2, "choice")).toBe("medium");
   });
 });

@@ -36,3 +36,14 @@ export function progressiveLevel(games: readonly GameSummaryDto[], songId: numbe
   const any = latest(finished);
   return any ? levelAfter(any) : START_LEVEL;
 }
+
+/**
+ * The level of the next song in a queue with Progressive: the queue adapts to how the player does in it. The game the queue started last
+ * (`previousGameId`) decides: finished, its level steps up above 90% right and down below 40% (the same share-per-track rule); not finished
+ * (the player skipped it), the level stays. The first song of a queue (no game started from it yet) takes the recommendation from the history.
+ */
+export function queueLevel(games: readonly GameSummaryDto[], previousGameId: string | null | undefined, songId: number, mode: string): Level {
+  const prev = previousGameId ? games.find((g) => g.public_id === previousGameId && isLevel(g.difficulty)) : undefined;
+  if (prev) return prev.finished_at ? levelAfter(prev) : (prev.difficulty as Level);
+  return progressiveLevel(games, songId, mode);
+}

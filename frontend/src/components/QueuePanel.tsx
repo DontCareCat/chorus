@@ -12,7 +12,7 @@ import { useQueue } from "../hooks/useQueue";
 import { useReorder } from "../hooks/useReorder";
 import { useSwipe } from "../hooks/useSwipe";
 import { en } from "../i18n/en";
-import { progressiveLevel } from "../lib/progressive";
+import { queueLevel } from "../lib/progressive";
 import * as Q from "../lib/queue";
 import type { QueueItem, QueueLevel, QueueMode } from "../lib/queue";
 import type { GameSummaryDto, SongDto } from "../services/api";
@@ -49,7 +49,7 @@ export function QueuePanel({ songs, games, phone, onClose, onSkip }: Props) {
   }, [menu]);
   const [undo, setUndo] = useState<{ label: string; prev: Q.QueueState } | null>(null);
   const remember = (label: string, next: Q.QueueState) => { setUndo({ label, prev: q }); store.set(next); };
-  const resolved = (i: QueueItem): Level => progressiveLevel(games, i.songId, i.mode);
+  const resolved = (i: QueueItem): Level => queueLevel(games, q.playing, i.songId, i.mode);
 
   const menuPanel = menu && (
     <div className="queue-menu" role="menu" aria-label={en.queue.menu}>
