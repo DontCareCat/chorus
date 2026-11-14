@@ -13,7 +13,9 @@ describe("SongMenu", () => {
     render(<SongMenu song={song} status={songStatus(song)} phone={false} anchor={null} onPick={() => undefined} onClose={() => undefined} />);
     const items = screen.getAllByRole("menuitem").map((e) => e.textContent);
     expect(items[0]).toMatch(/^Find lyrics/);
-    expect(items.slice(1)).toEqual(["Change cover", "Change language", "Edit title, artist, album", "Check lyrics timing", "Remove from library"]);
+    expect(items.slice(1)).toEqual(["Change cover", "Change language", "Edit title, artist, album", "Edit lyrics timingNo lyrics yet", "Export .lrc fileNo lyrics yet", "Remove from library"]);
+    expect(screen.getByRole("menuitem", { name: /Edit lyrics timing/ }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("menuitem", { name: /Export .lrc file/ }).hasAttribute("disabled")).toBe(true);
     expect(screen.getByRole("menuitem", { name: /Find lyrics/ }).querySelector(".mi-warn")).not.toBeNull();
     expect(screen.getByRole("menuitem", { name: "Change cover" }).querySelector(".mi-warn")).toBeNull();
   });
@@ -24,6 +26,17 @@ describe("SongMenu", () => {
     expect(document.querySelector(".mi-warn")).toBeNull();
     fireEvent.click(screen.getByRole("menuitem", { name: "Change language" }));
     expect(pick).toHaveBeenCalledWith("language");
+    // with lyrics the timing editor opens from the menu and the .lrc export is a menu action
+    const timing = screen.getByRole("menuitem", { name: /Edit lyrics timing/ });
+    expect(timing.getAttribute("href")).toBe("#/songs/4/timing");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Export .lrc file" }));
+    expect(pick).toHaveBeenCalledWith("export");
+  });
+  it("shows the NEW badge on the timing editor for the first three menu openings only", () => {
+    localStorage.removeItem("timing_new_seen");
+    const ok = { ...song, lyrics_status: "found" } as SongDto;
+    const open = () => { const { unmount } = render(<SongMenu song={ok} status={songStatus(ok)} phone={false} anchor={null} onPick={() => undefined} onClose={() => undefined} />); const has = !!document.querySelector(".badge-new"); unmount(); return has; };
+    expect([open(), open(), open(), open()]).toEqual([true, true, true, false]);
   });
   it("is a bottom sheet with the song's name on a phone and closes on Esc", () => {
     const close = vi.fn();

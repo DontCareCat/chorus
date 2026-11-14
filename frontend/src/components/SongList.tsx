@@ -6,6 +6,7 @@ import { Icon } from "./Icon";
 import { ProgressiveStars } from "./LevelIcon";
 import { progressiveLevel } from "../lib/progressive";
 import { SongMenu } from "./SongMenu";
+import { exportLyricsFile } from "../lib/export-lrc";
 import type { MenuExtra, SongAction } from "./SongMenu";
 import { clock, Details, Finder } from "./SongTools";
 import { StatusBadge } from "./StatusBadge";
@@ -195,7 +196,7 @@ export function SongList({ songs, games, phone, sortKey, listKey, selection, dup
           <SongMenu
             song={s} status={songStatus(s)} phone={phone} anchor={menu.anchor} onClose={closeMenu} extras={[{ id: "queue", icon: "queue", label: en.queue.addTo }, ...(extras?.(s) ?? [])]}
             onExtra={(id) => { if (id === "queue") void queue.add([s.id]); else onExtra?.(id, s); }}
-            onPick={(a: SongAction) => { if (a === "remove") onRemove(s); else setTool({ kind: a, id: s.id }); }}
+            onPick={(a: SongAction) => { if (a === "remove") onRemove(s); else if (a === "export") void exportLyricsFile(s.id); else setTool({ kind: a, id: s.id }); }}
           />
         ) : null;
       })()}
@@ -289,6 +290,7 @@ export const SongRow = memo(function SongRow({ song: s, sortKey, handlers, selec
               </div>
               <div className="tag-row">
                 <span className="tag">{s.language}</span>
+                {s.timing_edited && <span className="tag">{en.library.timingEdited}</span>}
                 {s.source === "youtube" && <span className="tag">{en.library.youtubeBadge}</span>}
                 {s.source === "youtube" && isTopicChannel(s.youtube_channel) && <span className="tag" title={en.library.albumTimingHelp}>{en.library.albumTiming}</span>}
                 {duplicate && <span className="tag" title={duplicate.map((r) => en.library.duplicateReason[r]).join(" · ")}>{copyOf ? en.library.copyOf(copyOf) : en.library.duplicateHint}</span>}

@@ -96,6 +96,7 @@ export interface SongDto {
   language: string;
   language_source: "default" | "detected" | "manual";
   lyrics_offset: number;
+  timing_edited?: boolean; // the lyric times were edited in the timing editor (the tag on the song row)
   source: "library" | "import" | "upload" | "youtube";
   file_name: string | null;
   youtube_id?: string | null;
@@ -134,6 +135,23 @@ export interface LyricsDto {
   is_synced: boolean;
   lines: LineDto[];
   warnings: string[];
+}
+
+export interface TimingLineDto {
+  text: string;
+  /** the time the game uses now (the song's offset included), null = no time yet */
+  time: number | null;
+  /** the time the lyrics came with */
+  original: number | null;
+}
+
+export interface TimingDto {
+  lines: TimingLineDto[];
+  duration: number;
+  edited: boolean;
+  edited_at: string | null;
+  /** the lyrics came with timing (false: plain lyrics the editor can time) */
+  synced: boolean;
 }
 
 export interface CandidateDto {
@@ -475,6 +493,22 @@ export const api = {
   patchSong: (id: number, patch: SongPatch) => request<SongDto>(`/api/songs/${id}`, json("PATCH", patch)),
 
   lyrics: (songId: number) => request<LyricsDto>(`/api/songs/${songId}/lyrics`),
+  /** The timing editor: one start time per lyric line (never any text). */
+  timing: (songId: number) => request<TimingDto>(`/api/songs/${songId}/lyrics/timing`),
+  saveTiming: (songId: number, times: (number | null)[]) => request<TimingDto>(`/api/songs/${songId}/lyrics/timing`, json("PUT", { times })),
+  resetTiming: (songId: number) => request<TimingDto>(`/api/songs/${songId}/lyrics/timing`, { method: "DELETE" }),
+  /** The song's lyrics as an .lrc file: the bytes and the name to save them under. */
+  exportLrc: async (songId: number): Promise<{ name: string; bytes: Uint8Array }> => {
+    let res: Response;
+    try { res = await fetch(`/api/songs/${songId}/lyrics.lrc`); } catch { throw new ApiError("network", "Cannot reach the server.", 0); }
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: { code: string; message: string } } | null;
+      throw new ApiError(body?.error?.code ?? "export_failed", body?.error?.message ?? "The file could not be made.", res.status);
+    }
+    const header = res.headers.get("content-disposition") ?? "";
+    const m = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    return { name: m ? decodeURIComponent(m[1]!) : "lyrics.lrc", bytes: new Uint8Array(await res.arrayBuffer()) };
+  },
   /** `replace` (the song already has lyrics): only list candidates, never attach one by itself. */
   discover: (songId: number, mode: "auto" | "replace" = "auto") =>
     request<DiscoveryDto>(`/api/songs/${songId}/lyrics/discover?mode=${mode}`, { method: "POST" }),

@@ -3,6 +3,7 @@ import { en } from "./i18n/en";
 import { useAuth } from "./hooks/useAuth";
 import { useGameLock, useKeyboardFit, useLayout } from "./hooks/useLayout";
 import { NavFade } from "./components/NavFade";
+import { TimingPage } from "./pages/TimingPage";
 import { MainNav } from "./components/MainNav";
 import { QueueBar } from "./components/QueueBar";
 import { GamePage } from "./pages/GamePage";
@@ -20,6 +21,7 @@ import { paths, useRoute } from "./router";
 import { Icon } from "./components/Icon";
 import { LyricsSourceWindow } from "./components/LyricsSourceWindow";
 import { Toast, useToast } from "./components/Toast";
+import { onNotice } from "./lib/notice";
 import { useLyricsSourcePrompt } from "./hooks/useLyricsSourcePrompt";
 import type { Route } from "./router";
 
@@ -83,6 +85,7 @@ export function App() {
 
   // the administrator is asked once per start to choose a lyrics service, while none is set
   const [toast, setToast] = useToast(3500);
+  useEffect(() => onNotice(setToast), [setToast]);
   const admin = !!auth.user?.is_admin && !auth.user.is_guest;
   const [askSource, setAskSource] = useLyricsSourcePrompt(admin);
   const showNav = !isGame && !needsSignIn && route.name !== "login";
@@ -90,6 +93,14 @@ export function App() {
   useEffect(() => { document.title = section ? `${section} \u00b7 ${en.appName}` : en.appName; }, [section]);
   const scoresPage = phone && route.name === "scores" && route.song !== null; // a board is a page of its own on a phone: the back arrow goes before the logo
 
+  if (!auth.loading && auth.unreachable === null && !needsSignIn && route.name === "timing") { // a full-screen tool page like the game: no header, tabs or queue bar
+    return (
+      <>
+        <TimingPage songId={route.songId} key={route.songId} />
+        <div className="toast-lane"><Toast toast={toast} pill /></div>
+      </>
+    );
+  }
   return (
     <div className="shell" data-route={route.name} data-layout={layout} data-nav={showNav ? (phone ? "tabs" : "rail") : undefined}>
       {!(isGame && phone) && (

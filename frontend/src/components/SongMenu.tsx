@@ -5,11 +5,12 @@ import { en } from "../i18n/en";
 import type { SongStatus } from "../lib/lyrics-status";
 import { swallowNextClick } from "../lib/swallow-click";
 import { paths } from "../router";
+import { countMenuOpen, markTimingSeen, timingBadgeShown } from "../lib/timing-prefs";
 import type { SongDto } from "../services/api";
 import { Icon } from "./Icon";
 import type { IconName } from "./Icon";
 
-export type SongAction = "lyrics" | "cover" | "language" | "metadata" | "remove";
+export type SongAction = "lyrics" | "cover" | "language" | "metadata" | "export" | "remove";
 
 /** An item a page adds to the menu (add to queue, add to a playlist ...). */
 export interface MenuExtra { id: string; icon: IconName; label: string; danger?: boolean }
@@ -69,6 +70,8 @@ export function SongMenu({ song, status, phone, anchor, onPick, extras, onExtra,
     </button>
   );
   const needsLyrics = status.fix === "lyrics";
+  const hasLyrics = song.lyrics_status === "found";
+  const [isNew] = useState(() => { const show = timingBadgeShown(); countMenuOpen(); return show; });
   const content = (
     <>
       {phone && (
@@ -81,7 +84,14 @@ export function SongMenu({ song, status, phone, anchor, onPick, extras, onExtra,
       {item("image", t.cover, "cover")}
       {item("language", t.language, "language")}
       {item("edit", t.metadata, "metadata")}
-      <a role="menuitem" className="mi" href={paths.song(song.id)} onClick={() => { if (phone) sheet.current?.close(); else onClose(); }}><Icon name="clock" /><span>{t.timing}</span></a>
+      {hasLyrics ? (
+        <a role="menuitem" className="mi" href={paths.timing(song.id)} onClick={() => { markTimingSeen(); if (phone) sheet.current?.close(); else onClose(); }}>
+          <Icon name="clock" /><span>{t.timing}</span>{isNew && <span className="badge-new">{t.new}</span>}
+        </a>
+      ) : (
+        <button type="button" role="menuitem" className="mi" disabled><Icon name="clock" /><span>{t.timing}</span><span className="mi-hint">{t.noLyricsYet}</span></button>
+      )}
+      {hasLyrics ? item("download", t.exportLrc, "export") : <button type="button" role="menuitem" className="mi" disabled><Icon name="download" /><span>{t.exportLrc}</span><span className="mi-hint">{t.noLyricsYet}</span></button>}
       {extras && extras.length > 0 && <hr />}
       {extras?.map((x) => (
         <button key={x.id} type="button" role="menuitem" className={`mi${x.danger ? " danger" : ""}`} onClick={() => { onExtra?.(x.id); if (phone) sheet.current?.close(); else onClose(); }}>

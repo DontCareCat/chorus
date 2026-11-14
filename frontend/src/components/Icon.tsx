@@ -2,6 +2,13 @@
 import pauseCircle from "@material-symbols/svg-400/outlined/pause_circle-fill.svg?raw";
 import playCircle from "@material-symbols/svg-400/outlined/play_circle-fill.svg?raw";
 import replay5 from "@material-symbols/svg-400/outlined/replay_5.svg?raw";
+import downloadIcon from "@material-symbols/svg-400/outlined/download.svg?raw";
+import redoIcon from "@material-symbols/svg-400/outlined/redo.svg?raw";
+import replayIcon from "@material-symbols/svg-400/outlined/replay.svg?raw";
+import infoIcon from "@material-symbols/svg-400/outlined/info.svg?raw";
+import swapHoriz from "@material-symbols/svg-400/outlined/swap_horiz.svg?raw";
+import historyIcon from "@material-symbols/svg-400/outlined/history.svg?raw";
+import lowPriority from "@material-symbols/svg-400/outlined/low_priority.svg?raw";
 import playArrow from "@material-symbols/svg-400/outlined/play_arrow-fill.svg?raw";
 import pauseBars from "@material-symbols/svg-400/outlined/pause-fill.svg?raw";
 import stop from "@material-symbols/svg-400/outlined/stop.svg?raw";
@@ -89,6 +96,13 @@ const PATHS = {
   radar: pathOf(radar),
   lyrics: pathOf(lyricsIcon),
   libraryMusic: pathOf(libraryMusic),
+  download: pathOf(downloadIcon),
+  redo: pathOf(redoIcon),
+  replay: pathOf(replayIcon),
+  info: pathOf(infoIcon),
+  moveAll: pathOf(swapHoriz),
+  restore: pathOf(historyIcon),
+  ripple: pathOf(lowPriority),
 } as const;
 
 export type IconName = keyof typeof PATHS;
