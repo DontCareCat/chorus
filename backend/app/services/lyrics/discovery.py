@@ -9,6 +9,7 @@ from app.db.models import LyricLine, Lyrics, LyricsSource, LyricsStatus, Song
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.language import detect_language
 from app.services.lyrics.lrc import parse_lyrics_text
+from app.services.lyrics.timing import keep_edit_for
 from app.services.lyrics.lrclib import LrclibUnavailable, LyricsCandidate
 from app.services.lyrics.normalizer import NormalizedLyrics, normalize
 from app.services.settings import RuntimeSettings
@@ -53,6 +54,7 @@ def attach_lyrics(
         )
     for old in session.query(Lyrics).filter_by(song_id=song.id, is_active=True):
         old.is_active = False
+        keep_edit_for(song, [l.text for l in old.lines], [l.text for l in norm.lines])  # edited times only fit the same lines
         if song.lyrics_offset and (old.source, old.external_id) != (source, external_id):
             # the offset was tuned against the previous lyrics; different lyrics have their own timing
             norm.warnings.append(f"The timing adjustment ({song.lyrics_offset:+.1f} s) was reset because these are different lyrics.")

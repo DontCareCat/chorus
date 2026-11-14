@@ -1,27 +1,33 @@
 from typing import Literal
 
-from fastapi import APIRouter, Depends, UploadFile
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import current_user, get_cfg, get_lrclib, get_song
 from app.core.errors import AppError
 from app.db.database import get_session
 from app.db.models import Lyrics, LyricsSource, Song
-from app.schemas.lyrics import AttachRequest, CandidateOut, DiscoveryOut, LineOut, LyricsOut
+from app.schemas.lyrics import AttachRequest, CandidateOut, DiscoveryOut, LineOut, LyricsOut, TimingIn, TimingOut
 from app.services.lyrics.cache import CachedLrclib
 from app.services.lyrics.discovery import (
     MAX_LYRICS_BYTES, DiscoveryResult, attach_candidate, attach_lyrics, discover_lyrics, is_usable, rank, replacement_candidates,
 )
 from app.services.lyrics.lrclib import LrclibUnavailable, LyricsCandidate
+from app.services.lyrics import timing as timing_service
+from app.services.lyrics.lrc_writer import file_name
 from app.services.settings import RuntimeSettings
 
 router = APIRouter(prefix="/api", tags=["lyrics"], dependencies=[Depends(current_user)])
 
 
 def lyrics_out(lyrics: Lyrics, warnings: list[str] | None = None) -> LyricsOut:
+    song = lyrics.song
+    spans = timing_service.effective_spans(song, lyrics)  # the times the owner edited, when there are any
     return LyricsOut(
-        id=lyrics.id, source=lyrics.source.value, external_id=lyrics.external_id, is_synced=lyrics.is_synced,
-        lines=[LineOut(sequence=l.sequence, start_time=l.start_time, end_time=l.end_time, text=l.text) for l in lyrics.lines],
+        id=lyrics.id, source=lyrics.source.value, external_id=lyrics.external_id, is_synced=timing_service.effective_synced(song, lyrics),
+        lines=[LineOut(sequence=l.sequence, start_time=spans[l.id][0], end_time=spans[l.id][1], text=l.text) for l in lyrics.lines],
         warnings=warnings or [],
     )
 
@@ -79,6 +85,44 @@ def get_lyrics(song: Song = Depends(get_song), session: Session = Depends(get_se
     if lyrics is None:
         raise AppError("no_lyrics", "This song has no lyrics yet", 404)
     return lyrics_out(lyrics)
+
+
+def _active(song: Song, session: Session) -> Lyrics:
+    lyrics = session.query(Lyrics).filter_by(song_id=song.id, is_active=True).order_by(Lyrics.id.desc()).first()
+    if lyrics is None:
+        raise AppError("no_lyrics", "This song has no lyrics yet", 404)
+    return lyrics
+
+
+@router.get("/songs/{song_id}/lyrics/timing", response_model=TimingOut)
+def get_timing(song: Song = Depends(get_song), session: Session = Depends(get_session)):
+    return timing_service.timing_view(song, _active(song, session))
+
+
+@router.put("/songs/{song_id}/lyrics/timing", response_model=TimingOut)
+def put_timing(body: TimingIn, song: Song = Depends(get_song), session: Session = Depends(get_session)):
+    """Saves a start time per line. Only times are accepted, never text."""
+    lyrics = _active(song, session)
+    timing_service.save_timing(session, song, lyrics, body.times)
+    return timing_service.timing_view(song, lyrics)
+
+
+@router.delete("/songs/{song_id}/lyrics/timing", response_model=TimingOut)
+def delete_timing(song: Song = Depends(get_song), session: Session = Depends(get_session)):
+    lyrics = _active(song, session)
+    timing_service.reset_timing(session, song)
+    return timing_service.timing_view(song, lyrics)
+
+
+@router.get("/songs/{song_id}/lyrics.lrc")
+def export_lrc(song: Song = Depends(get_song), session: Session = Depends(get_session)):
+    lyrics = _active(song, session)
+    text = timing_service.lrc_text(song, lyrics)
+    if not any(t is not None for t in timing_service.effective_times(song, lyrics)):
+        raise AppError("no_timing", "These lyrics have no timing yet, so there is nothing to export", 409)
+    name = file_name(song.artist, song.title)
+    return Response(text.encode("utf-8"), media_type="text/plain; charset=utf-8",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"})
 
 
 @router.post("/songs/{song_id}/lyrics", response_model=LyricsOut, status_code=201)

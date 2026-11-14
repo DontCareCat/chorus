@@ -13,6 +13,7 @@ from app.services.game import scoring
 from app.services.game.generator import GENERATOR_VERSION, ensure_questions, question_difficulty
 from app.services.game.matching import judge
 from app.services.library.tags import read_sample_rate
+from app.services.lyrics import timing
 from app.services.settings import load_settings
 
 
@@ -59,14 +60,15 @@ def game_out(session: Session, game: Game) -> GameOut:
     ordered = session.query(LyricLine).filter_by(lyrics_id=game.lyrics_id).order_by(LyricLine.sequence).all()
     lines = {l.id: l for l in ordered}
     # recovery position = start of the previous lyric line (not necessarily a question line)
-    recovery = {l.id: (ordered[i - 1] if i > 0 else l).start_time for i, l in enumerate(ordered)}
+    spans = timing.effective_spans(song, lyrics)  # the line times the owner edited, when there are any
+    recovery = {l.id: spans[(ordered[i - 1] if i > 0 else l).id][0] for i, l in enumerate(ordered)}
     answers = {a.question_id: a for a in game.answers}
     questions = []
     for i, q in enumerate(_questions(session, game)):
         a = answers.get(q.id)
         correct = next((o.id for o in q.options if o.is_correct), None)
         questions.append(QuestionOut(
-            id=q.id, line_id=q.lyric_line_id, blank_index=q.blank_index, sequence=i, audio_start=q.audio_start, audio_end=q.audio_end,
+            id=q.id, line_id=q.lyric_line_id, blank_index=q.blank_index, sequence=i, audio_start=spans[q.lyric_line_id][0], audio_end=spans[q.lyric_line_id][1],
             recovery_start=recovery[q.lyric_line_id],
             question_text=q.sentence, text=lines[q.lyric_line_id].text if a else None, word=q.missing_word if a else None,
             options=[OptionOut(id=o.id, text=o.text) for o in q.options],
@@ -76,14 +78,14 @@ def game_out(session: Session, game: Game) -> GameOut:
         ))
     question_lines = {q.line_id for q in questions}
     line_out = [
-        LineOut(line_id=l.id, sequence=l.sequence, audio_start=l.start_time, audio_end=l.end_time,
+        LineOut(line_id=l.id, sequence=l.sequence, audio_start=spans[l.id][0], audio_end=spans[l.id][1],
                 text=None if l.id in question_lines else l.text)
         for l in ordered
     ]
     return GameOut(
         public_id=game.public_id, song_id=game.song_id, song_title=song.title, song_artist=song.artist, song_duration=song.duration, sample_rate=song.sample_rate, youtube_id=song.youtube_id,
         language=game.language, difficulty=game.difficulty, mode=game.mode,
-        synced=lyrics.is_synced, lyrics_offset=song.lyrics_offset, started_at=game.started_at,
+        synced=timing.effective_synced(song, lyrics), lyrics_offset=song.lyrics_offset, started_at=game.started_at,
         finished_at=game.finished_at,
         progress=ProgressOut(answered=len(answers), total=len(questions), score=game.score, correct=game.correct_count,
                              streak=game.streak, multiplier=game.multiplier, best_multiplier=game.best_multiplier),
@@ -132,7 +134,7 @@ def submit_answer(
             score=game.score, points=existing.points, ahead=existing.ahead, multiplier=existing.multiplier,
             streak=game.streak, next_multiplier=game.multiplier, already_answered=True, finished=game.finished_at is not None)
     song = session.get(Song, game.song_id)
-    start = q.audio_start
+    start = timing.effective_spans(song, session.get(Lyrics, game.lyrics_id))[q.lyric_line_id][0]
     is_ahead = position is not None and start is not None and position < start + song.lyrics_offset
     if typing:
         match = judge(text, q.missing_word)

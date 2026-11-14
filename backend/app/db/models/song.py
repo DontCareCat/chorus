@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Integer, Boolean, Enum, Float, String
+from sqlalchemy import Integer, Boolean, Enum, Float, String, Text
 from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -37,6 +37,8 @@ class Song(Base):
     sample_rate: Mapped[int | None] = mapped_column(Integer, default=None)  # Hz; the player matches its audio context to it
     language: Mapped[str] = mapped_column(String(16))  # language of the lyrics = language being learned
     lyrics_offset: Mapped[float] = mapped_column(Float, default=0.0)  # user timing correction, seconds
+    lyrics_times_edited: Mapped[str | None] = mapped_column(Text, default=None)  # JSON: one start time per line of the active lyrics, set in the timing editor (None = not edited)
+    lyrics_times_edited_at: Mapped[datetime | None] = mapped_column(UTCDateTime, default=None)
     source: Mapped[SongSource] = mapped_column(Enum(SongSource, native_enum=False, length=16))
     file_path: Mapped[str | None] = mapped_column(String(1000), default=None)  # None for YouTube songs
     file_name: Mapped[str | None] = mapped_column(String(300), default=None)
@@ -53,3 +55,7 @@ class Song(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
 
     lyrics: Mapped[list["Lyrics"]] = relationship(back_populates="song")  # noqa: F821
+
+    @property
+    def timing_edited(self) -> bool:
+        return self.lyrics_times_edited is not None

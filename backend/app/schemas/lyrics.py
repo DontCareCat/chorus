@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from datetime import datetime
+
+from pydantic import BaseModel, Field
 
 from app.db.models import LyricsStatus
 
@@ -43,3 +45,21 @@ class DiscoveryOut(BaseModel):
 
 class AttachRequest(BaseModel):
     lrclib_id: int
+
+
+class TimingLineOut(BaseModel):
+    text: str
+    time: float | None  # effective start incl. the song's offset; None = no time yet
+    original: float | None  # the time the lyrics came with
+
+
+class TimingOut(BaseModel):
+    lines: list[TimingLineOut]
+    duration: float
+    edited: bool
+    edited_at: datetime | None = None
+    synced: bool  # the lyrics came with timing (False: plain lyrics the editor can time)
+
+
+class TimingIn(BaseModel):
+    times: list[float | None] = Field(max_length=5000)  # one per line, in order; never any text

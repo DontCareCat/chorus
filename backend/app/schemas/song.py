@@ -16,6 +16,7 @@ class SongOut(BaseModel):
     language: str
     language_source: str = "default"  # default | detected (from the lyrics) | manual
     lyrics_offset: float
+    timing_edited: bool = False  # the lyric times were edited in the timing editor
     source: SongSource
     file_name: str | None
     youtube_id: str | None = None
